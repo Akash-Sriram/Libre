@@ -40,7 +40,10 @@ jobs:
       - name: Compile Release APK
         run: ./gradlew assembleRelease --no-daemon
 
-      - name: Sign APK
+      - name: Sign APK (if keystore secret provided)
+        if: env.ANDROID_SIGNING_KEY != ''
+        env:
+          ANDROID_SIGNING_KEY: ${{ secrets.ANDROID_SIGNING_KEY }}
         uses: ilharp/sign-android-release@v2
         id: sign
         with:
@@ -51,9 +54,13 @@ jobs:
           keyPassword: ${{ secrets.ANDROID_KEY_PASSWORD }}
           buildToolsVersion: 35.0.0
 
-      - name: Rename APK
+      - name: Prepare Release APK
         run: |
-          mv "${{ steps.sign.outputs.signedFile }}" "Libre-${{ env.RELEASE_TAG }}.apk"
+          if [ -n "${{ steps.sign.outputs.signedFile }}" ] && [ -f "${{ steps.sign.outputs.signedFile }}" ]; then
+            mv "${{ steps.sign.outputs.signedFile }}" "Libre-${{ env.RELEASE_TAG }}.apk"
+          else
+            cp app/build/outputs/apk/release/*.apk "Libre-${{ env.RELEASE_TAG }}.apk"
+          fi
 
       - name: Publish to GitHub Releases
         uses: softprops/action-gh-release@v2
