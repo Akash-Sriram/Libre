@@ -1,0 +1,14 @@
+{
+  "name": "jiosaavn-piped-proxy",
+  "version": "1.0.0",
+  "description": "Translates Piped API requests from LibreTube to JioSaavn API",
+  "main": "api/index.js",
+  "scripts": {
+    "start": "node api/index.js",
+    "dev": "vercel dev"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "node-fetch": "^2.7.0"
+  }
+}

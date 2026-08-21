@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <PreferenceCategory app:title="@string/storage_and_offline_sync">
+        <Preference
+            android:icon="@drawable/ic_download_folder"
+            app:key="offline_songs_pref"
+            app:title="@string/offline_songs_folder"
+            app:summary="@string/offline_songs_folder_summary_not_set" />
+
+        <Preference
+            android:icon="@drawable/ic_device"
+            app:key="wifi_sync_status"
+            app:title="Wi-Fi Sync Server"
+            app:summary="Stopped" />
+
+        <Preference
+            android:icon="@drawable/ic_backup"
+            app:key="backup_folder"
+            app:title="@string/backup_folder"
+            app:summary="@string/backup_folder_summary_not_set" />
+
+        <SwitchPreferenceCompat
+            app:defaultValue="true"
+            app:key="enable_auto_backup"
+            app:title="Auto Backup (24h)"
+            app:summary="Automatically backup playlists and app data every 24 hours (keeps last 5)" />
+
+        <Preference
+            android:icon="@drawable/ic_upload"
+            app:key="backup_now"
+            app:title="@string/create_backup_now"
+            app:summary="@string/create_backup_now_summary" />
+
+        <Preference
+            android:icon="@drawable/ic_restore"
+            app:key="restore"
+            app:title="@string/restore"
+            app:summary="@string/restore_backup_summary" />
+    </PreferenceCategory>
+
+    <PreferenceCategory app:title="@string/streaming_category">
+        <SwitchPreferenceCompat
+            android:defaultValue="true"
+            android:icon="@drawable/ic_audio"
+            android:summary="@string/auto_music_audio_mode_summary"
+            android:title="@string/auto_music_audio_mode"
+            app:key="auto_music_audio_mode" />
+    </PreferenceCategory>
+
+    <PreferenceCategory app:title="@string/settings_category_system">
+        <Preference
+            android:icon="@drawable/ic_update"
+            app:key="update"
+            app:title="@string/update_summary" />
+    </PreferenceCategory>
+
+</PreferenceScreen>

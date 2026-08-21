@@ -1,0 +1,190 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".ui.fragments.SearchResultFragment">
+
+    <LinearLayout
+        android:id="@+id/search_results_layout"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
+
+        <LinearLayout
+            android:id="@+id/search_suggestion_container"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:visibility="gone"
+            tools:visibility="visible"
+            android:paddingHorizontal="10dp"
+            android:paddingVertical="4dp"
+            android:background="?selectableItemBackground">
+
+            <TextView
+                android:id="@+id/search_suggestion_label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                tools:text="@string/did_you_mean"
+                android:textSize="16sp"
+                android:layout_marginEnd="8dp"/>
+
+            <TextView
+                android:id="@+id/search_suggestion"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="16sp"
+                android:textColor="?colorPrimary"
+                android:textStyle="italic"
+                tools:text="'suggestion'" />
+
+        </LinearLayout>
+
+
+
+        <!-- 2-Tier Filter Bar: Concept 1 (Source + Type) -->
+        <LinearLayout
+            android:id="@+id/filter_container"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingBottom="4dp">
+
+            <!-- Tier 1: Source Selector (All Sources | YouTube Music | JioSaavn) -->
+            <HorizontalScrollView
+                android:id="@+id/source_filter_bar"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:scrollbars="none">
+
+                <com.google.android.material.chip.ChipGroup
+                    android:id="@+id/source_chip_group"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:paddingHorizontal="12dp"
+                    app:checkedChip="@id/chip_source_all"
+                    app:selectionRequired="true"
+                    app:singleLine="true"
+                    app:singleSelection="true">
+
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/chip_source_all"
+                        style="@style/Chip"
+                        android:text="All Sources" />
+
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/chip_source_yt"
+                        style="@style/Chip"
+                        android:text="YouTube" />
+
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/chip_source_jiosaavn"
+                        style="@style/Chip"
+                        android:text="JioSaavn" />
+
+                </com.google.android.material.chip.ChipGroup>
+            </HorizontalScrollView>
+
+            <!-- Tier 2: Media Type Selector (All Types | Songs | Videos | Albums | Playlists | Channels) -->
+            <HorizontalScrollView
+                android:id="@+id/type_filter_bar"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:scrollbars="none">
+
+                <com.google.android.material.chip.ChipGroup
+                    android:id="@+id/type_chip_group"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:paddingHorizontal="8dp"
+                    app:chipSpacingHorizontal="4dp"
+                    app:checkedChip="@id/chip_type_all"
+                    app:selectionRequired="true"
+                    app:singleLine="true"
+                    app:singleSelection="true">
+
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/chip_type_all"
+                        style="@style/Chip"
+                        android:text="All" />
+
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/chip_type_songs"
+                        style="@style/Chip"
+                        android:text="Songs" />
+
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/chip_type_videos"
+                        style="@style/Chip"
+                        android:text="Videos" />
+
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/chip_type_albums"
+                        style="@style/Chip"
+                        android:text="Albums" />
+
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/chip_type_playlists"
+                        style="@style/Chip"
+                        android:text="Playlists" />
+
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/chip_type_channels"
+                        style="@style/Chip"
+                        android:text="Channels" />
+
+                </com.google.android.material.chip.ChipGroup>
+            </HorizontalScrollView>
+
+        </LinearLayout>
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/search_recycler"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:clipToPadding="false"
+            android:paddingBottom="96dp"
+            android:scrollbars="vertical" />
+
+        <LinearLayout
+            android:id="@+id/no_search_result"
+            android:layout_width="wrap_content"
+            android:layout_height="0dp"
+            android:layout_gravity="center"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <ImageView
+                android:layout_width="80dp"
+                android:layout_height="80dp"
+                android:layout_gravity="center"
+                android:layout_marginBottom="16dp"
+                android:alpha="0.6"
+                android:src="@drawable/ic_search"
+                app:tint="?attr/colorOnSurfaceVariant" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="sans-serif-medium"
+                android:text="@string/no_search_result"
+                android:textAlignment="center"
+                android:textAppearance="?attr/textAppearanceTitleMedium"
+                android:textColor="?attr/colorOnSurface" />
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+    <com.google.android.material.loadingindicator.LoadingIndicator
+        android:id="@+id/progress"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center" />
+
+</FrameLayout>

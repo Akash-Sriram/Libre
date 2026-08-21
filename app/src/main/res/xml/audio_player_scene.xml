@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="utf-8"?>
+<MotionScene xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:motion="http://schemas.android.com/apk/res-auto">
+
+    <Transition
+        android:id="@+id/mini_player_transition"
+        motion:constraintSetEnd="@+id/end"
+        motion:constraintSetStart="@id/start"
+        motion:duration="350"
+        motion:motionInterpolator="easeInOut">
+        <OnSwipe
+            motion:dragDirection="dragDown"
+            motion:dragScale="1"
+            motion:touchAnchorId="@+id/audio_player_container"
+            motion:touchAnchorSide="top" />
+        <KeyFrameSet>
+            <KeyAttribute
+                android:alpha="1"
+                motion:framePosition="0"
+                motion:motionTarget="@+id/audio_player_main" />
+            <KeyAttribute
+                android:alpha="0"
+                motion:framePosition="35"
+                motion:motionTarget="@+id/audio_player_main" />
+            <KeyAttribute
+                android:alpha="0"
+                motion:framePosition="60"
+                motion:motionTarget="@+id/miniPlayerControls" />
+            <KeyAttribute
+                android:alpha="1"
+                motion:framePosition="100"
+                motion:motionTarget="@+id/miniPlayerControls" />
+        </KeyFrameSet>
+        <OnClick
+            motion:clickAction="toggle"
+            motion:duration="350"
+            motion:targetId="@+id/miniPlayerControls" />
+    </Transition>
+
+    <ConstraintSet android:id="@+id/start">
+        <Constraint
+            android:id="@+id/audio_player_container"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            motion:layout_constraintBottom_toBottomOf="parent"
+            motion:layout_constraintEnd_toEndOf="parent"
+            motion:layout_constraintStart_toStartOf="parent"
+            motion:layout_constraintTop_toTopOf="parent" />
+        <Constraint
+            android:id="@+id/audio_player_main"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:alpha="1"
+            motion:layout_constraintBottom_toBottomOf="@id/audio_player_container"
+            motion:layout_constraintEnd_toEndOf="@id/audio_player_container"
+            motion:layout_constraintStart_toStartOf="@id/audio_player_container"
+            motion:layout_constraintTop_toTopOf="@id/audio_player_container" />
+        <Constraint
+            android:id="@+id/miniPlayerControls"
+            android:layout_width="match_parent"
+            android:layout_height="68dp"
+            android:alpha="0"
+            android:visibility="gone"
+            motion:layout_constraintBottom_toBottomOf="@+id/audio_player_container"
+            motion:layout_constraintEnd_toEndOf="@id/audio_player_container"
+            motion:layout_constraintStart_toStartOf="@id/audio_player_container"
+            motion:layout_constraintTop_toTopOf="@+id/audio_player_container" />
+    </ConstraintSet>
+
+    <ConstraintSet android:id="@+id/end">
+        <Constraint
+            android:id="@+id/audio_player_container"
+            android:layout_width="0dp"
+            android:layout_height="68dp"
+            android:layout_marginStart="10dp"
+            android:layout_marginEnd="10dp"
+            android:layout_marginBottom="10dp"
+            motion:layout_constraintBottom_toBottomOf="parent"
+            motion:layout_constraintEnd_toEndOf="parent"
+            motion:layout_constraintHorizontal_bias="0.5"
+            motion:layout_constraintStart_toStartOf="parent"
+            motion:layout_constraintTop_toTopOf="parent"
+            motion:layout_constraintVertical_bias="1.0" />
+        <Constraint
+            android:id="@+id/audio_player_main"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:alpha="0"
+            android:visibility="invisible"
+            motion:layout_constraintBottom_toBottomOf="@id/audio_player_container"
+            motion:layout_constraintEnd_toEndOf="@id/audio_player_container"
+            motion:layout_constraintStart_toStartOf="@id/audio_player_container"
+            motion:layout_constraintTop_toTopOf="@id/audio_player_container" />
+        <Constraint
+            android:id="@+id/miniPlayerControls"
+            android:layout_width="match_parent"
+            android:layout_height="68dp"
+            android:alpha="1"
+            android:visibility="visible"
+            motion:layout_constraintBottom_toBottomOf="@+id/audio_player_container"
+            motion:layout_constraintEnd_toEndOf="@id/audio_player_container"
+            motion:layout_constraintStart_toStartOf="@id/audio_player_container"
+            motion:layout_constraintTop_toTopOf="@+id/audio_player_container" />
+    </ConstraintSet>
+</MotionScene>
