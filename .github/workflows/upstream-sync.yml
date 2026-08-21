@@ -2,8 +2,10 @@ name: Upstream Sync
 
 on:
   schedule:
-    - cron: '*/30 * * * *' # Check every 30 minutes
-  workflow_dispatch: # Allow manual triggering
+    - cron: '0 0 * * *' # Check daily at midnight UTC
+  repository_dispatch:
+    types: [upstream_sync]
+  workflow_dispatch: # Allow instant manual trigger from GitHub UI / CLI
 
 jobs:
   sync_newpipe_extractor:
