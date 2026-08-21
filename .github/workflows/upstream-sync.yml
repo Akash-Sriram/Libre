@@ -2,7 +2,7 @@ name: Upstream Sync
 
 on:
   schedule:
-    - cron: '0 * * * *' # Run every hour
+    - cron: '*/30 * * * *' # Check every 30 minutes
   workflow_dispatch: # Allow manual triggering
 
 jobs:
@@ -11,6 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      actions: write
 
     steps:
       - name: Checkout target repository
@@ -20,7 +21,9 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Sync NewPipeExtractor and Push
+      - name: Sync NewPipeExtractor and Trigger Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -36,6 +39,9 @@ jobs:
           git add gradle/libs.versions.toml
           if ! git diff-index --quiet HEAD; then
             git commit -m "ci: auto-update NewPipeExtractor to dev commit $LATEST_NPE_COMMIT"
+            git push origin master
+            echo "New commit detected. Triggering release build pipeline..."
+            gh workflow run build-release.yml --ref master
+          else
+            echo "NewPipeExtractor is already up to date ($LATEST_NPE_COMMIT)."
           fi
-          
-          git push origin master
