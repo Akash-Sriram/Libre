@@ -14,11 +14,11 @@ jobs:
 
     steps:
       - name: Checkout target repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@v4
         with:
           ref: master
           fetch-depth: 0
-          token: ${{ secrets.PAT_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Sync NewPipeExtractor and Push
         run: |
