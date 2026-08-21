@@ -20,7 +20,7 @@ import org.json.JSONObject
 import java.io.File
 
 object UpdateHelper {
-    private const val GITHUB_API_URL = "https://api.github.com/repos/Akash-Sriram/MyLibreTube/releases/latest"
+    private const val GITHUB_API_URL = "https://api.github.com/repos/Akash-Sriram/Libre/releases/latest"
 
     fun checkForUpdateOnLaunch(activity: android.app.Activity) {
         val appContext = activity.applicationContext
@@ -28,7 +28,7 @@ object UpdateHelper {
             try {
                 val request = Request.Builder()
                     .url(GITHUB_API_URL)
-                    .header("User-Agent", "MyLibreTube Updater")
+                    .header("User-Agent", "Libre Updater")
                     .build()
 
                 val response = RetrofitInstance.httpClient.newCall(request).execute()
@@ -52,7 +52,7 @@ object UpdateHelper {
                     if (activity.isFinishing || activity.isDestroyed) return@withContext
                     com.google.android.material.dialog.MaterialAlertDialogBuilder(activity)
                         .setTitle("Update Available")
-                        .setMessage("A new version of MyLibreTube ($tagName) is available. Would you like to update now?")
+                        .setMessage("A new version of Libre ($tagName) is available. Would you like to update now?")
                         .setPositiveButton("Update") { _, _ ->
                             showDownloadProgressDialog(activity, downloadUrl, tagName)
                         }
@@ -73,7 +73,7 @@ object UpdateHelper {
             try {
                 val request = Request.Builder()
                     .url(GITHUB_API_URL)
-                    .header("User-Agent", "MyLibreTube Updater")
+                    .header("User-Agent", "Libre Updater")
                     .build()
 
                 val response = RetrofitInstance.httpClient.newCall(request).execute()
@@ -188,7 +188,7 @@ object UpdateHelper {
         onComplete: (() -> Unit)? = null,
         onError: ((Exception) -> Unit)? = null
     ) {
-        val apkFileName = "MyLibreTube-$tagName.apk"
+        val apkFileName = "Libre-$tagName.apk"
         val updatesDir = context.cacheDir.resolve("updates")
         if (!updatesDir.exists()) {
             updatesDir.mkdirs()
@@ -205,7 +205,7 @@ object UpdateHelper {
 
         val notificationBuilder = androidx.core.app.NotificationCompat.Builder(context, channelId)
             .setContentTitle("Downloading Update")
-            .setContentText("MyLibreTube $tagName")
+            .setContentText("Libre $tagName")
             .setSmallIcon(app.libre.R.drawable.ic_download)
             .setOngoing(true)
             .setProgress(100, 0, true)
@@ -273,7 +273,7 @@ object UpdateHelper {
                 // Download completed, update notification and launch installer
                 notificationBuilder
                     .setContentTitle("Download Complete")
-                    .setContentText("Click to install MyLibreTube $tagName")
+                    .setContentText("Click to install Libre $tagName")
                     .setProgress(0, 0, false)
                     .setOngoing(false)
 
@@ -311,7 +311,7 @@ object UpdateHelper {
                         try {
                             val browserIntent = Intent(
                                 Intent.ACTION_VIEW,
-                                Uri.parse("https://github.com/Akash-Sriram/MyLibreTube/releases/latest")
+                                Uri.parse("https://github.com/Akash-Sriram/Libre/releases/latest")
                             ).apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK }
                             context.startActivity(browserIntent)
                         } catch (ex: Exception) {
@@ -345,14 +345,14 @@ object UpdateHelper {
                 // Clean public downloads directory (legacy)
                 val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
                 downloadsDir.listFiles()?.forEach { file ->
-                    if (file.name.startsWith("MyLibreTube-") && file.name.endsWith(".apk")) {
+                    if (file.name.startsWith("Libre-") && file.name.endsWith(".apk")) {
                         file.delete()
                     }
                 }
                 // Clean private cache updates directory
                 val updatesDir = context.cacheDir.resolve("updates")
                 updatesDir.listFiles()?.forEach { file ->
-                    if (file.name.startsWith("MyLibreTube-") && file.name.endsWith(".apk")) {
+                    if (file.name.startsWith("Libre-") && file.name.endsWith(".apk")) {
                         file.delete()
                     }
                 }

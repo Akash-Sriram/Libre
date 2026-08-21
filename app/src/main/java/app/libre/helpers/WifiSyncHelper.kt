@@ -25,8 +25,8 @@ import java.net.ServerSocket
 import java.net.Socket
 
 object WifiSyncHelper {
-    private const val SERVICE_TYPE = "_mylibretube-sync._tcp"
-    private const val SERVICE_NAME = "MyLibreTubeSync"
+    private const val SERVICE_TYPE = "_libre-sync._tcp"
+    private const val SERVICE_NAME = "LibreSync"
 
     private var serverSocket: ServerSocket? = null
     private var isRunning = false

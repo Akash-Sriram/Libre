@@ -240,7 +240,7 @@ object YtMusicApi {
 
             val request = Request.Builder()
                 .url(builder.build())
-                .header("User-Agent", "MyLibreTube/1.0 (https://github.com/Akash-Sriram/MyLibreTube)")
+                .header("User-Agent", "Libre/1.0 (https://github.com/Akash-Sriram/Libre)")
                 .build()
 
             var lyricsResult: Map<String, String>? = null
@@ -276,7 +276,7 @@ object YtMusicApi {
             }
             val searchRequest = Request.Builder()
                 .url(searchBuilder.build())
-                .header("User-Agent", "MyLibreTube/1.0 (https://github.com/Akash-Sriram/MyLibreTube)")
+                .header("User-Agent", "Libre/1.0 (https://github.com/Akash-Sriram/Libre)")
                 .build()
 
             RetrofitInstance.httpClient.newCall(searchRequest).execute().use { searchResponse ->

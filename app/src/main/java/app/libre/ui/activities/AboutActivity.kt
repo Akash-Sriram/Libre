@@ -105,7 +105,7 @@ class AboutActivity : BaseActivity() {
     }
 
     companion object {
-        const val GITHUB_URL = "https://github.com/Akash-Sriram/MyLibreTube"
+        const val GITHUB_URL = "https://github.com/Akash-Sriram/Libre"
         private const val LICENSE_URL = "https://gnu.org/"
     }
 }

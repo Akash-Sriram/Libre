@@ -53,16 +53,16 @@ jobs:
 
       - name: Rename APK
         run: |
-          mv "${{ steps.sign.outputs.signedFile }}" "MyLibreTube-${{ env.RELEASE_TAG }}.apk"
+          mv "${{ steps.sign.outputs.signedFile }}" "Libre-${{ env.RELEASE_TAG }}.apk"
 
       - name: Publish to GitHub Releases
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ env.RELEASE_TAG }}
-          name: "MyLibreTube ${{ env.RELEASE_TAG }}"
+          name: "Libre ${{ env.RELEASE_TAG }}"
           body: "Automated nightly release built from master branch."
           make_latest: true
-          files: "MyLibreTube-${{ env.RELEASE_TAG }}.apk"
+          files: "Libre-${{ env.RELEASE_TAG }}.apk"
           fail_on_unmatched_files: true
 
       - name: Prune Old Releases (keep 3)
