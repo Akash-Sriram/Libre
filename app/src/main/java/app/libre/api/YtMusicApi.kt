@@ -1,0 +1,521 @@
+package app.libre.api
+
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONObject
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
+
+object YtMusicApi {
+    private val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()
+    private const val API_URL = "https://music.youtube.com/youtubei/v1/next"
+    private const val TAG = "YtMusicApi"
+
+    suspend fun fetchAlbumName(videoId: String): String? = withContext(Dispatchers.IO) {
+        try {
+            val payload = JSONObject().apply {
+                put("context", JSONObject().apply {
+                    put("client", JSONObject().apply {
+                        put("clientName", "WEB_REMIX")
+                        put("clientVersion", "1.20230508.00.00")
+                    })
+                })
+                put("videoId", videoId)
+            }
+
+            val request = Request.Builder()
+                .url(API_URL)
+                .post(payload.toString().toRequestBody(JSON_MEDIA_TYPE))
+                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36")
+                .header("Origin", "https://music.youtube.com")
+                .build()
+
+            RetrofitInstance.httpClient.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) return@withContext null
+
+                val body = response.body.string()
+                
+                // Innertube JSON is heavily nested. We use a regex to reliably find the album name
+                // associated with the track in the musicQueueRenderer.
+                // Example: "album":{"name":"The Album Name"
+                var albumName: String? = null
+                val target = "\"MUSIC_PAGE_TYPE_ALBUM\""
+                val index = body.indexOf(target)
+                if (index != -1) {
+                    val textKey = "\"text\":\""
+                    val textKeyAlt = "\"text\": \""
+                    var textIndex = body.lastIndexOf(textKey, index)
+                    if (textIndex == -1) textIndex = body.lastIndexOf(textKeyAlt, index)
+                    
+                    if (textIndex != -1) {
+                        val keyLength = if (body.substring(textIndex, textIndex + textKey.length) == textKey) textKey.length else textKeyAlt.length
+                        val startQuote = textIndex + keyLength - 1
+                        val endQuote = body.indexOf("\"", startQuote + 1)
+                        if (endQuote != -1) {
+                            albumName = body.substring(startQuote + 1, endQuote)
+                        }
+                    }
+                } else {
+                    // If there's no network error but the track simply doesn't have an album,
+                    // return an empty string so the worker knows it was checked.
+                    albumName = ""
+                }
+                
+                android.util.Log.d(TAG, "Fetched album for $videoId: $albumName")
+                return@withContext albumName
+            }
+        } catch (e: Exception) {
+            android.util.Log.e(TAG, "Failed to fetch album for $videoId", e)
+            // Throw exception so worker knows it was a network failure and doesn't mark it as empty
+            throw e
+        }
+    }
+
+    suspend fun fetchLyrics(videoId: String): String? = withContext(Dispatchers.IO) {
+        try {
+            // Step 1: Call v1/next to get watch playlist and find the lyrics browseId (starts with MPLYt_)
+            val nextPayload = JSONObject().apply {
+                put("context", JSONObject().apply {
+                    put("client", JSONObject().apply {
+                        put("clientName", "WEB_REMIX")
+                        put("clientVersion", "1.20230508.00.00")
+                    })
+                })
+                put("videoId", videoId)
+            }
+
+            val nextRequest = Request.Builder()
+                .url("https://music.youtube.com/youtubei/v1/next")
+                .post(nextPayload.toString().toRequestBody(JSON_MEDIA_TYPE))
+                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36")
+                .header("Origin", "https://music.youtube.com")
+                .build()
+
+            val browseId = RetrofitInstance.httpClient.newCall(nextRequest).execute().use { nextResponse ->
+                if (!nextResponse.isSuccessful) return@withContext null
+                val nextBody = nextResponse.body.string()
+                val matchResult = Regex("""MPLYt_[a-zA-Z0-9_-]+""").find(nextBody)
+                matchResult?.value
+            } ?: return@withContext null
+
+            // Step 2: Call v1/browse with the lyrics browseId to get the lyrics text
+            val browsePayload = JSONObject().apply {
+                put("context", JSONObject().apply {
+                    put("client", JSONObject().apply {
+                        put("clientName", "WEB_REMIX")
+                        put("clientVersion", "1.20230508.00.00")
+                    })
+                })
+                put("browseId", browseId)
+            }
+
+            val browseRequest = Request.Builder()
+                .url("https://music.youtube.com/youtubei/v1/browse")
+                .post(browsePayload.toString().toRequestBody(JSON_MEDIA_TYPE))
+                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36")
+                .header("Origin", "https://music.youtube.com")
+                .build()
+
+            RetrofitInstance.httpClient.newCall(browseRequest).execute().use { browseResponse ->
+                if (!browseResponse.isSuccessful) return@withContext null
+
+                val browseBody = browseResponse.body.string()
+                val json = JSONObject(browseBody)
+                val contents = json.optJSONObject("contents")
+                val sectionList = contents?.optJSONObject("sectionListRenderer")
+                val sectionContents = sectionList?.optJSONArray("contents")
+                val firstContent = sectionContents?.optJSONObject(0)
+                val musicDescriptionShelf = firstContent?.optJSONObject("musicDescriptionShelfRenderer")
+                val description = musicDescriptionShelf?.optJSONObject("description")
+                val runs = description?.optJSONArray("runs")
+                if (runs != null && runs.length() > 0) {
+                    val lyricsText = runs.getJSONObject(0).optString("text")
+                    return@withContext lyricsText
+                }
+
+                return@withContext null
+            }
+        } catch (e: Exception) {
+            android.util.Log.e(TAG, "Failed to fetch lyrics for $videoId", e)
+            return@withContext null
+        }
+    }
+
+    suspend fun fetchLrcLyrics(
+        videoId: String,
+        durationSeconds: Long
+    ): Map<String, String>? = withContext(Dispatchers.IO) {
+        try {
+            val nextPayload = JSONObject().apply {
+                put("context", JSONObject().apply {
+                    put("client", JSONObject().apply {
+                        put("clientName", "WEB_REMIX")
+                        put("clientVersion", "1.20230508.00.00")
+                    })
+                })
+                put("videoId", videoId)
+            }
+
+            val nextRequest = Request.Builder()
+                .url("https://music.youtube.com/youtubei/v1/next")
+                .post(nextPayload.toString().toRequestBody(JSON_MEDIA_TYPE))
+                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36")
+                .header("Origin", "https://music.youtube.com")
+                .build()
+
+            val nextJson = RetrofitInstance.httpClient.newCall(nextRequest).execute().use { nextResponse ->
+                if (!nextResponse.isSuccessful) return@withContext null
+                val nextBody = nextResponse.body.string()
+                JSONObject(nextBody)
+            }
+
+            var trackName = ""
+            var artistName = ""
+            var albumName = ""
+            try {
+                val contents = nextJson.getJSONObject("contents")
+                val watchNext = contents.getJSONObject("singleColumnMusicWatchNextResultsRenderer")
+                val tabbed = watchNext.getJSONObject("tabbedRenderer")
+                val watchNextTabbed = tabbed.getJSONObject("watchNextTabbedResultsRenderer")
+                val tabs = watchNextTabbed.getJSONArray("tabs")
+                val tab0 = tabs.getJSONObject(0).getJSONObject("tabRenderer")
+                val tabContent = tab0.getJSONObject("content")
+                val musicQueue = tabContent.getJSONObject("musicQueueRenderer")
+                val queueContent = musicQueue.getJSONObject("content")
+                val playlistPanel = queueContent.getJSONObject("playlistPanelRenderer")
+                val playlistContents = playlistPanel.getJSONArray("contents")
+                if (playlistContents.length() > 0) {
+                    val firstItem = playlistContents.getJSONObject(0).getJSONObject("playlistPanelVideoRenderer")
+                    trackName = firstItem.getJSONObject("title").getJSONArray("runs").getJSONObject(0).getString("text")
+                    
+                    val longByline = firstItem.optJSONObject("longBylineText")
+                    val runs = longByline?.optJSONArray("runs")
+                    if (runs != null) {
+                        val artists = mutableListOf<String>()
+                        var foundBullet = false
+                        for (i in 0 until runs.length()) {
+                            val runText = runs.getJSONObject(i).getString("text")
+                            if (runText.contains("•") || runText.contains("·")) {
+                                foundBullet = true
+                                if (i + 1 < runs.length()) {
+                                    albumName = runs.getJSONObject(i + 1).getString("text").trim()
+                                }
+                                break
+                            }
+                            artists.add(runText)
+                        }
+                        artistName = artists.joinToString("").trim()
+                    }
+                }
+            } catch (e: Exception) {
+                android.util.Log.e(TAG, "Failed to parse next metadata", e)
+            }
+
+            if (trackName.isBlank()) return@withContext null
+
+            val cleanTitle = trackName
+                .replace(Regex("""\s*[\[(](?:Official|Lyric|Official Video|Video|HD|HQ|Audio|Visualizer|Clean Version|From .*|feat\..*|ft\..*)[\])]""", RegexOption.IGNORE_CASE), "")
+                .trim()
+
+            var cleanArtist = artistName
+            if (cleanArtist.endsWith(" - Topic", ignoreCase = true)) {
+                cleanArtist = cleanArtist.substring(0, cleanArtist.length - 8)
+            }
+            if (cleanArtist.equals("Release - Topic", ignoreCase = true) || 
+                cleanArtist.equals("Release", ignoreCase = true) ||
+                cleanArtist.equals("Various Artists - Topic", ignoreCase = true) ||
+                cleanArtist.equals("Various Artists", ignoreCase = true)) {
+                cleanArtist = ""
+            }
+            cleanArtist = cleanArtist.trim()
+
+            val builder = "https://lrclib.net/api/get".toHttpUrlOrNull()!!.newBuilder()
+            builder.addQueryParameter("track_name", cleanTitle)
+            builder.addQueryParameter("artist_name", cleanArtist)
+            if (durationSeconds > 0) {
+                builder.addQueryParameter("duration", durationSeconds.toString())
+            }
+
+            val request = Request.Builder()
+                .url(builder.build())
+                .header("User-Agent", "Libre/1.0 (https://github.com/Akash-Sriram/Libre)")
+                .build()
+
+            var lyricsResult: Map<String, String>? = null
+
+            if (cleanArtist.isNotEmpty()) {
+                lyricsResult = runCatching {
+                    RetrofitInstance.httpClient.newCall(request).execute().use { response ->
+                        if (response.isSuccessful) {
+                            val body = response.body.string()
+                            val json = JSONObject(body)
+                            val plain = json.optString("plainLyrics").takeIf { !it.isNullOrBlank() }
+                            val synced = json.optString("syncedLyrics").takeIf { !it.isNullOrBlank() }
+                            if (plain != null || synced != null) {
+                                mapOf(
+                                    "plain" to (plain ?: ""),
+                                    "synced" to (synced ?: ""),
+                                    "title" to trackName,
+                                    "artist" to artistName,
+                                    "album" to albumName
+                                )
+                            } else null
+                        } else null
+                    }
+                }.getOrNull()
+            }
+
+            if (lyricsResult != null) return@withContext lyricsResult
+
+            val searchBuilder = "https://lrclib.net/api/search".toHttpUrlOrNull()!!.newBuilder()
+            searchBuilder.addQueryParameter("track_name", cleanTitle)
+            if (cleanArtist.isNotEmpty()) {
+                searchBuilder.addQueryParameter("artist_name", cleanArtist)
+            }
+            val searchRequest = Request.Builder()
+                .url(searchBuilder.build())
+                .header("User-Agent", "Libre/1.0 (https://github.com/Akash-Sriram/Libre)")
+                .build()
+
+            RetrofitInstance.httpClient.newCall(searchRequest).execute().use { searchResponse ->
+                if (!searchResponse.isSuccessful) return@withContext null
+
+                val searchBody = searchResponse.body.string()
+                val jsonArray = org.json.JSONArray(searchBody)
+                if (jsonArray.length() > 0) {
+                    for (i in 0 until jsonArray.length()) {
+                        val item = jsonArray.getJSONObject(i)
+                        val plain = item.optString("plainLyrics").takeIf { !it.isNullOrBlank() }
+                        val synced = item.optString("syncedLyrics").takeIf { !it.isNullOrBlank() }
+                        if (synced != null || plain != null) {
+                            return@withContext mapOf(
+                                "plain" to (plain ?: ""),
+                                "synced" to (synced ?: ""),
+                                "title" to trackName,
+                                "artist" to artistName,
+                                "album" to albumName
+                            )
+                        }
+                    }
+                }
+                return@withContext null
+            }
+        } catch (e: Exception) {
+            android.util.Log.e(TAG, "Failed to fetch LRC lyrics for $videoId", e)
+            return@withContext null
+        }
+    }
+
+    suspend fun fetchJioSaavnLyrics(jioSaavnId: String): String? = withContext(Dispatchers.IO) {
+        try {
+            val url = "https://www.jiosaavn.com/api.php?__call=lyrics.getLyrics&lyrics_id=$jioSaavnId&_format=json&api_version=4&ctx=web6s"
+            val request = Request.Builder()
+                .url(url)
+                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36")
+                .build()
+
+            RetrofitInstance.httpClient.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) return@withContext null
+
+                val body = response.body.string()
+                val json = JSONObject(body)
+                return@withContext json.optString("lyrics").takeIf { !it.isNullOrBlank() }
+            }
+        } catch (e: Exception) {
+            android.util.Log.e(TAG, "Failed to fetch JioSaavn lyrics for $jioSaavnId", e)
+            return@withContext null
+        }
+    }
+
+    object LyricsCache {
+        private val memoryCache = android.util.LruCache<String, Map<String, String>>(50)
+
+        fun get(context: android.content.Context, videoId: String): Map<String, String>? {
+            memoryCache.get(videoId)?.let { return it }
+            try {
+                val cacheFile = android.content.ContextWrapper(context).cacheDir.resolve("lyrics_$videoId.json")
+                if (cacheFile.exists()) {
+                    val jsonStr = cacheFile.readText()
+                    val json = org.json.JSONObject(jsonStr)
+                    val map = mapOf(
+                        "plain" to json.optString("plain"),
+                        "synced" to json.optString("synced"),
+                        "title" to json.optString("title"),
+                        "artist" to json.optString("artist"),
+                        "album" to json.optString("album")
+                    )
+                    memoryCache.put(videoId, map)
+                    return map
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("LyricsCache", "Failed to read cache for $videoId", e)
+            }
+            return null
+        }
+
+        fun put(context: android.content.Context, videoId: String, lyrics: Map<String, String>) {
+            memoryCache.put(videoId, lyrics)
+            try {
+                val cacheFile = android.content.ContextWrapper(context).cacheDir.resolve("lyrics_$videoId.json")
+                val json = org.json.JSONObject().apply {
+                    put("plain", lyrics["plain"] ?: "")
+                    put("synced", lyrics["synced"] ?: "")
+                    put("title", lyrics["title"] ?: "")
+                    put("artist", lyrics["artist"] ?: "")
+                    put("album", lyrics["album"] ?: "")
+                }
+                cacheFile.writeText(json.toString())
+            } catch (e: Exception) {
+                android.util.Log.e("LyricsCache", "Failed to write cache for $videoId", e)
+            }
+        }
+    }
+
+    suspend fun search(
+        query: String,
+        filter: String = "music_songs"
+    ): List<app.libre.api.obj.ContentItem> = withContext(Dispatchers.IO) {
+        try {
+            val params = when (filter) {
+                "music_songs" -> "EgWKAQIIAWoMEAMQBBAJEA4QChAF"
+                "music_videos" -> "EgWKAQIYAWoMEAMQBBAJEA4QChAF"
+                "music_albums" -> "EgWKAQIBAWoMEAMQBBAJEA4QChAF"
+                "music_playlists" -> "EgWKAQIQAWoMEAMQBBAJEA4QChAF"
+                else -> null
+            }
+
+            val payload = JSONObject().apply {
+                put("context", JSONObject().apply {
+                    put("client", JSONObject().apply {
+                        put("clientName", "WEB_REMIX")
+                        put("clientVersion", "1.20230508.00.00")
+                        put("hl", "en")
+                    })
+                })
+                put("query", query)
+                if (params != null) put("params", params)
+            }
+
+            val request = Request.Builder()
+                .url("https://music.youtube.com/youtubei/v1/search")
+                .post(payload.toString().toRequestBody(JSON_MEDIA_TYPE))
+                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36")
+                .header("Origin", "https://music.youtube.com")
+                .build()
+
+            val response = RetrofitInstance.httpClient.newCall(request).execute()
+            if (!response.isSuccessful) return@withContext emptyList()
+
+            val body = response.body.string()
+            val json = JSONObject(body)
+            val results = mutableListOf<app.libre.api.obj.ContentItem>()
+
+            val contents = json.optJSONObject("contents")
+                ?.optJSONObject("tabbedSearchResultsRenderer")
+                ?.optJSONArray("tabs")
+                ?.optJSONObject(0)
+                ?.optJSONObject("tabRenderer")
+                ?.optJSONObject("content")
+                ?.optJSONObject("sectionListRenderer")
+                ?.optJSONArray("contents")
+
+            if (contents != null) {
+                for (i in 0 until contents.length()) {
+                    val section = contents.optJSONObject(i) ?: continue
+                    val musicShelf = section.optJSONObject("musicShelfRenderer")
+                    val shelfContents = musicShelf?.optJSONArray("contents") ?: continue
+
+                    for (j in 0 until shelfContents.length()) {
+                        val itemObj = shelfContents.optJSONObject(j) ?: continue
+                        val renderer = itemObj.optJSONObject("musicResponsiveListItemRenderer") ?: continue
+
+                        var videoId: String? = null
+                        var playlistId: String? = null
+
+                        val overlay = renderer.optJSONObject("overlay")
+                            ?.optJSONObject("musicItemThumbnailOverlayRenderer")
+                            ?.optJSONObject("content")
+                            ?.optJSONObject("musicPlayButtonRenderer")
+                            ?.optJSONObject("playNavigationEndpoint")
+
+                        val watchEndpoint = overlay?.optJSONObject("watchEndpoint")
+                        val navEndpoint = renderer.optJSONObject("navigationEndpoint")
+                        val watchNav = navEndpoint?.optJSONObject("watchEndpoint")
+                        val browseNav = navEndpoint?.optJSONObject("browseEndpoint")
+                        val watchPlaylistNav = navEndpoint?.optJSONObject("watchPlaylistEndpoint")
+
+                        videoId = watchEndpoint?.optString("videoId") ?: watchNav?.optString("videoId")
+                        playlistId = browseNav?.optString("browseId") ?: watchPlaylistNav?.optString("playlistId") ?: watchNav?.optString("playlistId")
+
+                        val flexCols = renderer.optJSONArray("flexColumns") ?: continue
+                        val col0 = flexCols.optJSONObject(0)
+                            ?.optJSONObject("musicResponsiveListItemFlexColumnRenderer")
+                            ?.optJSONObject("text")
+                            ?.optJSONArray("runs")
+                        val title = col0?.optJSONObject(0)?.optString("text").orEmpty()
+                        if (title.isBlank()) continue
+
+                        val col1 = flexCols.optJSONObject(1)
+                            ?.optJSONObject("musicResponsiveListItemFlexColumnRenderer")
+                            ?.optJSONObject("text")
+                            ?.optJSONArray("runs")
+
+                        var artistName = ""
+                        var durationSec = 0L
+                        if (col1 != null) {
+                            val artistParts = mutableListOf<String>()
+                            for (k in 0 until col1.length()) {
+                                val run = col1.optJSONObject(k) ?: continue
+                                val t = run.optString("text")
+                                if (t.matches(Regex("""\d+:\d+(?::\d+)?"""))) {
+                                    val parts = t.split(":")
+                                    durationSec = if (parts.size == 2) {
+                                        (parts[0].toLongOrNull() ?: 0L) * 60 + (parts[1].toLongOrNull() ?: 0L)
+                                    } else if (parts.size == 3) {
+                                        (parts[0].toLongOrNull() ?: 0L) * 3600 + (parts[1].toLongOrNull() ?: 0L) * 60 + (parts[2].toLongOrNull() ?: 0L)
+                                    } else 0L
+                                } else if (!t.contains("•") && !t.contains("·")) {
+                                    artistParts.add(t)
+                                }
+                            }
+                            artistName = artistParts.joinToString("").trim()
+                        }
+
+                        val thumbs = renderer.optJSONObject("thumbnail")
+                            ?.optJSONObject("musicThumbnailRenderer")
+                            ?.optJSONObject("thumbnail")
+                            ?.optJSONArray("thumbnails")
+                        val bestThumb = thumbs?.optJSONObject(thumbs.length() - 1)?.optString("url").orEmpty()
+
+                        val finalId = if (!videoId.isNullOrBlank() && filter != "music_albums" && filter != "music_playlists") {
+                            videoId
+                        } else {
+                            playlistId ?: videoId ?: continue
+                        }
+                        val isPlaylistOrAlbum = (playlistId != null && (videoId.isNullOrBlank() || filter == "music_albums" || filter == "music_playlists")) || finalId.startsWith("MPRE") || finalId.startsWith("OLAK") || finalId.startsWith("VL") || finalId.startsWith("RD")
+
+                        results.add(
+                            app.libre.api.obj.ContentItem(
+                                url = finalId,
+                                type = if (isPlaylistOrAlbum) app.libre.api.obj.StreamItem.TYPE_PLAYLIST else app.libre.api.obj.StreamItem.TYPE_STREAM,
+                                thumbnail = bestThumb,
+                                title = title,
+                                name = title,
+                                uploaderName = artistName,
+                                duration = durationSec,
+                                source = "ytm"
+                            )
+                        )
+                    }
+                }
+            }
+
+            return@withContext results
+        } catch (e: Exception) {
+            android.util.Log.e(TAG, "YtMusicApi.search error", e)
+            return@withContext emptyList()
+        }
+    }
+}

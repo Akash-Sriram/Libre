@@ -1,0 +1,98 @@
+package app.libre.ui.adapters
+
+import android.view.LayoutInflater
+import android.view.ViewGroup
+import androidx.core.os.bundleOf
+import androidx.recyclerview.widget.ListAdapter
+import app.libre.R
+import app.libre.api.obj.Playlists
+import app.libre.constants.IntentData
+import app.libre.databinding.ItemLibraryPlaylistGridBinding
+import app.libre.enums.PlaylistType
+import app.libre.extensions.addSpringTouchFeedback
+import app.libre.helpers.ImageHelper
+import app.libre.helpers.NavigationHelper
+import app.libre.ui.adapters.callbacks.DiffUtilItemCallback
+import app.libre.ui.base.BaseActivity
+import app.libre.ui.sheets.PlaylistOptionsBottomSheet
+import app.libre.ui.sheets.PlaylistOptionsBottomSheet.Companion.PLAYLIST_OPTIONS_REQUEST_KEY
+import app.libre.ui.viewholders.PlaylistsViewHolder
+
+class PlaylistsAdapter(
+    private val playlistType: PlaylistType
+) : ListAdapter<Playlists, PlaylistsViewHolder>(
+    DiffUtilItemCallback(areItemsTheSame = { oldItem, newItem -> oldItem.id == newItem.id })
+) {
+
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): PlaylistsViewHolder {
+        val layoutInflater = LayoutInflater.from(parent.context)
+        val binding = ItemLibraryPlaylistGridBinding.inflate(layoutInflater, parent, false)
+        return PlaylistsViewHolder(binding)
+    }
+
+    override fun onBindViewHolder(holder: PlaylistsViewHolder, position: Int) {
+        val playlist = getItem(holder.bindingAdapterPosition)
+        holder.binding.apply {
+            // set imageview drawable as empty playlist if imageview empty
+            if (playlist.thumbnail.orEmpty().split("/").size <= 4) {
+                playlistThumbnail.setImageResource(R.drawable.ic_empty_playlist)
+                playlistThumbnail
+                    .setBackgroundColor(com.google.android.material.R.attr.colorSurface)
+            } else {
+                ImageHelper.loadImage(playlist.thumbnail, playlistThumbnail)
+            }
+            playlistTitle.text = playlist.name
+
+            val count = playlist.videos
+            val formattedCount = java.text.NumberFormat.getNumberInstance().format(count)
+            videoCount.text = if (count == 1L) "1 song" else "$formattedCount songs"
+
+            root.addSpringTouchFeedback(0.96f)
+            root.setOnClickListener {
+                NavigationHelper.navigatePlaylist(root.context, playlist.id, playlistType)
+            }
+
+            val fragmentManager = (root.context as BaseActivity).supportFragmentManager
+            val showPlaylistOptions = {
+                fragmentManager.setFragmentResultListener(
+                    PLAYLIST_OPTIONS_REQUEST_KEY,
+                    (root.context as BaseActivity)
+                ) { _, resultBundle ->
+                    val newPlaylistName =
+                        resultBundle.getString(IntentData.playlistName)
+                    val isPlaylistToBeDeleted =
+                        resultBundle.getBoolean(IntentData.playlistTask)
+
+                    newPlaylistName?.let {
+                        playlistTitle.text = it
+                        playlist.name = it
+                    }
+
+                    if (isPlaylistToBeDeleted) {
+                        // Remove by ID, not by position — the captured `position` from
+                        // onBindViewHolder is stale by the time this callback fires if
+                        // another playlist was already deleted (causes IndexOutOfBoundsException).
+                        submitList(currentList.filter { it.id != playlist.id })
+                    }
+                }
+
+                val playlistOptionsDialog = PlaylistOptionsBottomSheet()
+                playlistOptionsDialog.arguments = android.os.Bundle().apply {
+                    putString(IntentData.playlistId, playlist.id)
+                    putString(IntentData.playlistName, playlist.name)
+                    putSerializable(IntentData.playlistType, playlistType)
+                }
+                playlistOptionsDialog.show(
+                    fragmentManager,
+                    PlaylistOptionsBottomSheet::class.java.name
+                )
+            }
+
+            root.setOnLongClickListener {
+                showPlaylistOptions()
+                true
+            }
+        }
+    }
+
+}

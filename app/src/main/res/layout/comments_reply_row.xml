@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:paddingStart="20dp"
+    android:paddingEnd="12dp"
+    android:paddingTop="10dp"
+    android:paddingBottom="6dp">
+
+    <com.google.android.material.imageview.ShapeableImageView
+        android:id="@+id/commentor_image"
+        android:layout_width="22dp"
+        android:layout_height="22dp"
+        android:layout_marginEnd="8dp"
+        android:background="@android:color/darker_gray"
+        app:shapeAppearance="@style/CircleImageView"
+        tools:src="@mipmap/ic_launcher" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/comment_author"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:textColor="@color/text_on_primary_or_default"
+                android:textSize="11sp"
+                tools:text="Author" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text=" • "
+                android:textSize="11sp"
+                tools:ignore="HardcodedText" />
+
+            <TextView
+                android:id="@+id/comment_infos"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:textColor="?android:attr/textColorSecondary"
+                android:textSize="11sp"
+                tools:text="2h ago" />
+
+            <ImageView
+                android:id="@+id/verified_imageView"
+                android:layout_width="14dp"
+                android:layout_height="14dp"
+                android:layout_marginStart="4dp"
+                android:visibility="gone"
+                app:srcCompat="@drawable/ic_verified" />
+
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/comment_text"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="3dp"
+            android:layout_marginBottom="4dp"
+            android:textColor="?android:attr/textColorPrimary"
+            android:textSize="13sp"
+            tools:text="Inline reply text" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <app.libre.ui.views.DrawableTextView
+                android:id="@+id/likes_textView"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="6dp"
+                android:drawablePadding="4dp"
+                android:gravity="center_vertical"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                app:drawableStartCompat="@drawable/ic_thumb_up"
+                app:drawableStartDimen="13dp"
+                tools:text="14" />
+
+            <ImageView
+                android:id="@+id/hearted_imageView"
+                android:layout_width="12dp"
+                android:layout_height="12dp"
+                android:layout_marginEnd="6dp"
+                android:visibility="gone"
+                app:srcCompat="@drawable/ic_hearted" />
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+</LinearLayout>

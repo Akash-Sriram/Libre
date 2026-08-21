@@ -1,0 +1,424 @@
+<?xml version="1.0" encoding="utf-8"?>
+<app.libre.ui.views.SingleViewTouchableMotionLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/playerMotionLayout"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    app:layoutDescription="@xml/audio_player_scene">
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/audio_player_container"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@drawable/mini_player_bg"
+        android:clipToOutline="true"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <LinearLayout
+        android:id="@+id/audio_player_main"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="?android:attr/colorBackground"
+        android:orientation="vertical"
+        app:layout_constraintBottom_toBottomOf="@id/audio_player_container"
+        app:layout_constraintEnd_toEndOf="@id/audio_player_container"
+        app:layout_constraintStart_toStartOf="@id/audio_player_container"
+        app:layout_constraintTop_toTopOf="@id/audio_player_container">
+
+
+
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1">
+
+            <androidx.constraintlayout.widget.ConstraintLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:layout_marginHorizontal="20dp"
+                android:layout_marginVertical="10dp">
+
+                <com.google.android.material.imageview.ShapeableImageView
+                    android:id="@+id/thumbnail"
+                    android:layout_width="0dp"
+                    android:layout_height="0dp"
+                    android:scaleType="centerCrop"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintBottom_toBottomOf="parent"
+                    app:layout_constraintDimensionRatio="1:1"
+                    app:shapeAppearanceOverlay="@style/ShapeAppearance.Material3.Corner.ExtraLarge"
+                    tools:src="@tools:sample/backgrounds/scenic" />
+
+            </androidx.constraintlayout.widget.ConstraintLayout>
+
+            <FrameLayout
+                android:id="@+id/lyrics_container"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_marginHorizontal="20dp"
+                android:layout_marginVertical="10dp"
+                android:visibility="gone">
+
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/lyrics_recycler"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:scrollbars="vertical"
+                    android:clipToPadding="false"
+                    android:paddingVertical="40dp" />
+
+                <androidx.core.widget.NestedScrollView
+                    android:id="@+id/plain_lyrics_scroll"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:visibility="gone">
+                    
+                    <TextView
+                        android:id="@+id/plain_lyrics_text"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:padding="20dp"
+                        android:textSize="20sp"
+                        android:textStyle="bold"
+                        android:lineSpacingMultiplier="1.4"
+                        android:textColor="?android:attr/textColorPrimary"
+                        android:gravity="center_horizontal" />
+                </androidx.core.widget.NestedScrollView>
+
+            </FrameLayout>
+
+
+            <LinearLayout
+                android:id="@+id/volumeControls"
+                android:layout_width="42dp"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:background="@drawable/controls_layout_bg"
+                android:orientation="vertical"
+                android:visibility="gone"
+                tools:ignore="RtlHardcoded">
+
+                <TextView
+                    android:id="@+id/volume_textView"
+                    style="@style/SwipeControlString"
+                    android:layout_gravity="center"
+                    app:autoSizeTextType="uniform" />
+
+                <ProgressBar
+                    android:id="@+id/volume_progressBar"
+                    style="@android:style/Widget.ProgressBar.Horizontal"
+                    android:layout_width="7dp"
+                    android:layout_height="100dp"
+                    android:layout_gravity="center"
+                    android:layout_marginVertical="4dp"
+                    android:progressDrawable="@drawable/vertical_progressbar" />
+
+                <ImageView
+                    android:id="@+id/volume_imageView"
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:layout_gravity="center"
+                    android:contentDescription="@string/volume"
+                    android:src="@drawable/ic_volume_up" />
+
+            </LinearLayout>
+
+            <com.google.android.material.loadingindicator.LoadingIndicator
+                android:id="@+id/progress"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center" />
+
+        </FrameLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_margin="20dp"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/title"
+                style="@style/TextViewMarquee"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textSize="24sp" />
+
+            <TextView
+                android:id="@+id/uploader"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:textSize="18sp"
+                android:textAlignment="center"
+                android:ellipsize="end"
+                android:maxLines="2" />
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="20dp"
+            android:layout_gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <com.google.android.material.slider.Slider
+                android:id="@+id/time_bar"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:labelBehavior="gone" />
+
+        </LinearLayout>
+
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingHorizontal="40dp">
+
+            <TextView
+                android:id="@+id/current_position"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="start|center"
+                tools:text="00:00" />
+
+            <TextView
+                android:id="@+id/duration"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="end|center"
+                tools:text="10:15" />
+
+        </FrameLayout>
+
+        <LinearLayout
+            android:id="@+id/buttonGroup"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:paddingVertical="30dp"
+            android:layout_marginHorizontal="10dp"
+            android:gravity="center">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/rewindBTN"
+                style="?attr/materialIconButtonFilledTonalStyle"
+                android:layout_width="0dp"
+                android:layout_weight="1.5"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:gravity="center"
+                app:iconGravity="textStart"
+                app:iconSize="35dp"
+                app:icon="@drawable/ic_rewind_md" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/prev"
+                style="?attr/materialIconButtonFilledTonalStyle"
+                android:layout_width="0dp"
+                android:layout_weight="1.5"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:gravity="center"
+                app:iconGravity="textStart"
+                app:iconSize="35dp"
+                app:icon="@drawable/ic_prev" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/play_pause"
+                style="?attr/materialIconButtonFilledStyle"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="3"
+                android:gravity="center"
+                app:iconGravity="textStart"
+                app:iconSize="55dp"
+                app:icon="@drawable/ic_pause" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/next"
+                style="?attr/materialIconButtonFilledTonalStyle"
+                android:layout_width="0dp"
+                android:layout_weight="1.5"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:gravity="center"
+                app:iconGravity="textStart"
+                app:iconSize="35dp"
+                app:icon="@drawable/ic_next" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/forwardBTN"
+                style="?attr/materialIconButtonFilledTonalStyle"
+                android:layout_width="0dp"
+                android:layout_weight="1.5"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:gravity="center"
+                app:iconGravity="textStart"
+                app:iconSize="35dp"
+                app:icon="@drawable/ic_forward_md" />
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingHorizontal="28dp"
+            android:paddingVertical="16dp">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/open_queue"
+                style="?materialIconButtonFilledTonalStyle"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                app:cornerRadius="24dp"
+                android:contentDescription="@string/queue"
+                app:icon="@drawable/ic_queue" />
+
+            <View
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:layout_weight="1" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/open_lyrics"
+                style="?materialIconButtonFilledTonalStyle"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                app:cornerRadius="24dp"
+                android:contentDescription="@string/lyrics"
+                app:icon="@drawable/ic_lyrics" />
+
+            <View
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:layout_weight="1" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/open_video"
+                style="?materialIconButtonFilledTonalStyle"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                app:cornerRadius="24dp"
+                android:contentDescription="@string/video"
+                app:icon="@drawable/ic_video" />
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/miniPlayerControls"
+        android:layout_width="match_parent"
+        android:layout_height="72dp"
+        android:alpha="0"
+        android:orientation="vertical"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="@id/audio_player_container"
+        app:layout_constraintEnd_toEndOf="@id/audio_player_container"
+        app:layout_constraintStart_toStartOf="@id/audio_player_container"
+        app:layout_constraintTop_toTopOf="@id/audio_player_container">
+
+        <!-- Row: thumbnail + title/artist + controls -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp">
+
+            <com.google.android.material.imageview.ShapeableImageView
+                android:id="@+id/miniPlayerThumbnail"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:layout_gravity="center_vertical"
+                android:layout_marginStart="4dp"
+                android:layout_marginEnd="12dp"
+                android:scaleType="centerCrop"
+                app:shapeAppearanceOverlay="@style/ShapeAppearance.Material3.Corner.Medium" />
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginEnd="8dp"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/miniPlayerTitle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:ellipsize="end"
+                    android:maxLines="1"
+                    android:textSize="15sp"
+                    android:textStyle="bold"
+                    android:textColor="?android:attr/textColorPrimary" />
+
+                <TextView
+                    android:id="@+id/miniPlayerArtist"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:ellipsize="end"
+                    android:maxLines="1"
+                    android:textSize="12sp"
+                    android:textColor="?android:attr/textColorSecondary" />
+
+            </LinearLayout>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/miniPlayerPause"
+                style="?attr/materialIconButtonFilledTonalStyle"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_gravity="center_vertical"
+                android:insetLeft="0dp"
+                android:insetTop="0dp"
+                android:insetRight="0dp"
+                android:insetBottom="0dp"
+                android:padding="0dp"
+                android:contentDescription="@string/tooltip_play"
+                app:cornerRadius="20dp"
+                app:icon="@drawable/ic_pause"
+                app:iconGravity="textStart"
+                app:iconPadding="0dp"
+                app:iconSize="22dp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/miniPlayerClose"
+                style="?attr/materialIconButtonStyle"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_gravity="center_vertical"
+                android:layout_marginStart="4dp"
+                android:insetLeft="0dp"
+                android:insetTop="0dp"
+                android:insetRight="0dp"
+                android:insetBottom="0dp"
+                android:padding="0dp"
+                android:contentDescription="@string/tooltip_close"
+                android:tooltipText="@string/tooltip_close"
+                app:cornerRadius="20dp"
+                app:icon="@drawable/ic_close"
+                app:iconGravity="textStart"
+                app:iconPadding="0dp"
+                app:iconSize="20dp"
+                app:iconTint="?attr/colorOnSurfaceVariant" />
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+</app.libre.ui.views.SingleViewTouchableMotionLayout>
