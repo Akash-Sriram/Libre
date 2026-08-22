@@ -70,11 +70,6 @@
             android:screenOrientation="locked" />
 
         <activity
-            android:name=".ui.activities.HelpActivity"
-            android:label="@string/settings"
-            android:screenOrientation="locked" />
-
-        <activity
             android:name=".ui.activities.ZoomableImageActivity"
             android:screenOrientation="locked" />
 
