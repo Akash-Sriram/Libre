@@ -373,6 +373,111 @@ object YtMusicApi {
         }
     }
 
+    suspend fun fetchAlbum(browseId: String): app.libre.api.obj.Playlist? = withContext(Dispatchers.IO) {
+        try {
+            val payload = JSONObject().apply {
+                put("context", JSONObject().apply {
+                    put("client", JSONObject().apply {
+                        put("clientName", "WEB_REMIX")
+                        put("clientVersion", "1.20230508.00.00")
+                        put("hl", "en")
+                    })
+                })
+                put("browseId", browseId)
+            }
+
+            val request = Request.Builder()
+                .url("https://music.youtube.com/youtubei/v1/browse")
+                .post(payload.toString().toRequestBody(JSON_MEDIA_TYPE))
+                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36")
+                .header("Origin", "https://music.youtube.com")
+                .build()
+
+            val response = RetrofitInstance.httpClient.newCall(request).execute()
+            if (!response.isSuccessful) return@withContext null
+
+            val body = response.body.string()
+            val json = JSONObject(body)
+
+            val header = json.optJSONObject("header")?.optJSONObject("musicDetailHeaderRenderer")
+                ?: json.optJSONObject("header")?.optJSONObject("musicResponsiveHeaderRenderer")
+            val albumTitle = header?.optJSONObject("title")?.optJSONArray("runs")?.optJSONObject(0)?.optString("text").orEmpty()
+            val uploader = header?.optJSONObject("subtitle")?.optJSONArray("runs")?.optJSONObject(0)?.optString("text").orEmpty()
+            val thumbs = header?.optJSONObject("thumbnail")?.optJSONObject("croppedSquareThumbnailRenderer")?.optJSONObject("thumbnail")?.optJSONArray("thumbnails")
+                ?: header?.optJSONObject("thumbnail")?.optJSONObject("musicThumbnailRenderer")?.optJSONObject("thumbnail")?.optJSONArray("thumbnails")
+            val thumbUrl = thumbs?.optJSONObject(thumbs.length() - 1)?.optString("url")
+
+            val tracks = mutableListOf<app.libre.api.obj.StreamItem>()
+
+            val sectionContents = json.optJSONObject("contents")
+                ?.optJSONObject("singleColumnBrowseResultsRenderer")
+                ?.optJSONArray("tabs")
+                ?.optJSONObject(0)
+                ?.optJSONObject("tabRenderer")
+                ?.optJSONObject("content")
+                ?.optJSONObject("sectionListRenderer")
+                ?.optJSONArray("contents")
+                ?.optJSONObject(0)
+                ?.optJSONObject("musicShelfRenderer")
+                ?.optJSONArray("contents")
+
+            if (sectionContents != null) {
+                for (i in 0 until sectionContents.length()) {
+                    val itemObj = sectionContents.optJSONObject(i) ?: continue
+                    val renderer = itemObj.optJSONObject("musicResponsiveListItemRenderer") ?: continue
+
+                    val playEndpoint = renderer.optJSONObject("overlay")
+                        ?.optJSONObject("musicItemThumbnailOverlayRenderer")
+                        ?.optJSONObject("content")
+                        ?.optJSONObject("musicPlayButtonRenderer")
+                        ?.optJSONObject("playNavigationEndpoint")
+                    val videoId = playEndpoint?.optJSONObject("watchEndpoint")?.optString("videoId")
+                        ?: renderer.optJSONObject("navigationEndpoint")?.optJSONObject("watchEndpoint")?.optString("videoId")
+                        ?: continue
+
+                    val flexCols = renderer.optJSONArray("flexColumns") ?: continue
+                    val title = flexCols.optJSONObject(0)
+                        ?.optJSONObject("musicResponsiveListItemFlexColumnRenderer")
+                        ?.optJSONObject("text")
+                        ?.optJSONArray("runs")
+                        ?.optJSONObject(0)
+                        ?.optString("text").orEmpty()
+
+                    val artistCol = flexCols.optJSONObject(1)
+                        ?.optJSONObject("musicResponsiveListItemFlexColumnRenderer")
+                        ?.optJSONObject("text")
+                        ?.optJSONArray("runs")
+                    val trackArtist = artistCol?.optJSONObject(0)?.optString("text") ?: uploader
+
+                    tracks.add(
+                        app.libre.api.obj.StreamItem(
+                            url = "https://www.youtube.com/watch?v=$videoId",
+                            title = title,
+                            uploaderName = trackArtist,
+                            uploaderUrl = "",
+                            thumbnail = thumbUrl.orEmpty(),
+                            albumName = albumTitle,
+                            type = app.libre.api.obj.StreamItem.TYPE_STREAM
+                        )
+                    )
+                }
+            }
+
+            if (tracks.isNotEmpty()) {
+                app.libre.api.obj.Playlist(
+                    name = albumTitle.ifBlank { "Album" },
+                    thumbnailUrl = thumbUrl.orEmpty(),
+                    uploader = uploader,
+                    videos = tracks.size,
+                    relatedStreams = tracks
+                )
+            } else null
+        } catch (e: Exception) {
+            android.util.Log.e(TAG, "fetchAlbum error for $browseId", e)
+            null
+        }
+    }
+
     suspend fun search(
         query: String,
         filter: String = "music_songs"
@@ -438,7 +543,10 @@ object YtMusicApi {
                             ?.optJSONObject("musicItemThumbnailOverlayRenderer")
                             ?.optJSONObject("content")
                             ?.optJSONObject("musicPlayButtonRenderer")
-                            ?.optJSONObject("playNavigationEndpoint")
+
+                        val playNav = overlay?.optJSONObject("playNavigationEndpoint")
+                        val playPlaylistId = playNav?.optJSONObject("watchPlaylistEndpoint")?.optString("playlistId")
+                            ?: playNav?.optJSONObject("watchEndpoint")?.optString("playlistId")
 
                         val watchEndpoint = overlay?.optJSONObject("watchEndpoint")
                         val navEndpoint = renderer.optJSONObject("navigationEndpoint")
@@ -447,7 +555,7 @@ object YtMusicApi {
                         val watchPlaylistNav = navEndpoint?.optJSONObject("watchPlaylistEndpoint")
 
                         videoId = watchEndpoint?.optString("videoId") ?: watchNav?.optString("videoId")
-                        playlistId = browseNav?.optString("browseId") ?: watchPlaylistNav?.optString("playlistId") ?: watchNav?.optString("playlistId")
+                        playlistId = playPlaylistId ?: watchPlaylistNav?.optString("playlistId") ?: browseNav?.optString("browseId") ?: watchNav?.optString("playlistId")
 
                         val flexCols = renderer.optJSONArray("flexColumns") ?: continue
                         val col0 = flexCols.optJSONObject(0)

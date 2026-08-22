@@ -397,8 +397,9 @@ class AudioPlayerFragment : BasePlayerFragment(R.layout.fragment_audio_player) {
             else -> ""
         }
 
+        val localTitle = app.libre.helpers.LocalAudioMatcher.getTitleFromFile(currentVideoId, streamTitle)
         val trackNumber = app.libre.helpers.LocalAudioMatcher.getTrackNumberFromFile(currentVideoId, streamTitle)
-        val baseTitle = (metadata.title ?: streamTitle).toString()
+        val baseTitle = (localTitle ?: metadata.title ?: streamTitle).toString()
         val formattedTitle = app.libre.helpers.LocalAudioMatcher.formatTitleWithTrackNumber(baseTitle, trackNumber)
 
         binding.title.text = formattedTitle

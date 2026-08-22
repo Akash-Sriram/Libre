@@ -56,8 +56,6 @@ object LocalAudioMatcher {
 
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                // Yield to let the main UI thread finish initial layout and first-frame draw
-                kotlinx.coroutines.delay(3000L)
                 val dao = DatabaseHolder.Database.localAudioMetadataCacheDao()
 
                 // ── Phase 1: Restore from DB (fast, ~50ms) ────────────────────────────
@@ -103,8 +101,11 @@ object LocalAudioMatcher {
                 // Scan MediaStore for fast permission-free indexing of all audio files
                 scanMediaStore(context, restoredIds, newlyFound)
 
+                val knownPaths = HashSet<String>(localAudioMap.values)
+                knownPaths.addAll(newlyFound.values)
+
                 for (dir in musicDirs) {
-                    scanDirectory(dir, restoredIds, newlyFound)
+                    scanDirectory(dir, restoredIds, knownPaths, newlyFound)
                 }
 
                 // Persist newly found paths to DB
@@ -139,15 +140,16 @@ object LocalAudioMatcher {
             android.provider.MediaStore.Audio.Media.TRACK
         )
         try {
-            context.contentResolver.query(
+            val cursor = context.contentResolver.query(
                 android.provider.MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
                 projection,
                 null,
                 null,
                 null
-            )?.use { cursor ->
+            ) ?: return
+
+            cursor.use {
                 val dataCol = cursor.getColumnIndexOrThrow(android.provider.MediaStore.Audio.Media.DATA)
-                val nameCol = cursor.getColumnIndex(android.provider.MediaStore.Audio.Media.DISPLAY_NAME)
                 val titleCol = cursor.getColumnIndex(android.provider.MediaStore.Audio.Media.TITLE)
                 val artistCol = cursor.getColumnIndex(android.provider.MediaStore.Audio.Media.ARTIST)
                 val albumCol = cursor.getColumnIndex(android.provider.MediaStore.Audio.Media.ALBUM)
@@ -182,7 +184,11 @@ object LocalAudioMatcher {
                         titleToPathMap[normalizedFileName] = file.absolutePath
                     }
 
-                    val tags = LocalAudioTags(artist, album, year, trackNumber, albumArtist, genre)
+                    val title = rawTitle?.trim()?.takeIf { it.isNotBlank() }
+                    val tags = LocalAudioTags(artist, album, year, trackNumber, albumArtist, genre, title)
+                    tagCache[file.absolutePath] = tags
+                    tagCache[file.name] = tags
+
                     if (videoId != null) {
                         if (videoId !in alreadyKnown && videoId !in newlyFound) {
                             newlyFound[videoId] = file.absolutePath
@@ -205,21 +211,25 @@ object LocalAudioMatcher {
 
     private fun scanDirectory(
         dir: File,
-        alreadyKnown: Set<String>,
+        alreadyKnownIds: Set<String>,
+        knownPaths: Set<String>,
         newlyFound: MutableMap<String, String>
     ) {
         val files = dir.listFiles() ?: return
         for (file in files) {
             if (file.isDirectory) {
-                scanDirectory(file, alreadyKnown, newlyFound)
+                scanDirectory(file, alreadyKnownIds, knownPaths, newlyFound)
             } else if (file.isFile) {
+                val path = file.absolutePath
+                if (path in knownPaths) continue
+
                 val name = file.name.lowercase(Locale.US)
                 if (name.endsWith(".mp3") || name.endsWith(".m4a") ||
                     name.endsWith(".flac") || name.endsWith(".ogg") || name.endsWith(".wav")
                 ) {
                     val videoId = extractVideoId(file)
                     if (videoId != null) {
-                        if (videoId !in alreadyKnown && videoId !in newlyFound) {
+                        if (videoId !in alreadyKnownIds && videoId !in newlyFound) {
                             newlyFound[videoId] = file.absolutePath
                             Log.i(TAG, "New: ${file.name} -> $videoId")
                         }
@@ -489,7 +499,8 @@ object LocalAudioMatcher {
         val year: String?,
         val trackNumber: Int? = null,
         val albumArtist: String? = null,
-        val genre: String? = null
+        val genre: String? = null,
+        val title: String? = null
     )
 
     val tagCache = ConcurrentHashMap<String, LocalAudioTags>()
@@ -519,7 +530,7 @@ object LocalAudioMatcher {
 
     private fun extractTagsForPath(cacheKey: String, path: String): LocalAudioTags {
         val cached = tagCache[cacheKey]
-        if (cached != null && cached.genre != null && cached.artist != null) return cached
+        if (cached != null && cached.genre != null && cached.artist != null && cached.title != null) return cached
 
         val tags = try {
             MediaMetadataRetriever().use { retriever ->
@@ -540,12 +551,14 @@ object LocalAudioMatcher {
                 if (genre.isNullOrBlank()) {
                     genre = extractGenreFromBinary(path)
                 }
+                val title = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE)?.trim()
+                    ?.takeIf { it.isNotBlank() }
 
-                LocalAudioTags(artist, album, year, trackNumber, albumArtist, genre)
+                LocalAudioTags(artist, album, year, trackNumber, albumArtist, genre, title)
             }
         } catch (_: Exception) {
             val binaryGenre = extractGenreFromBinary(path)
-            LocalAudioTags(null, null, null, null, null, binaryGenre)
+            LocalAudioTags(null, null, null, null, null, binaryGenre, null)
         }
         tagCache[cacheKey] = tags
         return tags
@@ -621,16 +634,11 @@ object LocalAudioMatcher {
      * Returns null if no title tag is present or the file isn't indexed.
      */
     fun getTitleFromFile(videoId: String, title: String? = null): String? {
+        val key = videoId.ifEmpty { title.orEmpty() }
+        val cached = tagCache[key]
+        if (!cached?.title.isNullOrBlank()) return cached.title
         val path = resolvePath(videoId, title) ?: return null
-        return try {
-            MediaMetadataRetriever().use { retriever ->
-                retriever.setDataSource(path)
-                retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE)
-                    ?.takeIf { it.isNotBlank() }
-            }
-        } catch (e: Exception) {
-            null
-        }
+        return extractTagsForPath(key, path).title
     }
 
     /**

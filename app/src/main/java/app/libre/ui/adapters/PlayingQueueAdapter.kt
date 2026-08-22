@@ -54,13 +54,19 @@ class PlayingQueueAdapter(
             }
             duration.text = DateUtils.formatElapsedTime(streamItem.duration ?: 0)
 
+            val localTitle = app.libre.helpers.LocalAudioMatcher.getTitleFromFile(videoId, streamItem.title)
+            val baseTitle = (localTitle ?: streamItem.title).orEmpty()
+            val trackNumber = app.libre.helpers.LocalAudioMatcher.getTrackNumberFromFile(videoId, streamItem.title)
+            val displayTitle = app.libre.helpers.LocalAudioMatcher.formatTitleWithTrackNumber(baseTitle, trackNumber)
+
             if (isCurrent) {
                 val primaryColor = ThemeHelper.getThemeColor(root.context, androidx.appcompat.R.attr.colorPrimary)
                 title.setTextColor(primaryColor)
-                title.text = "▶  " + streamItem.title
+                title.text = "▶  " + displayTitle
             } else {
                 val defaultTextColor = ThemeHelper.getThemeColor(root.context, android.R.attr.textColorPrimary)
                 title.setTextColor(defaultTextColor)
+                title.text = displayTitle
             }
 
             root.addSpringTouchFeedback(0.96f)

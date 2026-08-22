@@ -19,7 +19,9 @@
         <item>@string/most_recent</item>
         <item>@string/duration</item>
         <item>@string/duration_reversed</item>
-        <item>@string/alphabetic</item>
-        <item>@string/alphabetic_reversed</item>
+        <item>@string/sort_title_az</item>
+        <item>@string/sort_title_za</item>
+        <item>@string/sort_album_az</item>
+        <item>@string/sort_album_za</item>
     </string-array>
 </resources>

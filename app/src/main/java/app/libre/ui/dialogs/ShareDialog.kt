@@ -12,6 +12,7 @@ import app.libre.databinding.DialogShareBinding
 import app.libre.enums.ShareObjectType
 import app.libre.extensions.parcelable
 import app.libre.extensions.serializable
+import app.libre.extensions.toID
 import app.libre.helpers.ClipboardHelper
 import app.libre.helpers.PreferenceHelper
 import app.libre.obj.ShareData
@@ -102,6 +103,7 @@ class ShareDialog : DialogFragment() {
             }
         }
 
+        val cleanYtId = id.toID()
         val host = YOUTUBE_FRONTEND_URL
         val url = when (shareObjectType) {
             ShareObjectType.VIDEO -> {
@@ -109,14 +111,14 @@ class ShareDialog : DialogFragment() {
                 if (binding.timeCodeSwitch.isChecked) {
                     queryParams += "t=${binding.timeStamp.text}"
                 }
-                val baseUrl = "$YOUTUBE_SHORT_URL/$id"
+                val baseUrl = "$YOUTUBE_SHORT_URL/$cleanYtId"
 
                 if (queryParams.isEmpty()) baseUrl
                 else baseUrl + "?" + queryParams.joinToString("&")
             }
 
-            ShareObjectType.PLAYLIST -> "$host/playlist?list=$id"
-            else -> "$host/channel/$id"
+            ShareObjectType.PLAYLIST -> "$host/playlist?list=$cleanYtId"
+            else -> "$host/channel/$cleanYtId"
         }
 
         return url

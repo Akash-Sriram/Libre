@@ -9,10 +9,10 @@ import app.libre.extensions.toID
 
 object JioSaavnHelper {
     
-    fun isJioSaavn(videoId: String?, isOffline: Boolean): Boolean {
+    fun isJioSaavn(videoId: String?, isOffline: Boolean = false): Boolean {
         if (videoId == null || isOffline) return false
-        val id = videoId.toID()
-        return id.startsWith("jsa_") || id.length != 11
+        val trimmed = videoId.trim()
+        return trimmed.startsWith("jsa_") || trimmed.startsWith("jsa:") || trimmed.contains("jiosaavn.com")
     }
 
     fun setupAudioOnlyThumbnail(playerBackgroundBinding: CustomExoPlayerViewTemplateBinding, streams: Streams) {

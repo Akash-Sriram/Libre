@@ -5,6 +5,7 @@ import android.content.res.Configuration
 import android.os.Bundle
 import android.os.Parcelable
 import android.text.format.DateUtils
+import java.util.Locale
 import android.util.Log
 import android.view.View
 import androidx.core.text.parseAsHtml
@@ -116,12 +117,9 @@ class PlaylistFragment : DynamicLayoutManagerFragment(R.layout.fragment_playlist
 
         binding.playAll.addSpringTouchFeedback()
         binding.shuffleBTN.addSpringTouchFeedback()
-        binding.searchBTN.addSpringTouchFeedback()
         binding.bookmark.addSpringTouchFeedback()
         binding.sortBTN.addSpringTouchFeedback()
         binding.optionsMenu.addSpringTouchFeedback()
-
-        setupSearchAndFilterChips()
 
         binding.playlistAppBar.addOnOffsetChangedListener { appBarLayout, verticalOffset ->
             val topC = headerTopColor ?: return@addOnOffsetChangedListener
@@ -211,6 +209,7 @@ class PlaylistFragment : DynamicLayoutManagerFragment(R.layout.fragment_playlist
             val binding = _binding ?: return@launch
 
             playlistFeed = response.relatedStreams.toMutableList()
+            invalidateSortedCache()
             nextPage = response.nextpage
             playlistName = response.name
             isLoading = false
@@ -370,6 +369,7 @@ class PlaylistFragment : DynamicLayoutManagerFragment(R.layout.fragment_playlist
                         BaseBottomSheet().apply {
                             setSimpleItems(sortOptions.toList()) { index ->
                                 selectedSortOrder = index
+                                invalidateSortedCache()
                                 PreferenceHelper.putInt(app.libre.constants.PreferenceKeys.DEFAULT_PLAYLIST_SORT_ORDER, index)
                                 PreferenceHelper.putInt("playlist_sort_$playlistId", index)
                                 binding.sortBTN.tooltipText = sortOptions[index]
@@ -427,177 +427,125 @@ class PlaylistFragment : DynamicLayoutManagerFragment(R.layout.fragment_playlist
         }
     }
 
+    private class SortablePlaylistItem(
+        val playlistItem: PlaylistItem,
+        val sortTitle: String,
+        val sortAlbum: String,
+        val trackNumber: Int,
+        val duration: Long
+    )
+
     private fun getSortedVideos(): List<PlaylistItem> {
-        // in addition to sorting, we need to make sure that the original index of the item
-        // is still known. We solve this by wrapping the StreamItems into PlaylistItems that contain
-        // an additional index attribute.
         val items = playlistFeed.mapIndexed { index, item -> PlaylistItem(item, index) }
 
-        return when {
-            selectedSortOrder in listOf(0, 1) || playlistType == PlaylistType.PUBLIC -> {
-                items
-            }
-
-            selectedSortOrder in listOf(2, 3) -> {
-                items.sortedBy { it.item.duration }
-            }
-
-            selectedSortOrder in listOf(4, 5) -> {
-                items.sortedBy { it.item.title }
-            }
-
-            else -> throw IllegalArgumentException()
-        }.let {
-            if (selectedSortOrder % 2 == 0) it else it.reversed()
+        if (playlistType == PlaylistType.PUBLIC && selectedSortOrder in listOf(0, 1)) {
+            return if (selectedSortOrder == 0) items else items.reversed()
         }
+
+        if (selectedSortOrder == 0) return items
+        if (selectedSortOrder == 1) return items.reversed()
+
+        val sortables = items.map { item ->
+            val videoId = item.item.url.orEmpty().toID()
+            val cachedTags = app.libre.helpers.LocalAudioMatcher.tagCache[videoId]
+                ?: app.libre.helpers.LocalAudioMatcher.tagCache[item.item.title.orEmpty()]
+            val title = cachedTags?.title ?: app.libre.helpers.LocalAudioMatcher.getTitleFromFile(videoId, item.item.title) ?: item.item.title.orEmpty()
+            val album = cachedTags?.album ?: app.libre.helpers.LocalAudioMatcher.getAlbumFromFile(videoId, item.item.title) ?: item.item.albumName.orEmpty()
+            val trackNumber = cachedTags?.trackNumber ?: app.libre.helpers.LocalAudioMatcher.getTrackNumberFromFile(videoId, item.item.title) ?: Int.MAX_VALUE
+            val duration = item.item.duration ?: 0L
+
+            SortablePlaylistItem(item, title, album, trackNumber, duration)
+        }
+
+        val sorted = when (selectedSortOrder) {
+            2 -> sortables.sortedBy { it.duration }
+            3 -> sortables.sortedByDescending { it.duration }
+            4 -> sortables.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.sortTitle })
+            5 -> sortables.sortedWith(compareByDescending(String.CASE_INSENSITIVE_ORDER) { it.sortTitle })
+            6 -> sortables.sortedWith(
+                compareBy<SortablePlaylistItem, String>(String.CASE_INSENSITIVE_ORDER) { it.sortAlbum }
+                    .thenBy { it.trackNumber }
+                    .thenBy(String.CASE_INSENSITIVE_ORDER) { it.sortTitle }
+            )
+            7 -> sortables.sortedWith(
+                compareByDescending<SortablePlaylistItem, String>(String.CASE_INSENSITIVE_ORDER) { it.sortAlbum }
+                    .thenBy { it.trackNumber }
+                    .thenBy(String.CASE_INSENSITIVE_ORDER) { it.sortTitle }
+            )
+            else -> sortables
+        }
+
+        return sorted.map { it.playlistItem }
+    }
+
+    private var cachedSortedVideos: List<PlaylistItem>? = null
+    private var cachedSearchList: List<Pair<PlaylistItem, String>>? = null
+
+    private fun invalidateSortedCache() {
+        cachedSortedVideos = null
+        cachedSearchList = null
+    }
+
+    private fun ensureSortedCache(): List<PlaylistItem> {
+        val existing = cachedSortedVideos
+        if (existing != null) return existing
+
+        val sorted = getSortedVideos()
+        cachedSortedVideos = sorted
+        cachedSearchList = sorted.map { item ->
+            val videoId = item.item.url.orEmpty().toID()
+            val tags = app.libre.helpers.LocalAudioMatcher.tagCache[videoId]
+                ?: app.libre.helpers.LocalAudioMatcher.tagCache[item.item.title.orEmpty()]
+
+            val genre = tags?.genre.orEmpty()
+            val albumArtist = tags?.albumArtist.orEmpty()
+            val artist = tags?.artist ?: item.item.uploaderName.orEmpty()
+            val album = tags?.album ?: item.item.albumName.orEmpty()
+            val year = tags?.year.orEmpty()
+            val isJio = app.libre.helpers.JioSaavnHelper.isJioSaavn(videoId)
+            val sourceText = if (isJio) "jiosaavn jio" else "youtube yt"
+
+            val combinedText = "${item.item.title.orEmpty()} ${item.item.uploaderName.orEmpty()} ${item.item.albumName.orEmpty()} $artist $album $year $genre $albumArtist $sourceText".lowercase(Locale.US)
+            item to combinedText
+        }
+        return sorted
     }
 
     private var filterJob: kotlinx.coroutines.Job? = null
 
     private fun showPlaylistVideos() {
         filterJob?.cancel()
-        val rawQuery = playlistViewModel.searchQuery.value?.trim()
+        val rawQuery = playlistViewModel.searchQuery.value?.trim()?.lowercase(Locale.US)
 
         if (rawQuery.isNullOrEmpty()) {
-            val videos = getSortedVideos()
-            playlistAdapter?.submitList(videos)
-            updatePlaylistDuration(videos)
-            return
+            val cached = cachedSortedVideos
+            if (cached != null) {
+                playlistAdapter?.submitList(cached)
+                updatePlaylistDuration(cached)
+                return
+            }
         }
 
         filterJob = viewLifecycleOwner.lifecycleScope.launch(Dispatchers.Default) {
-            val terms = rawQuery.split("\\s+".toRegex()).filter { it.isNotEmpty() }
-            val sorted = getSortedVideos()
-            val filtered = sorted.filter { item ->
-                val videoId = item.item.url.orEmpty().toID()
-                val tags = app.libre.helpers.LocalAudioMatcher.tagCache[videoId]
-                    ?: app.libre.helpers.LocalAudioMatcher.tagCache[item.item.title.orEmpty()]
-
-                val genre = tags?.genre.orEmpty()
-                val albumArtist = tags?.albumArtist.orEmpty()
-                val artist = tags?.artist ?: item.item.uploaderName.orEmpty()
-                val album = tags?.album ?: item.item.albumName.orEmpty()
-                val year = tags?.year.orEmpty()
-
-                val combinedText = "${item.item.title.orEmpty()} ${item.item.uploaderName.orEmpty()} ${item.item.albumName.orEmpty()} $artist $album $year $genre $albumArtist"
-                terms.all { term -> combinedText.contains(term, ignoreCase = true) }
-            }
-
-            withContext(Dispatchers.Main) {
-                playlistAdapter?.submitList(filtered)
-                updatePlaylistDuration(filtered)
-            }
-        }
-    }
-
-    private fun setupSearchAndFilterChips() {
-        val binding = _binding ?: return
-
-        binding.searchBTN.setOnClickListener {
-            val willBeVisible = !binding.searchContainer.isVisible
-            binding.searchContainer.isVisible = willBeVisible
-            if (willBeVisible) {
-                populateQuickFilterChips()
-                binding.playlistSearchInput.requestFocus()
-                val imm = requireContext().getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as? android.view.inputmethod.InputMethodManager
-                imm?.showSoftInput(binding.playlistSearchInput, 0)
+            val sorted = ensureSortedCache()
+            val result = if (rawQuery.isNullOrEmpty()) {
+                sorted
             } else {
-                binding.playlistSearchInput.setText("")
-                playlistViewModel.setQuery(null)
-                val imm = requireContext().getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as? android.view.inputmethod.InputMethodManager
-                imm?.hideSoftInputFromWindow(binding.playlistSearchInput.windowToken, 0)
-            }
-        }
-
-        binding.playlistSearchInput.addTextChangedListener(object : android.text.TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                val query = s?.toString().orEmpty()
-                binding.playlistSearchClear.isVisible = query.isNotEmpty()
-                playlistViewModel.setQuery(query.ifBlank { null })
-            }
-            override fun afterTextChanged(s: android.text.Editable?) {}
-        })
-
-        binding.playlistSearchClear.setOnClickListener {
-            binding.playlistSearchInput.setText("")
-            binding.playlistFilterChipGroup.clearCheck()
-            playlistViewModel.setQuery(null)
-        }
-    }
-
-    private fun populateQuickFilterChips() {
-        viewLifecycleOwner.lifecycleScope.launch(Dispatchers.Default) {
-            val genres = mutableSetOf<String>()
-            val years = mutableSetOf<String>()
-            val artists = mutableSetOf<String>()
-
-            playlistFeed.forEach { item ->
-                val videoId = item.url.orEmpty().toID()
-                val tags = app.libre.helpers.LocalAudioMatcher.tagCache[videoId]
-                    ?: app.libre.helpers.LocalAudioMatcher.tagCache[item.title.orEmpty()]
-
-                tags?.genre?.takeIf { it.isNotBlank() }?.let { genres.add(it) }
-                tags?.year?.takeIf { it.isNotBlank() }?.let { years.add(it) }
-                val displayArtist = (tags?.albumArtist ?: tags?.artist ?: item.uploaderName)
-                    ?.replace(Regex("""\s*-\s*Topic\b""", RegexOption.IGNORE_CASE), "")?.trim()
-                if (!displayArtist.isNullOrBlank()) {
-                    val primaryArtist = displayArtist.split(",").first().trim()
-                    if (primaryArtist.isNotEmpty()) artists.add(primaryArtist)
-                }
+                val terms = rawQuery.split("\\s+".toRegex()).filter { it.isNotEmpty() }
+                val searchList = cachedSearchList ?: emptyList()
+                searchList.filter { (_, combinedText) ->
+                    terms.all { term -> combinedText.contains(term) }
+                }.map { it.first }
             }
 
             withContext(Dispatchers.Main) {
-                val binding = _binding ?: return@withContext
-                val chipGroup = binding.playlistFilterChipGroup
-                chipGroup.removeAllViews()
-
-                // 1. "All" chip
-                addFilterChip("🎵 All") {
-                    binding.playlistSearchInput.setText("")
-                    playlistViewModel.setQuery(null)
-                }
-
-                // 2. Genre chips
-                genres.sorted().take(8).forEach { genre ->
-                    addFilterChip("🏷️ $genre") {
-                        binding.playlistSearchInput.setText(genre)
-                        playlistViewModel.setQuery(genre)
-                    }
-                }
-
-                // 3. Year chips
-                years.sortedDescending().take(8).forEach { year ->
-                    addFilterChip("📅 $year") {
-                        binding.playlistSearchInput.setText(year)
-                        playlistViewModel.setQuery(year)
-                    }
-                }
-
-                // 4. Artist chips
-                artists.sorted().take(8).forEach { artist ->
-                    addFilterChip("🎤 $artist") {
-                        binding.playlistSearchInput.setText(artist)
-                        playlistViewModel.setQuery(artist)
-                    }
-                }
+                playlistAdapter?.submitList(result)
+                updatePlaylistDuration(result)
             }
         }
     }
 
-    private fun addFilterChip(label: String, onClick: () -> Unit) {
-        val context = context ?: return
-        val chip = com.google.android.material.chip.Chip(context).apply {
-            text = label
-            isCheckable = true
-            isClickable = true
-            setEnsureMinTouchTargetSize(false)
-            setOnClickListener {
-                onClick()
-            }
-        }
-        binding.playlistFilterChipGroup.addView(chip)
-    }
+
 
     @SuppressLint("StringFormatInvalid")
     private fun removeFromPlaylist(sortedFeedPosition: Int) {
@@ -614,6 +562,7 @@ class PlaylistFragment : DynamicLayoutManagerFragment(R.layout.fragment_playlist
         // Keep master in-memory cache synchronized
         if (originalPlaylistPosition in playlistFeed.indices) {
             playlistFeed.removeAt(originalPlaylistPosition)
+            invalidateSortedCache()
         }
 
         // try to remove the video from the playlist and show an undo snackbar if successful
@@ -672,6 +621,7 @@ class PlaylistFragment : DynamicLayoutManagerFragment(R.layout.fragment_playlist
                 } else {
                     playlistFeed.add(streamItem)
                 }
+                invalidateSortedCache()
 
                 val playlistAdapter = playlistAdapter ?: return@launch
                 val updatedList = playlistAdapter.currentList.toMutableList()

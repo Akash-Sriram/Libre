@@ -58,8 +58,10 @@ class PlaylistAdapter(
         val fragmentManager = activity.supportFragmentManager
 
         with(holder.binding) {
+            val localTitle = app.libre.helpers.LocalAudioMatcher.getTitleFromFile(videoId, streamItem.title)
+            val baseTitle = (localTitle ?: streamItem.title).orEmpty()
             val trackNumber = app.libre.helpers.LocalAudioMatcher.getTrackNumberFromFile(videoId, streamItem.title)
-            val displayTitle = app.libre.helpers.LocalAudioMatcher.formatTitleWithTrackNumber(streamItem.title.orEmpty(), trackNumber)
+            val displayTitle = app.libre.helpers.LocalAudioMatcher.formatTitleWithTrackNumber(baseTitle, trackNumber)
 
             val isCurrent = PlayingQueue.getCurrent()?.url?.toID() == videoId
             if (isCurrent) {
@@ -88,6 +90,14 @@ class PlaylistAdapter(
                 }
             }
             channelName.text = subtitleText
+
+            val isJioSaavn = app.libre.helpers.JioSaavnHelper.isJioSaavn(videoId)
+            sourceBadge.text = if (isJioSaavn) "JioSaavn" else "YouTube"
+            val badgeColor = if (isJioSaavn) android.graphics.Color.parseColor("#00B368") else android.graphics.Color.parseColor("#E53935")
+            val badgeBg = if (isJioSaavn) android.graphics.Color.parseColor("#2200B368") else android.graphics.Color.parseColor("#22E53935")
+            sourceBadge.setTextColor(badgeColor)
+            sourceBadge.backgroundTintList = android.content.res.ColorStateList.valueOf(badgeBg)
+            sourceBadge.isVisible = true
 
             streamItem.duration?.let {
                 thumbnailDuration.setFormattedDuration(it, streamItem.isShort, streamItem.uploaded)
