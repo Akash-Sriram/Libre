@@ -29,16 +29,6 @@ object PreferenceHelper {
     lateinit var settings: SharedPreferences
 
     /**
-     * For sensitive data (like token)
-     */
-    private lateinit var authSettings: SharedPreferences
-
-    /**
-     * Possible chars to use for the SB User ID
-     */
-    private const val USER_ID_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"
-
-    /**
      * Migrations required to migrate the application to a newer preference version.
      * The version is automatically determined from the number of migrations available.
      */
@@ -156,7 +146,6 @@ object PreferenceHelper {
      */
     fun initialize(context: Context) {
         settings = getDefaultSharedPreferences(context)
-        authSettings = getAuthenticationPreferences(context)
     }
 
     /**
@@ -230,69 +219,12 @@ object PreferenceHelper {
         settings.edit { clear() }
     }
 
-    fun getToken(): String {
-        return authSettings.getString(PreferenceKeys.TOKEN, "")!!
-    }
-
-    fun setToken(newValue: String) {
-        authSettings.edit { putString(PreferenceKeys.TOKEN, newValue) }
-    }
-
-    fun getUsername(): String {
-        return authSettings.getString(PreferenceKeys.USERNAME, "")!!
-    }
-
-    fun setUsername(newValue: String) {
-        authSettings.edit { putString(PreferenceKeys.USERNAME, newValue) }
-    }
-
-    fun updateLastFeedWatchedTime(time: Long, seenByUser: Boolean) {
-        // only update the time if the time is newer
-        // this avoids cases, where the user last saw an older video, which had already been seen,
-        // causing all following video to be incorrectly marked as unseen again
-        if (getLastCheckedFeedTime(false) < time)
-            putLong(PreferenceKeys.LAST_REFRESHED_FEED_TIME, time)
-
-        // this value holds the last time the user opened the subscriptions feed
-        // whereas [LAST_REFRESHED_FEED_TIME] considers the last time the feed was loaded,
-        // which could also be possible in the background (e.g. via notifications)
-        if (seenByUser && getLastCheckedFeedTime(true) < time)
-            putLong(PreferenceKeys.LAST_USER_SEEN_FEED_TIME, time)
-    }
-
-    fun getLastCheckedFeedTime(seenByUser: Boolean): Long {
-        val key =
-            if (seenByUser) PreferenceKeys.LAST_USER_SEEN_FEED_TIME else PreferenceKeys.LAST_REFRESHED_FEED_TIME
-        return getLong(key, 0)
-    }
-
     fun saveErrorLog(log: String) {
         putString(PreferenceKeys.ERROR_LOG, log)
     }
 
     fun getErrorLog(): String {
         return getString(PreferenceKeys.ERROR_LOG, "")
-    }
-
-    fun getIgnorableNotificationChannels(): List<String> {
-        return getString(PreferenceKeys.IGNORED_NOTIFICATION_CHANNELS, "").split(",")
-    }
-
-    fun isChannelNotificationIgnorable(channelId: String): Boolean {
-        return getIgnorableNotificationChannels().any { it == channelId }
-    }
-
-    fun toggleIgnorableNotificationChannel(channelId: String) {
-        val ignorableChannels = getIgnorableNotificationChannels().toMutableList()
-        if (ignorableChannels.contains(channelId)) {
-            ignorableChannels.remove(channelId)
-        } else {
-            ignorableChannels.add(channelId)
-        }
-        settings.edit {
-            val channelsString = ignorableChannels.joinToString(",")
-            putString(PreferenceKeys.IGNORED_NOTIFICATION_CHANNELS, channelsString)
-        }
     }
 
     fun getTrendingRegion(context: Context): String {
@@ -308,9 +240,5 @@ object PreferenceHelper {
 
     private fun getDefaultSharedPreferences(context: Context): SharedPreferences {
         return PreferenceManager.getDefaultSharedPreferences(context)
-    }
-
-    private fun getAuthenticationPreferences(context: Context): SharedPreferences {
-        return context.getSharedPreferences(PreferenceKeys.AUTH_PREF_FILE, Context.MODE_PRIVATE)
     }
 }

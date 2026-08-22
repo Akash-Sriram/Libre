@@ -18,8 +18,7 @@ import kotlinx.coroutines.withContext
 object PlaylistsHelper {
     const val MAX_CONCURRENT_IMPORT_CALLS = 5
 
-    private val token get() = PreferenceHelper.getToken()
-    val loggedIn: Boolean get() = token.isNotEmpty()
+    val loggedIn: Boolean get() = false
     private val playlistsRepository: PlaylistRepository
         get() = LocalPlaylistsRepository()
 

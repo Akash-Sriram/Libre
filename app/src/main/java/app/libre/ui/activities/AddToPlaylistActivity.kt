@@ -38,18 +38,14 @@ class AddToPlaylistActivity : BaseActivity() {
         ) { _, _ -> finish() }
 
         lifecycleScope.launch(Dispatchers.IO) {
-            val videoInfo = if (PreferenceHelper.getToken().isEmpty()) {
-                try {
-                    MediaServiceRepository.instance.getStreams(videoId).toStreamItem(videoId)
-                } catch (e: Exception) {
-                    toastFromMainDispatcher(R.string.unknown_error)
-                    withContext(Dispatchers.Main) {
-                        finish()
-                    }
-                    return@launch
+            val videoInfo = try {
+                MediaServiceRepository.instance.getStreams(videoId).toStreamItem(videoId)
+            } catch (e: Exception) {
+                toastFromMainDispatcher(R.string.unknown_error)
+                withContext(Dispatchers.Main) {
+                    finish()
                 }
-            } else {
-                StreamItem(videoId)
+                return@launch
             }
 
             withContext(Dispatchers.Main) {
