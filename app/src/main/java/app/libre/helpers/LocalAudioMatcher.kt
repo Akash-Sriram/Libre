@@ -169,17 +169,8 @@ object LocalAudioMatcher {
                     val rawTrack = if (trackCol >= 0) cursor.getInt(trackCol) else 0
                     val trackNumber = if (rawTrack > 0) rawTrack % 1000 else null
                     val albumArtist = if (albumArtistCol >= 0) normalizeArtistString(cursor.getString(albumArtistCol)) else null
-                    val genre = if (genreCol >= 0) cursor.getString(genreCol)?.trim() else null
-
-                    if (videoId != null) {
-                        if (videoId !in alreadyKnown && videoId !in newlyFound) {
-                            newlyFound[videoId] = file.absolutePath
-                            Log.i(TAG, "MediaStore Match: ${file.name} -> $videoId")
-                        }
-                        if (artist != null || album != null || year != null || trackNumber != null || albumArtist != null || genre != null) {
-                            tagCache[videoId] = LocalAudioTags(artist, album, year, trackNumber, albumArtist, genre)
-                        }
-                    }
+                    val genre = (if (genreCol >= 0) cursor.getString(genreCol)?.trim() else null)
+                        ?.takeIf { it.isNotBlank() } ?: extractGenreFromBinary(file.absolutePath)
 
                     // Index for fuzzy title search
                     val normalizedTitle = normalizeTitle(rawTitle ?: file.nameWithoutExtension)
@@ -189,6 +180,21 @@ object LocalAudioMatcher {
                     val normalizedFileName = normalizeTitle(file.nameWithoutExtension)
                     if (normalizedFileName.isNotEmpty() && normalizedFileName != normalizedTitle) {
                         titleToPathMap[normalizedFileName] = file.absolutePath
+                    }
+
+                    val tags = LocalAudioTags(artist, album, year, trackNumber, albumArtist, genre)
+                    if (videoId != null) {
+                        if (videoId !in alreadyKnown && videoId !in newlyFound) {
+                            newlyFound[videoId] = file.absolutePath
+                            Log.i(TAG, "MediaStore Match: ${file.name} -> $videoId")
+                        }
+                        tagCache[videoId] = tags
+                    }
+                    if (normalizedTitle.isNotEmpty()) {
+                        tagCache[normalizedTitle] = tags
+                    }
+                    if (normalizedFileName.isNotEmpty() && normalizedFileName != normalizedTitle) {
+                        tagCache[normalizedFileName] = tags
                     }
                 }
             }
@@ -486,7 +492,7 @@ object LocalAudioMatcher {
         val genre: String? = null
     )
 
-    private val tagCache = ConcurrentHashMap<String, LocalAudioTags>()
+    val tagCache = ConcurrentHashMap<String, LocalAudioTags>()
 
     fun normalizeArtistString(raw: String?): String? {
         if (raw.isNullOrBlank()) return null

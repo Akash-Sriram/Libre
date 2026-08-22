@@ -139,6 +139,25 @@
                         app:iconSize="18dp" />
 
                     <com.google.android.material.button.MaterialButton
+                        android:id="@+id/searchBTN"
+                        style="?materialIconButtonFilledTonalStyle"
+                        android:layout_width="42dp"
+                        android:layout_height="42dp"
+                        android:layout_marginEnd="6dp"
+                        android:insetLeft="0dp"
+                        android:insetTop="0dp"
+                        android:insetRight="0dp"
+                        android:insetBottom="0dp"
+                        android:padding="0dp"
+                        android:contentDescription="@string/search_hint"
+                        app:cornerRadius="21dp"
+                        app:icon="@drawable/ic_search"
+                        app:iconGravity="textStart"
+                        app:iconPadding="0dp"
+                        app:iconTint="?attr/colorPrimary"
+                        app:iconSize="20dp" />
+
+                    <com.google.android.material.button.MaterialButton
                         android:id="@+id/bookmark"
                         style="?materialIconButtonFilledTonalStyle"
                         android:layout_width="42dp"
@@ -195,6 +214,77 @@
                         app:iconPadding="0dp"
                         app:iconTint="?attr/colorOnSurfaceVariant"
                         app:iconSize="20dp" />
+
+                </LinearLayout>
+
+                <!-- Inline Search & Filter Bar with Quick Chips -->
+                <LinearLayout
+                    android:id="@+id/searchContainer"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:orientation="vertical"
+                    android:visibility="gone">
+
+                    <!-- Search Input Box -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="44dp"
+                        android:background="@drawable/search_bar_bg"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:paddingHorizontal="12dp">
+
+                        <ImageView
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            android:src="@drawable/ic_search"
+                            app:tint="?attr/colorPrimary" />
+
+                        <EditText
+                            android:id="@+id/playlistSearchInput"
+                            android:layout_width="0dp"
+                            android:layout_height="match_parent"
+                            android:layout_weight="1"
+                            android:background="@null"
+                            android:hint="@string/search_hint"
+                            android:imeOptions="actionDone"
+                            android:inputType="text"
+                            android:maxLines="1"
+                            android:paddingHorizontal="8dp"
+                            android:textColor="?android:attr/textColorPrimary"
+                            android:textColorHint="?android:attr/textColorSecondary"
+                            android:textSize="14sp" />
+
+                        <ImageView
+                            android:id="@+id/playlistSearchClear"
+                            android:layout_width="24dp"
+                            android:layout_height="24dp"
+                            android:background="?selectableItemBackgroundBorderless"
+                            android:contentDescription="@null"
+                            android:padding="4dp"
+                            android:src="@drawable/ic_close"
+                            android:visibility="gone"
+                            app:tint="?attr/colorOnSurfaceVariant" />
+
+                    </LinearLayout>
+
+                    <!-- Quick Filter Chips (One-Tap Genre / Year / Artist filtering) -->
+                    <HorizontalScrollView
+                        android:id="@+id/filterChipsScroll"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:scrollbars="none">
+
+                        <com.google.android.material.chip.ChipGroup
+                            android:id="@+id/playlistFilterChipGroup"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            app:singleLine="true"
+                            app:singleSelection="true" />
+
+                    </HorizontalScrollView>
 
                 </LinearLayout>
 

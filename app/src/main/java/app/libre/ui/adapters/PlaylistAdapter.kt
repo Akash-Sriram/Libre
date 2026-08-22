@@ -58,7 +58,7 @@ class PlaylistAdapter(
         val fragmentManager = activity.supportFragmentManager
 
         with(holder.binding) {
-            val trackNumber = if (isLocalPlaylist) app.libre.helpers.LocalAudioMatcher.getTrackNumberFromFile(videoId, streamItem.title) else null
+            val trackNumber = app.libre.helpers.LocalAudioMatcher.getTrackNumberFromFile(videoId, streamItem.title)
             val displayTitle = app.libre.helpers.LocalAudioMatcher.formatTitleWithTrackNumber(streamItem.title.orEmpty(), trackNumber)
 
             val isCurrent = PlayingQueue.getCurrent()?.url?.toID() == videoId
@@ -71,8 +71,8 @@ class PlaylistAdapter(
                 videoTitle.setTextColor(defaultTextColor)
                 videoTitle.text = displayTitle
             }
-            val localAlbum = if (isLocalPlaylist) app.libre.helpers.LocalAudioMatcher.getAlbumFromFile(videoId, streamItem.title) else null
-            val localYear = if (isLocalPlaylist) app.libre.helpers.LocalAudioMatcher.getYearFromFile(videoId, streamItem.title) else null
+            val localAlbum = app.libre.helpers.LocalAudioMatcher.getAlbumFromFile(videoId, streamItem.title)
+            val localYear = app.libre.helpers.LocalAudioMatcher.getYearFromFile(videoId, streamItem.title)
 
             val album = localAlbum ?: streamItem.albumName.orEmpty().trim()
             val year = localYear
@@ -82,7 +82,7 @@ class PlaylistAdapter(
                 album.isNotEmpty() -> album
                 !year.isNullOrBlank() -> year
                 else -> {
-                    val localArtist = if (isLocalPlaylist) app.libre.helpers.LocalAudioMatcher.getArtistFromFile(videoId, streamItem.title) else null
+                    val localArtist = app.libre.helpers.LocalAudioMatcher.getArtistFromFile(videoId, streamItem.title)
                     val rawArtist = (localArtist ?: streamItem.uploaderName.orEmpty()).replace(Regex("""\s*-\s*Topic\b""", RegexOption.IGNORE_CASE), "").trim()
                     app.libre.helpers.LocalAudioMatcher.normalizeArtistString(rawArtist) ?: rawArtist
                 }

@@ -302,6 +302,8 @@ class MainActivity : AbstractPlayerHostActivity() {
         searchAutoComplete?.hint = getString(R.string.search_hint)
         searchAutoComplete?.textSize = 15f
         searchAutoComplete?.setPadding(12f.dpToPx(), 0, 8f.dpToPx(), 0)
+        searchAutoComplete?.setTextColor(ThemeHelper.getThemeColor(this, com.google.android.material.R.attr.colorOnSurface))
+        searchAutoComplete?.setHintTextColor(ThemeHelper.getThemeColor(this, com.google.android.material.R.attr.colorOutline))
 
         val searchPlate = searchView.findViewById<View>(androidx.appcompat.R.id.search_plate)
         searchPlate?.setBackgroundColor(android.graphics.Color.TRANSPARENT)
@@ -416,6 +418,11 @@ class MainActivity : AbstractPlayerHostActivity() {
             }
 
             override fun onQueryTextChange(newText: String?): Boolean {
+                if (currentSearchType == SearchType.PLAYLIST) {
+                    playlistViewModel.setQuery(newText)
+                    return true
+                }
+
                 if (!shouldOpenSuggestions) return true
 
                 // Prevent navigation when search view is collapsed
@@ -433,21 +440,13 @@ class MainActivity : AbstractPlayerHostActivity() {
                     return false
                 }
 
-                when (currentSearchType) {
-                    SearchType.ONLINE -> {
-                        if (navController.currentDestination?.id != R.id.searchFragment) {
-                            navController.navigate(
-                                R.id.searchFragment,
-                                Bundle().apply { putString(IntentData.query, newText) }
-                            )
-                        } else {
-                            searchViewModel.setQuery(newText)
-                        }
-                    }
-
-                    SearchType.PLAYLIST -> {
-                        playlistViewModel.setQuery(newText)
-                    }
+                if (navController.currentDestination?.id != R.id.searchFragment) {
+                    navController.navigate(
+                        R.id.searchFragment,
+                        Bundle().apply { putString(IntentData.query, newText) }
+                    )
+                } else {
+                    searchViewModel.setQuery(newText)
                 }
 
                 return true
@@ -465,6 +464,11 @@ class MainActivity : AbstractPlayerHostActivity() {
                 )
                 searchView.isIconified = false
                 menu.findItem(R.id.action_settings)?.isVisible = false
+                searchView.post {
+                    searchView.requestFocus()
+                    val imm = getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as? android.view.inputmethod.InputMethodManager
+                    imm?.showSoftInput(searchAutoComplete, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
+                }
                 return true
             }
 
