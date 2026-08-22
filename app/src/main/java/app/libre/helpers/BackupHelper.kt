@@ -262,15 +262,7 @@ object BackupHelper {
                     is Boolean -> putBoolean(key, value)
                     is Float -> putFloat(key, value)
                     is Long -> putLong(key, value)
-                    is Int -> {
-                        // we only use integers for SponsorBlock colors
-                        if ("_color" in key.orEmpty()) {
-                            putInt(key, value)
-                        } else {
-                            putLong(key, value.toLong())
-                        }
-                    }
-
+                    is Int -> putInt(key, value)
                     is String -> {
                         if (
                             key == PreferenceKeys.SELECTED_FEED_FILTERS
@@ -282,6 +274,17 @@ object BackupHelper {
                     }
                 }
             }
+        }
+
+        // Re-index local audio if an offline songs folder was restored
+        val offlineUri = PreferenceHelper.getString(PreferenceKeys.OFFLINE_SONGS_FOLDER_URI, "")
+        if (offlineUri.isNotEmpty()) {
+            LocalAudioMatcher.startAutoScan(context)
+        }
+
+        // Re-schedule 24h auto backup if enabled and backup folder is present
+        if (PreferenceHelper.getBoolean(PreferenceKeys.ENABLE_AUTO_BACKUP, true) && getBackupFolder(context) != null) {
+            enqueueAutoBackupWork(context)
         }
 
 
