@@ -294,6 +294,57 @@ object PlayingQueue {
 
         add(*streams.filter { !it.isLive }.toTypedArray(), skipExisting = true)
     }
+
+    /**
+     * Smart artist-spaced shuffle: shuffles items such that tracks by the same artist/uploader
+     * are distributed evenly across the queue rather than clustered sequentially.
+     */
+    fun smartShuffleList(items: List<StreamItem>): List<StreamItem> {
+        if (items.size <= 2) return items.shuffled()
+
+        val artistBuckets = items.groupBy { (it.uploaderName ?: "").trim().lowercase() }
+            .values
+            .map { it.shuffled().toMutableList() }
+            .sortedByDescending { it.size }
+            .toMutableList()
+
+        val result = mutableListOf<StreamItem>()
+        var lastArtist = ""
+
+        while (artistBuckets.isNotEmpty()) {
+            val candidateIndex = artistBuckets.indexOfFirst {
+                (it.firstOrNull()?.uploaderName ?: "").trim().lowercase() != lastArtist
+            }
+
+            val chosenBucketIndex = if (candidateIndex != -1) candidateIndex else 0
+            val chosenBucket = artistBuckets[chosenBucketIndex]
+            val item = chosenBucket.removeAt(0)
+            result.add(item)
+            lastArtist = (item.uploaderName ?: "").trim().lowercase()
+
+            if (chosenBucket.isEmpty()) {
+                artistBuckets.removeAt(chosenBucketIndex)
+            } else {
+                artistBuckets.sortByDescending { it.size }
+            }
+        }
+        return result
+    }
+
+    /**
+     * Shuffles all upcoming songs after the currently playing song using smart artist-spacing.
+     */
+    fun shuffleUpcoming(): List<StreamItem> = synchronized(queue) {
+        val currentIndex = currentIndex()
+        val currentAndPast = queue.filterIndexed { index, _ -> index <= currentIndex }
+        val upcoming = queue.filterIndexed { index, _ -> index > currentIndex }
+        if (upcoming.isEmpty()) return queue.toList()
+
+        val shuffledUpcoming = smartShuffleList(upcoming)
+        val newQueue = currentAndPast + shuffledUpcoming
+        setStreams(newQueue)
+        return newQueue
+    }
 }
 
 enum class PlayingQueueMode {

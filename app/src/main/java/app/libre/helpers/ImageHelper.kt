@@ -19,7 +19,6 @@ import coil3.request.crossfade
 import coil3.toBitmap
 import app.libre.BuildConfig
 import app.libre.extensions.toAndroidUri
-import app.libre.util.DataSaverMode
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -111,14 +110,7 @@ object ImageHelper {
         // clear image to avoid loading issues at fast scrolling
         target.setImageDrawable(null)
 
-        val urlToLoad = ProxyHelper.rewriteUrlUsingProxyPreference(url)
-
-        // only load online images if the data saver mode is disabled
-        if (DataSaverMode.isEnabled(target.context)) {
-            if (urlToLoad.startsWith(HTTP_SCHEME) && !isCached(urlToLoad)) return
-        }
-
-        target.load(urlToLoad) {
+        target.load(url) {
             listener(
                 onSuccess = { _, _ ->
                     // set the background to white for transparent images

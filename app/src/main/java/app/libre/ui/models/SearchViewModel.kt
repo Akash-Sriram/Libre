@@ -4,10 +4,8 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.libre.api.MediaServiceRepository
-import app.libre.constants.PreferenceKeys
 import app.libre.db.DatabaseHolder
 import app.libre.enums.SearchDataType
-import app.libre.helpers.PreferenceHelper
 import app.libre.obj.SearchDataItem
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -34,7 +32,7 @@ class SearchViewModel : ViewModel() {
     private val sharingStarted = SharingStarted.WhileSubscribed(replayExpirationMillis = 0L)
 
     private val isSearchSuggestionEnabled = flow {
-        emit(PreferenceHelper.getBoolean(PreferenceKeys.SEARCH_SUGGESTIONS, true))
+        emit(true)
     }
         .stateIn(viewModelScope, sharingStarted, true)
 

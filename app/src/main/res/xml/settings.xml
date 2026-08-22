@@ -22,6 +22,7 @@
             app:summary="@string/backup_folder_summary_not_set" />
 
         <SwitchPreferenceCompat
+            android:icon="@drawable/ic_auto_backup"
             app:defaultValue="true"
             app:key="enable_auto_backup"
             app:title="Auto Backup (24h)"

@@ -37,8 +37,21 @@ class PlayingQueueAdapter(
 
         holder.binding.apply {
             ImageHelper.loadImage(streamItem.thumbnail, thumbnail)
-            title.text = streamItem.title
-            videoInfo.text = streamItem.uploaderName.orEmpty().ifEmpty { streamItem.albumName.orEmpty() }
+            val videoId = streamItem.url.orEmpty().toID()
+            val localArtist = app.libre.helpers.LocalAudioMatcher.getArtistFromFile(videoId, streamItem.title)
+            val localAlbum = app.libre.helpers.LocalAudioMatcher.getAlbumFromFile(videoId, streamItem.title)
+
+            val rawArtist = localArtist
+                ?: streamItem.uploaderName.orEmpty().replace(Regex("""\s*-\s*Topic\b""", RegexOption.IGNORE_CASE), "").trim()
+            val displayArtist = app.libre.helpers.LocalAudioMatcher.normalizeArtistString(rawArtist).orEmpty()
+            val displayAlbum = localAlbum ?: streamItem.albumName.orEmpty().trim()
+
+            videoInfo.text = when {
+                displayArtist.isNotEmpty() && displayAlbum.isNotEmpty() && !displayArtist.equals(displayAlbum, ignoreCase = true) -> "$displayArtist • $displayAlbum"
+                displayArtist.isNotEmpty() -> displayArtist
+                displayAlbum.isNotEmpty() -> displayAlbum
+                else -> ""
+            }
             duration.text = DateUtils.formatElapsedTime(streamItem.duration ?: 0)
 
             if (isCurrent) {

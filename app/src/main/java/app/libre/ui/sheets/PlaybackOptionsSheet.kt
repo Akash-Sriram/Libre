@@ -10,7 +10,6 @@ import androidx.media3.common.PlaybackParameters
 import androidx.media3.session.MediaController
 import androidx.recyclerview.widget.LinearLayoutManager
 import app.libre.R
-import app.libre.constants.PreferenceKeys
 import app.libre.databinding.PlaybackBottomSheetBinding
 import app.libre.enums.PlayerCommand
 import app.libre.extensions.round
@@ -89,7 +88,7 @@ class PlaybackOptionsSheet(
             clearEditTextFocusAndHideKeyboard()
         }
 
-        PreferenceHelper.getBoolean(PreferenceKeys.SKIP_SILENCE, false).let {
+        PreferenceHelper.getBoolean("skip_silence", false).let {
             binding.skipSilence.isChecked = it
         }
 
@@ -112,7 +111,7 @@ class PlaybackOptionsSheet(
                 AbstractPlayerService.runPlayerActionCommand,
                 Bundle().apply { putBoolean(PlayerCommand.SKIP_SILENCE.name, isChecked) }
             )
-            PreferenceHelper.putBoolean(PreferenceKeys.SKIP_SILENCE, isChecked)
+            PreferenceHelper.putBoolean("skip_silence", isChecked)
         }
     }
 
@@ -130,7 +129,7 @@ class PlaybackOptionsSheet(
         binding.pitchResetButton.isGone = binding.pitch.value == 0f
 
         val currentSpeed = player.playbackParameters.speed.toString()
-        PreferenceHelper.putString(PreferenceKeys.PLAYBACK_SPEED, currentSpeed)
+        PreferenceHelper.putString("playback_speed", currentSpeed)
     }
 
     private fun clearEditTextFocusAndHideKeyboard() {

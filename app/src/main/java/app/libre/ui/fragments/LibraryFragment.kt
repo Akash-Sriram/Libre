@@ -19,7 +19,6 @@ import app.libre.R
 import app.libre.api.PlaylistsHelper
 import app.libre.api.obj.Playlists
 import app.libre.constants.IntentData
-import app.libre.constants.PreferenceKeys
 import app.libre.databinding.FragmentLibraryBinding
 import app.libre.db.DatabaseHolder
 import app.libre.extensions.TAG
@@ -102,7 +101,7 @@ class LibraryFragment : DynamicLayoutManagerFragment(R.layout.fragment_library) 
         val sortOptions = resources.getStringArray(R.array.playlistSortingOptions)
         val sortOptionValues = resources.getStringArray(R.array.playlistSortingOptionsValues)
         val order = PreferenceHelper.getString(
-            PreferenceKeys.PLAYLISTS_ORDER,
+            "playlists_order",
             sortOptionValues.first()
         )
         val orderIndex = sortOptionValues.indexOf(order)
@@ -113,7 +112,7 @@ class LibraryFragment : DynamicLayoutManagerFragment(R.layout.fragment_library) 
                 setSimpleItems(sortOptions.toList()) { index ->
                     binding.sortTV.text = sortOptions[index]
                     val value = sortOptionValues[index]
-                    PreferenceHelper.putString(PreferenceKeys.PLAYLISTS_ORDER, value)
+                    PreferenceHelper.putString("playlists_order", value)
                     fetchPlaylists()
                 }
             }.show(childFragmentManager)

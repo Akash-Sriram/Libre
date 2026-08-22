@@ -25,9 +25,7 @@ import kotlinx.serialization.json.decodeFromStream
 import kotlinx.serialization.json.encodeToStream
 
 object ImportHelper {
-    private const val IMPORT_THUMBNAIL_QUALITY = "mqdefault"
     private const val VIDEO_ID_LENGTH = 11
-    private const val YOUTUBE_IMG_URL = "https://img.youtube.com"
 
     // format: playlistName-videos.csv, where "videos" could also be i18ned to a different language
     private val csvPlaylistNameRegex = Regex("""(.*)-(\w+)\.csv""")

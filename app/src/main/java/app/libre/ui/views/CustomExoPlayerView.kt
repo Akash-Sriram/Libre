@@ -40,7 +40,6 @@ import androidx.media3.ui.SubtitleView
 import androidx.media3.ui.TimeBar
 import app.libre.R
 import app.libre.constants.IntentData
-import app.libre.constants.PreferenceKeys
 import app.libre.databinding.CustomExoPlayerViewTemplateBinding
 import app.libre.databinding.DoubleTapOverlayBinding
 import app.libre.databinding.ExoStyledPlayerControlViewBinding
@@ -117,12 +116,12 @@ class CustomExoPlayerView(
     private var resizeModePref: Int
         set(value) {
             PreferenceHelper.putInt(
-                PreferenceKeys.PLAYER_RESIZE_MODE,
+                "current_player_resize_mode",
                 value
             )
         }
         get() = PreferenceHelper.getInt(
-            PreferenceKeys.PLAYER_RESIZE_MODE,
+            "current_player_resize_mode",
             AspectRatioFrameLayout.RESIZE_MODE_FIT
         )
     private val resizeModes = listOf(
@@ -322,6 +321,7 @@ class CustomExoPlayerView(
 
 
         binding.playPauseBTN.setOnClickListener {
+            it.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP)
             player.togglePlayPauseState()
         }
 
@@ -384,8 +384,6 @@ class CustomExoPlayerView(
     }
 
     private fun syncQueueButtons() {
-        if (!PlayerHelper.skipButtonsEnabled) return
-
         // toggle the visibility of next and prev buttons based on queue and whether the player view is locked
         binding.skipPrev.isInvisible = !PlayingQueue.hasPrev() || isPlayerLocked
         binding.skipNext.isInvisible = !PlayingQueue.hasNext() || isPlayerLocked
@@ -460,12 +458,12 @@ class CustomExoPlayerView(
 
     private fun updateDisplayedDurationType(showTimeLeft: Boolean? = null) {
         var shouldShowTimeLeft = showTimeLeft ?: PreferenceHelper
-            .getBoolean(PreferenceKeys.SHOW_TIME_LEFT, false)
+            .getBoolean("show_time_left", false)
         // always show the time left only if it's a livestream
         if (playerCallback.isVideoLive()) shouldShowTimeLeft = true
         if (showTimeLeft != null) {
             // save whether to show time left or duration for next session
-            PreferenceHelper.putBoolean(PreferenceKeys.SHOW_TIME_LEFT, shouldShowTimeLeft)
+            PreferenceHelper.putBoolean("show_time_left", shouldShowTimeLeft)
         }
         binding.timeLeft.isVisible = shouldShowTimeLeft
         binding.duration.isGone = shouldShowTimeLeft
@@ -1209,27 +1207,16 @@ class CustomExoPlayerView(
     }
 
     override fun onSwipeLeftScreen(distanceY: Float, positionY: Float) {
-        if (!PlayerHelper.swipeGestureEnabled) {
-            if (PlayerHelper.fullscreenGesturesEnabled) onSwipeCenterScreen(distanceY, positionY)
-            return
-        }
-
         if (isControllerFullyVisible) hideController()
         updateBrightness(distanceY)
     }
 
     override fun onSwipeRightScreen(distanceY: Float, positionY: Float) {
-        if (!PlayerHelper.swipeGestureEnabled) {
-            if (PlayerHelper.fullscreenGesturesEnabled) onSwipeCenterScreen(distanceY, positionY)
-            return
-        }
-
         if (isControllerFullyVisible) hideController()
         updateVolume(distanceY)
     }
 
     override fun onSwipeCenterScreen(distanceY: Float, positionY: Float) {
-        if (!PlayerHelper.fullscreenGesturesEnabled) return
         fullscreenGestureAnimationController.onSwipe(distanceY, positionY)
     }
 
@@ -1240,7 +1227,6 @@ class CustomExoPlayerView(
     }
 
     override fun onZoom() {
-        if (!PlayerHelper.pinchGestureEnabled) return
         resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
 
         if (resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE) {
@@ -1249,15 +1235,12 @@ class CustomExoPlayerView(
     }
 
     override fun onMinimize() {
-        if (!PlayerHelper.pinchGestureEnabled) return
         resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
 
         subtitleView?.setBottomPaddingFraction(SubtitleView.DEFAULT_BOTTOM_PADDING_FRACTION)
     }
 
     override fun onLongPress() {
-        if (!PlayerHelper.longPressFastForward) return
-
         backgroundBinding.fastForwardView.isVisible = true
         val player = player ?: return
 
@@ -1278,8 +1261,6 @@ class CustomExoPlayerView(
     }
 
     override fun onLongPressEnd() {
-        if (!PlayerHelper.longPressFastForward) return
-
         backgroundBinding.fastForwardView.isGone = true
 
         val player = player ?: return
@@ -1291,9 +1272,7 @@ class CustomExoPlayerView(
 
     override fun onFullscreenChange(isFullscreen: Boolean) {
         if (isFullscreen) {
-            if (PlayerHelper.swipeGestureEnabled) {
-                brightnessHelper.restoreSavedBrightness()
-            }
+            brightnessHelper.restoreSavedBrightness()
             subtitleView?.setFixedTextSize(
                 Cue.TEXT_SIZE_TYPE_ABSOLUTE,
                 PlayerHelper.captionsTextSize * 1.5f
@@ -1302,9 +1281,7 @@ class CustomExoPlayerView(
                 subtitleView?.setBottomPaddingFraction(SUBTITLE_BOTTOM_PADDING_FRACTION)
             }
         } else {
-            if (PlayerHelper.swipeGestureEnabled) {
-                brightnessHelper.resetToSystemBrightness()
-            }
+            brightnessHelper.resetToSystemBrightness()
             subtitleView?.setFixedTextSize(
                 Cue.TEXT_SIZE_TYPE_ABSOLUTE,
                 PlayerHelper.captionsTextSize
@@ -1398,7 +1375,7 @@ class CustomExoPlayerView(
             // set default caption language from preferences if caption language is available
             val captions = PlayerHelper.getCaptionTracks(player)
             val defaultLangCaption =
-                captions.firstOrNull { it.language == PlayerHelper.defaultSubtitleCode }
+                captions.firstOrNull { it.language == "en" }
 
             updateCurrentSubtitle(defaultLangCaption?.id)
 

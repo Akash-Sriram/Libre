@@ -56,10 +56,10 @@
             android:layout_height="wrap_content"
             android:ellipsize="end"
             android:fontFamily="sans-serif-medium"
-            android:maxLines="2"
+            android:maxLines="1"
             android:textAppearance="?attr/textAppearanceBodyLarge"
             android:textColor="?attr/colorOnSurface"
-            android:textSize="15sp"
+            android:textSize="14.5sp"
             tools:text="Oru Sandhana Kaattukkulle" />
 
         <TextView
@@ -68,11 +68,12 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="2dp"
             android:ellipsize="end"
-            android:maxLines="1"
+            android:maxLines="2"
+            android:lineSpacingExtra="1dp"
             android:textAppearance="?attr/textAppearanceBodyMedium"
             android:textColor="?attr/colorOnSurfaceVariant"
-            android:textSize="13sp"
-            tools:text="Ilaiyaraaja &amp; S Janaki" />
+            android:textSize="12.5sp"
+            tools:text="Ilaiyaraaja &amp; S Janaki • Karakattakkaran" />
 
     </LinearLayout>
 

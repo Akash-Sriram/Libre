@@ -3,7 +3,6 @@ package app.libre.api.obj
 import android.os.Parcelable
 import app.libre.db.obj.LocalPlaylistItem
 import app.libre.extensions.toID
-import app.libre.helpers.ProxyHelper
 import kotlinx.parcelize.Parcelize
 import kotlinx.serialization.Serializable
 
@@ -35,7 +34,7 @@ data class StreamItem(
             videoId = url!!.toID(),
             title = title,
             uploader = uploaderName,
-            thumbnailUrl = thumbnail?.let { ProxyHelper.unwrapUrl(it) },
+            thumbnailUrl = thumbnail,
             duration = duration,
             albumName = albumName
         )

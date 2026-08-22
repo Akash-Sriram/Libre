@@ -142,7 +142,7 @@ class PlayerFragment : BasePlayerFragment(R.layout.fragment_player), CustomPlaye
     // True when the video was closed through the close button on PiP mode
     private var closedVideo = false
 
-    private var autoPlayCountdownEnabled = PlayerHelper.autoPlayCountdown
+    private var autoPlayCountdownEnabled = false
 
     /**
      * The orientation of the `fragment_player.xml` that's currently used
@@ -809,9 +809,7 @@ class PlayerFragment : BasePlayerFragment(R.layout.fragment_player), CustomPlaye
             setVideoTrackTypeDisabled(true)
         }
 
-        val shouldPausePlayer =
-            (isInteractive && PlayerHelper.pauseOnQuit) ||
-                    (!isInteractive && PlayerHelper.pausePlayerOnScreenOffEnabled)
+        val shouldPausePlayer = !isInteractive
 
         // pause player if screen off or app is put the background, except when
         // the user is intentionally entering PiP mode via the dedicated button
@@ -832,7 +830,7 @@ class PlayerFragment : BasePlayerFragment(R.layout.fragment_player), CustomPlaye
         }
 
         // re-enable the autoplay countdown
-        setAutoPlayCountdownEnabled(PlayerHelper.autoPlayCountdown)
+        setAutoPlayCountdownEnabled(false)
 
         // re-enable and load video stream
         setVideoTrackTypeDisabled(false)
@@ -943,7 +941,7 @@ class PlayerFragment : BasePlayerFragment(R.layout.fragment_player), CustomPlaye
             }
         )
 
-        setAutoPlayCountdownEnabled(PlayerHelper.autoPlayCountdown)
+        setAutoPlayCountdownEnabled(false)
 
         // set the default subtitle if available
         binding.player.updateCurrentSubtitle(viewModel.currentCaptionId)
@@ -1066,7 +1064,7 @@ class PlayerFragment : BasePlayerFragment(R.layout.fragment_player), CustomPlaye
             playerControlsBinding.exoProgress.addSeekBarListener(listener)
         }
 
-        if (binding.playerMotionLayout.progress == 0f && PlayerHelper.autoFullscreenShortsEnabled && streams.isShort) {
+        if (binding.playerMotionLayout.progress == 0f && streams.isShort) {
             setFullscreen()
         }
 
@@ -1074,8 +1072,6 @@ class PlayerFragment : BasePlayerFragment(R.layout.fragment_player), CustomPlaye
     }
 
     private suspend fun showRelatedStreams() {
-        if (!PlayerHelper.relatedStreamsEnabled) return
-
         val relatedStreams = if (isOffline) {
             emptyList()
         } else {

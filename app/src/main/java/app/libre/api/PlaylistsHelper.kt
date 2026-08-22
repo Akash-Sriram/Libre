@@ -23,22 +23,7 @@ object PlaylistsHelper {
         get() = LocalPlaylistsRepository()
 
     suspend fun getPlaylists(): List<Playlists> = withContext(Dispatchers.IO) {
-        val playlists = playlistsRepository.getPlaylists()
-        sortPlaylists(playlists)
-    }
-
-    private fun sortPlaylists(playlists: List<Playlists>): List<Playlists> {
-        return when (
-            PreferenceHelper.getString(PreferenceKeys.PLAYLISTS_ORDER, "creation_date")
-        ) {
-            "creation_date" -> playlists
-            "creation_date_reversed" -> playlists.reversed()
-            "alphabetic" -> playlists.sortedBy { it.name?.lowercase() }
-            "alphabetic_reversed" -> playlists.sortedBy { it.name?.lowercase() }
-                .reversed()
-
-            else -> playlists
-        }
+        playlistsRepository.getPlaylists()
     }
 
     suspend fun getPlaylist(playlistId: String): Playlist {

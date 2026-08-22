@@ -5,21 +5,46 @@ import app.libre.ui.dialogs.ShareDialog.Companion.YOUTUBE_MUSIC_URL
 import app.libre.ui.dialogs.ShareDialog.Companion.YOUTUBE_SHORT_URL
 
 /**
- * format a full YouTube url or a path to a video/channel/playlist ID
+ * Formats a full YouTube / JioSaavn URL or path to a clean video/channel/playlist ID.
+ * Handles youtube.com, youtu.be, music.youtube.com, query params (?si=, &t=), and bare IDs.
  */
 fun String.toID(): String {
-    return this
-        // remove any youtube origins from urls
-        .removePrefix(YOUTUBE_FRONTEND_URL)
-        .removePrefix(YOUTUBE_MUSIC_URL)
-        .removePrefix(YOUTUBE_SHORT_URL)
-        .replace("/watch?v=", "") // videos
-        .replace("/channel/", "") // channels
-        .replace("/playlist?list=", "") // playlists
-        .replace("/album/", "") // albums
-        .replace("/watch/", "") // JioSaavn watch/song paths
-        // channel urls for different categories than the main one
+    val trimmed = this.trim()
+    if (trimmed.isEmpty()) return ""
+
+    // 1. YouTube 11-character regex from any YouTube URL format
+    val ytMatch = Regex("""(?:(?:https?://)?(?:www\.|music\.|m\.)?youtube\.com/(?:watch\?(?:.*&)?v=|shorts/|v/|embed/)|(?:https?://)?youtu\.be/)([a-zA-Z0-9_-]{11})""").find(trimmed)
+    if (ytMatch != null) {
+        return ytMatch.groupValues[1]
+    }
+
+    // 2. JioSaavn URL or token
+    val jsaMatch = Regex("""jiosaavn\.com/song/[^/\s]+/([A-Za-z0-9_-]{6,20})""").find(trimmed)
+    if (jsaMatch != null) {
+        return "jsa:${jsaMatch.groupValues[1]}"
+    }
+
+    // 3. Fallback cleanup for channels, playlists, local paths
+    return trimmed
+        .removePrefix("https://www.youtube.com")
+        .removePrefix("https://youtube.com")
+        .removePrefix("http://www.youtube.com")
+        .removePrefix("http://youtube.com")
+        .removePrefix("https://music.youtube.com")
+        .removePrefix("http://music.youtube.com")
+        .removePrefix("https://youtu.be")
+        .removePrefix("http://youtu.be")
+        .removePrefix("/")
+        .replace("/watch?v=", "")
+        .replace("watch?v=", "")
+        .replace("/channel/", "")
+        .replace("/playlist?list=", "")
+        .replace("/album/", "")
+        .replace("/watch/", "")
         .removeSuffix("/shorts")
         .removeSuffix("/streams")
         .removeSuffix("/videos")
+        .substringBefore("?")
+        .substringBefore("&")
+        .removePrefix("/")
 }

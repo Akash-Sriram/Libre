@@ -18,6 +18,10 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:clipToPadding="false"
+        android:scrollbars="vertical"
+        android:fadeScrollbars="false"
+        android:scrollbarThumbVertical="?attr/colorPrimary"
+        android:scrollbarSize="4dp"
         android:visibility="gone"
         app:layout_behavior="@string/appbar_scrolling_view_behavior" />
 
@@ -224,5 +228,19 @@
 
     </com.google.android.material.appbar.AppBarLayout>
 
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/scrollToTopFab"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|end"
+        android:layout_marginEnd="20dp"
+        android:layout_marginBottom="80dp"
+        android:contentDescription="@string/tooltip_scroll_to_top"
+        android:visibility="gone"
+        app:fabSize="mini"
+        app:srcCompat="@drawable/ic_arrow_up"
+        app:tint="?attr/colorOnPrimaryContainer"
+        app:backgroundTint="?attr/colorPrimaryContainer"
+        app:elevation="4dp" />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

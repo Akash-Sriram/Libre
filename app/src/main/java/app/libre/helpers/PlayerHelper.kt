@@ -114,115 +114,20 @@ object PlayerHelper {
     }
 
     fun getFullscreenOrientation(isVerticalVideo: Boolean): Int {
-        val fullscreenOrientationPref = PreferenceHelper.getString(
-            PreferenceKeys.FULLSCREEN_ORIENTATION,
-            "ratio"
-        )
-
-        return when (fullscreenOrientationPref) {
-            "ratio" -> {
-                // probably a youtube shorts video
-                if (isVerticalVideo) {
-                    ActivityInfo.SCREEN_ORIENTATION_USER_PORTRAIT
-                } // a video with normal aspect ratio
-                else {
-                    ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
-                }
-            }
-
-            "auto" -> ActivityInfo.SCREEN_ORIENTATION_SENSOR
-            "landscape" -> ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
-            "portrait" -> ActivityInfo.SCREEN_ORIENTATION_USER_PORTRAIT
-            else -> ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+        return if (isVerticalVideo) {
+            ActivityInfo.SCREEN_ORIENTATION_USER_PORTRAIT
+        } else {
+            ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
         }
     }
 
-    val autoFullscreenEnabled: Boolean
-        get() = PreferenceHelper.getBoolean(
-            PreferenceKeys.AUTO_FULLSCREEN,
-            false
-        )
-
-    val autoFullscreenShortsEnabled: Boolean
-        get() = PreferenceHelper.getBoolean(
-            PreferenceKeys.AUTO_FULLSCREEN_SHORTS,
-            false
-        )
-
-    val relatedStreamsEnabled: Boolean
-        get() = false
-
-    val pausePlayerOnScreenOffEnabled: Boolean
-        get() = PreferenceHelper.getBoolean(
-            PreferenceKeys.PAUSE_ON_SCREEN_OFF,
-            false
-        )
-
-    val useSystemCaptionStyle: Boolean
-        get() = PreferenceHelper.getBoolean(
-            PreferenceKeys.SYSTEM_CAPTION_STYLE,
-            true
-        )
-
-    val useRichCaptionRendering: Boolean
-        get() = PreferenceHelper.getBoolean(
-            PreferenceKeys.RICH_CAPTION_RENDERING,
-            false
-        )
-
-    private val bufferingGoal: Int
-        get() = PreferenceHelper.getString(
-            PreferenceKeys.BUFFERING_GOAL,
-            "50"
-        ).toInt() * 1000
-
-    val defaultSubtitleCode: String?
-        get() {
-            val code = PreferenceHelper.getString(
-                PreferenceKeys.DEFAULT_SUBTITLE,
-                ""
-            )
-
-            if (code == "") return null
-
-            if (code.contains("-")) {
-                return code.split("-")[0]
-            }
-            return code
-        }
-
-    val skipButtonsEnabled: Boolean
-        get() = PreferenceHelper.getBoolean(
-            PreferenceKeys.SKIP_BUTTONS,
-            false
-        )
-
-    private val behaviorWhenMinimized
-        get() = PreferenceHelper.getString(
-            PreferenceKeys.BEHAVIOR_WHEN_MINIMIZED,
-            "pip"
-        )
-
-    val pipEnabled: Boolean
-        get() = behaviorWhenMinimized == "pip"
-
-    val pauseOnQuit: Boolean
-        get() = behaviorWhenMinimized == "pause"
-
-    var autoPlayEnabled: Boolean
-        get() = PreferenceHelper.getBoolean(
-            PreferenceKeys.AUTOPLAY,
-            true
-        )
-        set(value) {
-            PreferenceHelper.putBoolean(PreferenceKeys.AUTOPLAY, value)
-        }
-
-    val autoPlayCountdown: Boolean
-        get() = PreferenceHelper.getBoolean(
-            PreferenceKeys.AUTOPLAY_COUNTDOWN,
-            false
-        )
+    const val autoFullscreenEnabled: Boolean = false
+    const val useSystemCaptionStyle: Boolean = true
+    const val useRichCaptionRendering: Boolean = false
+    const val bufferingGoal: Int = 50000
+    const val pipEnabled: Boolean = true
+    const val pauseOnQuit: Boolean = false
+    var autoPlayEnabled: Boolean = true
 
     val autoMusicAudioMode: Boolean
         get() = PreferenceHelper.getBoolean(
@@ -230,117 +135,22 @@ object PlayerHelper {
             true
         )
 
-    val seekIncrement: Long
-        get() = PreferenceHelper.getString(
-            PreferenceKeys.SEEK_INCREMENT,
-            "10.0"
-        ).toFloat()
-            .roundToInt()
-            .toLong() * 1000
+    const val seekIncrement: Long = 10000L
+    const val autoInsertRelatedVideos: Boolean = true
+    const val captionsTextSize: Float = 18f
+    const val doubleTapToSeek: Boolean = true
+    const val playAutomatically: Boolean = true
 
-    private val defaultPlaybackSpeed: Float
-        get() = PreferenceHelper.getString(
-            PreferenceKeys.PLAYBACK_SPEED,
-            "1"
-        ).replace("F", "").toFloat()
-
-    val autoInsertRelatedVideos: Boolean
-        get() = PreferenceHelper.getBoolean(
-            PreferenceKeys.QUEUE_AUTO_INSERT_RELATED,
-            true
-        )
-
-    val swipeGestureEnabled: Boolean
-        get() = PreferenceHelper.getBoolean(
-            PreferenceKeys.PLAYER_SWIPE_CONTROLS,
-            true
-        )
-
-    val fullscreenGesturesEnabled: Boolean
-        get() = PreferenceHelper.getBoolean(
-            PreferenceKeys.FULLSCREEN_GESTURES,
-            false
-        )
-
-    val pinchGestureEnabled: Boolean
-        get() = PreferenceHelper.getBoolean(
-            PreferenceKeys.PLAYER_PINCH_CONTROL,
-            true
-        )
-
-    val captionsTextSize: Float
-        get() = PreferenceHelper.getString(
-            PreferenceKeys.CAPTIONS_SIZE,
-            "18"
-        ).toFloat()
-
-    val doubleTapToSeek: Boolean
-        get() = PreferenceHelper.getBoolean(
-            PreferenceKeys.DOUBLE_TAP_TO_SEEK,
-            true
-        )
-
-    val longPressFastForward: Boolean
-        get() = PreferenceHelper.getBoolean(
-            PreferenceKeys.LONG_PRESS_FAST_FORWARD,
-            false
-        )
-
-    private val alternativePiPControls: Boolean
-        get() = PreferenceHelper.getBoolean(
-            PreferenceKeys.ALTERNATIVE_PIP_CONTROLS,
-            false
-        )
-
-    private val skipSilence: Boolean
-        get() = PreferenceHelper.getBoolean(
-            PreferenceKeys.SKIP_SILENCE,
-            false
-        )
-
-    val playAutomatically: Boolean
-        get() = PreferenceHelper.getBoolean(
-            PreferenceKeys.PLAY_AUTOMATICALLY,
-            true
-        )
-
-    val fullLocalMode: Boolean
-        get() = true
-
-    val localStreamExtraction: Boolean
-        get() = true
-
-    val localRYD: Boolean
-        get() = false
-
-    var repeatMode: Int
-        get() = PreferenceHelper.getInt(PreferenceKeys.REPEAT_MODE, Player.REPEAT_MODE_OFF)
-        set(value) {
-            PreferenceHelper.putInt(PreferenceKeys.REPEAT_MODE, value)
-        }
+    var repeatMode: Int = Player.REPEAT_MODE_OFF
 
     fun isAutoPlayEnabled(isPlaylist: Boolean = false): Boolean {
-        return autoPlayEnabled || (isPlaylist && PreferenceHelper
-            .getBoolean(PreferenceKeys.AUTOPLAY_PLAYLISTS, false))
+        return autoPlayEnabled
     }
 
-    private val handleAudioFocus
-        get() = !PreferenceHelper.getBoolean(
-            PreferenceKeys.ALLOW_PLAYBACK_DURING_CALL,
-            false
-        )
+    private val handleAudioFocus: Boolean = true
 
     fun getDefaultResolution(context: Context, isFullscreen: Boolean): Int? {
-        var prefKey = if (NetworkHelper.isNetworkMetered(context)) {
-            PreferenceKeys.DEFAULT_RESOLUTION_MOBILE
-        } else {
-            PreferenceKeys.DEFAULT_RESOLUTION
-        }
-        if (!isFullscreen) prefKey += "_no_fullscreen"
-
-        return PreferenceHelper.getString(prefKey, "")
-            .replace("p", "")
-            .toIntOrNull()
+        return null
     }
 
     fun getIntentActionName(context: Context): String {
@@ -403,11 +213,7 @@ object PlayerHelper {
             R.string.forward,
             PlayerEvent.Forward
         )
-        return if (alternativePiPControls) {
-            listOf(audioModeAction, playPauseAction, skipNextAction)
-        } else {
-            listOf(rewindAction, playPauseAction, forwardAction)
-        }
+        return listOf(rewindAction, playPauseAction, forwardAction)
     }
     @OptIn(UnstableApi::class)
     private fun createRendererFactory(context: Context): DefaultRenderersFactory {
@@ -504,9 +310,10 @@ object PlayerHelper {
      */
     @OptIn(androidx.media3.common.util.UnstableApi::class)
     fun ExoPlayer.loadPlaybackParams(): ExoPlayer {
-        skipSilenceEnabled = skipSilence
+        skipSilenceEnabled = PreferenceHelper.getBoolean("skip_silence", false)
 
-        playbackParameters = PlaybackParameters(defaultPlaybackSpeed, 1.0f)
+        val speed = PreferenceHelper.getString("playback_speed", "1.0").toFloatOrNull() ?: 1.0f
+        playbackParameters = PlaybackParameters(speed, 1.0f)
         return this
     }
 

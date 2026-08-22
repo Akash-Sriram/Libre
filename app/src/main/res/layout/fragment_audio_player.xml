@@ -140,7 +140,10 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_margin="20dp"
+            android:layout_marginHorizontal="20dp"
+            android:layout_marginTop="16dp"
+            android:layout_marginBottom="8dp"
+            android:gravity="center_horizontal"
             android:orientation="vertical">
 
             <TextView
@@ -148,17 +151,40 @@
                 style="@style/TextViewMarquee"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:textSize="24sp" />
+                android:gravity="center"
+                android:textAlignment="center"
+                android:textColor="?android:attr/textColorPrimary"
+                android:textSize="22sp"
+                android:textStyle="bold" />
 
             <TextView
                 android:id="@+id/uploader"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
-                android:textSize="18sp"
+                android:layout_marginTop="6dp"
+                android:gravity="center"
                 android:textAlignment="center"
+                android:textColor="?android:attr/textColorSecondary"
+                android:textSize="15sp"
+                android:fontFamily="sans-serif-medium"
                 android:ellipsize="end"
                 android:maxLines="2" />
+
+            <TextView
+                android:id="@+id/album_and_year"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="3dp"
+                android:gravity="center"
+                android:textAlignment="center"
+                android:textColor="?android:attr/textColorSecondary"
+                android:textSize="13sp"
+                android:fontFamily="sans-serif"
+                android:alpha="0.8"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:visibility="gone"
+                tools:text="Ethir Neechal • 2013" />
 
         </LinearLayout>
 

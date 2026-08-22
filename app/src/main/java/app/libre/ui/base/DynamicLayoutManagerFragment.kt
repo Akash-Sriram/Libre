@@ -6,20 +6,17 @@ import android.view.View
 import androidx.annotation.LayoutRes
 import androidx.fragment.app.Fragment
 import app.libre.R
-import app.libre.constants.PreferenceKeys
-import app.libre.helpers.PreferenceHelper
 
 abstract class DynamicLayoutManagerFragment(@LayoutRes layoutResId: Int) : Fragment(layoutResId) {
     abstract fun setLayoutManagers(gridItems: Int)
 
     private fun getGridItemsCount(orientation: Int): Int {
-        val (prefKey, defaultValueRes) = when (orientation) {
-            Configuration.ORIENTATION_PORTRAIT -> PreferenceKeys.GRID_COLUMNS_PORTRAIT to R.integer.grid_items
-            else -> PreferenceKeys.GRID_COLUMNS_LANDSCAPE to R.integer.grid_items_landscape
+        val resId = if (orientation == Configuration.ORIENTATION_PORTRAIT) {
+            R.integer.grid_items
+        } else {
+            R.integer.grid_items_landscape
         }
-
-        val defaultValue = resources.getInteger(defaultValueRes).toString()
-        return PreferenceHelper.getString(prefKey, defaultValue).toInt()
+        return resources.getInteger(resId)
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {

@@ -58,17 +58,36 @@ class PlaylistAdapter(
         val fragmentManager = activity.supportFragmentManager
 
         with(holder.binding) {
+            val trackNumber = if (isLocalPlaylist) app.libre.helpers.LocalAudioMatcher.getTrackNumberFromFile(videoId, streamItem.title) else null
+            val displayTitle = app.libre.helpers.LocalAudioMatcher.formatTitleWithTrackNumber(streamItem.title.orEmpty(), trackNumber)
+
             val isCurrent = PlayingQueue.getCurrent()?.url?.toID() == videoId
             if (isCurrent) {
                 val primaryColor = ThemeHelper.getThemeColor(context, androidx.appcompat.R.attr.colorPrimary)
                 videoTitle.setTextColor(primaryColor)
-                videoTitle.text = "▶  " + streamItem.title
+                videoTitle.text = "▶  " + displayTitle
             } else {
                 val defaultTextColor = ThemeHelper.getThemeColor(context, android.R.attr.textColorPrimary)
                 videoTitle.setTextColor(defaultTextColor)
-                videoTitle.text = streamItem.title
+                videoTitle.text = displayTitle
             }
-            channelName.text = streamItem.uploaderName.orEmpty().ifEmpty { streamItem.albumName.orEmpty() }
+            val localAlbum = if (isLocalPlaylist) app.libre.helpers.LocalAudioMatcher.getAlbumFromFile(videoId, streamItem.title) else null
+            val localYear = if (isLocalPlaylist) app.libre.helpers.LocalAudioMatcher.getYearFromFile(videoId, streamItem.title) else null
+
+            val album = localAlbum ?: streamItem.albumName.orEmpty().trim()
+            val year = localYear
+
+            val subtitleText = when {
+                album.isNotEmpty() && !year.isNullOrBlank() -> "$album • $year"
+                album.isNotEmpty() -> album
+                !year.isNullOrBlank() -> year
+                else -> {
+                    val localArtist = if (isLocalPlaylist) app.libre.helpers.LocalAudioMatcher.getArtistFromFile(videoId, streamItem.title) else null
+                    val rawArtist = (localArtist ?: streamItem.uploaderName.orEmpty()).replace(Regex("""\s*-\s*Topic\b""", RegexOption.IGNORE_CASE), "").trim()
+                    app.libre.helpers.LocalAudioMatcher.normalizeArtistString(rawArtist) ?: rawArtist
+                }
+            }
+            channelName.text = subtitleText
 
             streamItem.duration?.let {
                 thumbnailDuration.setFormattedDuration(it, streamItem.isShort, streamItem.uploaded)

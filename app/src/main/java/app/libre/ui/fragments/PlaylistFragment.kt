@@ -18,6 +18,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
 import androidx.recyclerview.widget.GridLayoutManager
+import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import app.libre.R
 import app.libre.api.MediaServiceRepository
@@ -82,11 +83,7 @@ class PlaylistFragment : DynamicLayoutManagerFragment(R.layout.fragment_playlist
     // view models
     private val commonPlayerViewModel: CommonPlayerViewModel by activityViewModels()
     private val playlistViewModel: PlaylistViewModel by activityViewModels()
-    private var selectedSortOrder = PreferenceHelper.getInt(PreferenceKeys.PLAYLIST_SORT_ORDER, 0)
-        set(value) {
-            PreferenceHelper.putInt(PreferenceKeys.PLAYLIST_SORT_ORDER, value)
-            field = value
-        }
+    private var selectedSortOrder = 1
     private val sortOptions by lazy { resources.getStringArray(R.array.playlistSortOptions) }
     private var recyclerViewState: Parcelable? = null
 
@@ -94,21 +91,10 @@ class PlaylistFragment : DynamicLayoutManagerFragment(R.layout.fragment_playlist
         super.onCreate(savedInstanceState)
         playlistId = args.playlistId
         playlistType = args.playlistType
-
-        sharedElementEnterTransition = com.google.android.material.transition.MaterialContainerTransform().apply {
-            duration = 320L
-            interpolator = androidx.core.view.animation.PathInterpolatorCompat.create(0.1f, 0.9f, 0.2f, 1.0f)
-            fadeMode = com.google.android.material.transition.MaterialContainerTransform.FADE_MODE_THROUGH
-            fitMode = com.google.android.material.transition.MaterialContainerTransform.FIT_MODE_AUTO
-            scrimColor = android.graphics.Color.TRANSPARENT
-        }
-        sharedElementReturnTransition = com.google.android.material.transition.MaterialContainerTransform().apply {
-            duration = 280L
-            interpolator = androidx.core.view.animation.PathInterpolatorCompat.create(0.2f, 0.0f, 0.0f, 1.0f)
-            fadeMode = com.google.android.material.transition.MaterialContainerTransform.FADE_MODE_THROUGH
-            fitMode = com.google.android.material.transition.MaterialContainerTransform.FIT_MODE_AUTO
-            scrimColor = android.graphics.Color.TRANSPARENT
-        }
+        selectedSortOrder = PreferenceHelper.getInt(
+            "playlist_sort_$playlistId",
+            PreferenceHelper.getInt(app.libre.constants.PreferenceKeys.DEFAULT_PLAYLIST_SORT_ORDER, 1)
+        )
     }
 
     override fun setLayoutManagers(gridItems: Int) {
@@ -117,18 +103,16 @@ class PlaylistFragment : DynamicLayoutManagerFragment(R.layout.fragment_playlist
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         _binding = FragmentPlaylistBinding.bind(view)
-        binding.thumbnailCard.transitionName = "playlist_transition_$playlistId"
         super.onViewCreated(view, savedInstanceState)
-
-        postponeEnterTransition()
-        view.doOnPreDraw { startPostponedEnterTransition() }
 
         binding.playlistProgress.isVisible = true
 
-        isBookmarked = runBlocking(Dispatchers.IO) {
-            DatabaseHolder.Database.playlistBookmarkDao().includes(playlistId)
+        lifecycleScope.launch(Dispatchers.IO) {
+            isBookmarked = DatabaseHolder.Database.playlistBookmarkDao().includes(playlistId)
+            withContext(Dispatchers.Main) {
+                updateBookmarkRes()
+            }
         }
-        updateBookmarkRes()
 
         binding.playAll.addSpringTouchFeedback()
         binding.shuffleBTN.addSpringTouchFeedback()
@@ -161,11 +145,29 @@ class PlaylistFragment : DynamicLayoutManagerFragment(R.layout.fragment_playlist
             binding.playlistRecView.updatePadding(bottom = if (it) 78f.dpToPx() else 0)
         }
 
+        binding.scrollToTopFab.setOnClickListener {
+            it.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP)
+            binding.playlistRecView.scrollToPosition(0)
+            binding.playlistAppBar.setExpanded(true, true)
+            binding.scrollToTopFab.hide()
+        }
+
         // manually restore the recyclerview state due to https://github.com/material-components/material-components-android/issues/3473
         binding.playlistRecView.addOnScrollListener(object : RecyclerView.OnScrollListener() {
             override fun onScrollStateChanged(recyclerView: RecyclerView, newState: Int) {
                 super.onScrollStateChanged(recyclerView, newState)
                 recyclerViewState = recyclerView.layoutManager?.onSaveInstanceState()
+            }
+
+            override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
+                super.onScrolled(recyclerView, dx, dy)
+                val layoutManager = recyclerView.layoutManager as? LinearLayoutManager
+                val firstVisible = layoutManager?.findFirstVisibleItemPosition() ?: 0
+                if (firstVisible > 12) {
+                    if (!binding.scrollToTopFab.isShown) binding.scrollToTopFab.show()
+                } else {
+                    if (binding.scrollToTopFab.isShown) binding.scrollToTopFab.hide()
+                }
             }
         })
 
@@ -365,6 +367,8 @@ class PlaylistFragment : DynamicLayoutManagerFragment(R.layout.fragment_playlist
                         BaseBottomSheet().apply {
                             setSimpleItems(sortOptions.toList()) { index ->
                                 selectedSortOrder = index
+                                PreferenceHelper.putInt(app.libre.constants.PreferenceKeys.DEFAULT_PLAYLIST_SORT_ORDER, index)
+                                PreferenceHelper.putInt("playlist_sort_$playlistId", index)
                                 binding.sortBTN.tooltipText = sortOptions[index]
                                 showPlaylistVideos()
                             }
@@ -451,8 +455,16 @@ class PlaylistFragment : DynamicLayoutManagerFragment(R.layout.fragment_playlist
         val rawQuery = playlistViewModel.searchQuery.value?.trim()
         if (!rawQuery.isNullOrEmpty()) {
             val terms = rawQuery.split("\\s+".toRegex()).filter { it.isNotEmpty() }
+            val isLocal = playlistType != PlaylistType.PUBLIC
             videos = videos.filter { item ->
-                val combinedText = "${item.item.title.orEmpty()} ${item.item.uploaderName.orEmpty()} ${item.item.albumName.orEmpty()}"
+                val videoId = item.item.url.orEmpty().toID()
+                val localGenre = if (isLocal) app.libre.helpers.LocalAudioMatcher.getGenreFromFile(videoId, item.item.title) else null
+                val localAlbumArtist = if (isLocal) app.libre.helpers.LocalAudioMatcher.getAlbumArtistFromFile(videoId, item.item.title) else null
+                val localArtist = if (isLocal) app.libre.helpers.LocalAudioMatcher.getArtistFromFile(videoId, item.item.title) else null
+                val localAlbum = if (isLocal) app.libre.helpers.LocalAudioMatcher.getAlbumFromFile(videoId, item.item.title) else null
+                val localYear = if (isLocal) app.libre.helpers.LocalAudioMatcher.getYearFromFile(videoId, item.item.title) else null
+
+                val combinedText = "${item.item.title.orEmpty()} ${item.item.uploaderName.orEmpty()} ${item.item.albumName.orEmpty()} ${localArtist.orEmpty()} ${localAlbum.orEmpty()} ${localYear.orEmpty()} ${localGenre.orEmpty()} ${localAlbumArtist.orEmpty()}"
                 terms.all { term -> combinedText.contains(term, ignoreCase = true) }
             }
         }
@@ -648,7 +660,8 @@ class PlaylistFragment : DynamicLayoutManagerFragment(R.layout.fragment_playlist
         if (!thumbnailUrl.isNullOrEmpty()) {
             ImageHelper.loadImage(thumbnailUrl, binding.thumbnail)
             lifecycleScope.launch {
-                val bitmap = ImageHelper.getImage(requireContext(), thumbnailUrl)
+                val ctx = context ?: return@launch
+                val bitmap = ImageHelper.getImage(ctx, thumbnailUrl)
                 if (bitmap != null) {
                     withContext(Dispatchers.Default) {
                         val softBitmap = if (bitmap.config == android.graphics.Bitmap.Config.HARDWARE) {
@@ -661,7 +674,8 @@ class PlaylistFragment : DynamicLayoutManagerFragment(R.layout.fragment_playlist
 
                         val dominantColor = palette.getDominantColor(android.graphics.Color.TRANSPARENT)
                         val darkVibrant = palette.getDarkVibrantColor(dominantColor)
-                        val bgColor = ThemeHelper.getThemeColor(requireContext(), android.R.attr.colorBackground)
+                        val currentCtx = context ?: return@withContext
+                        val bgColor = ThemeHelper.getThemeColor(currentCtx, android.R.attr.colorBackground)
 
                         val topColor = androidx.core.graphics.ColorUtils.blendARGB(darkVibrant, bgColor, 0.45f)
                         val gradient = android.graphics.drawable.GradientDrawable(

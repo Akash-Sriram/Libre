@@ -21,7 +21,6 @@ import app.libre.ui.base.BaseActivity
 import app.libre.ui.dialogs.DeletePlaylistDialog
 import app.libre.ui.dialogs.RenamePlaylistDialog
 import app.libre.ui.dialogs.ShareDialog
-import app.libre.ui.preferences.BackupRestoreSettings
 import app.libre.util.PlayingQueue
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
@@ -137,16 +136,16 @@ class PlaylistOptionsBottomSheet : BaseBottomSheet() {
 
                 R.string.export_playlist -> {
                     val context = requireContext()
-
-                    BackupRestoreSettings.createImportFormatDialog(
-                        context,
-                        R.string.export_playlist,
-                        BackupRestoreSettings.exportPlaylistFormatList + listOf(ImportFormat.URLSORIDS)
-                    ) { format, includeTimestamp ->
-                        exportFormat = format
-                        ContextHelper.unwrapActivity<MainActivity>(context)
-                            .startPlaylistExport(playlistId, playlistName, exportFormat, includeTimestamp)
-                    }
+                    val formats = arrayOf("JSON (.json)", "URLs / IDs (.txt)")
+                    com.google.android.material.dialog.MaterialAlertDialogBuilder(context)
+                        .setTitle(R.string.export_playlist)
+                        .setItems(formats) { _, which ->
+                            val format = if (which == 0) ImportFormat.PIPED else ImportFormat.URLSORIDS
+                            ContextHelper.unwrapActivity<MainActivity>(context)
+                                .startPlaylistExport(playlistId, playlistName, format, false)
+                        }
+                        .setNegativeButton(R.string.cancel, null)
+                        .show()
                 }
 
                 else -> {

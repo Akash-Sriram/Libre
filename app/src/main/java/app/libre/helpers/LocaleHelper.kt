@@ -5,18 +5,13 @@ import android.os.Build
 import android.telephony.TelephonyManager
 import androidx.core.content.getSystemService
 import androidx.core.os.ConfigurationCompat
-import app.libre.constants.PreferenceKeys
 import app.libre.obj.Country
 import java.util.Locale
 
 object LocaleHelper {
     @Deprecated("Only used for SDKs below 33 for compatibility")
     fun getAppLocale(): Locale {
-        val languageName = PreferenceHelper.getString(PreferenceKeys.LANGUAGE, "en")
-        return when {
-            languageName == "sys" -> Locale.getDefault()
-            else -> getLocaleFromAndroidCode(languageName)
-        }
+        return Locale.getDefault()
     }
 
     fun isPerAppLocaleSettingSupported(): Boolean {

@@ -47,20 +47,19 @@ class PlayingQueueSheet : ExpandedBottomSheet(R.layout.queue_bottom_sheet) {
         if (currentPlayingIndex != -1) binding.optionsRecycler.scrollToPosition(currentPlayingIndex)
 
         binding.shuffle.setOnClickListener {
-            val streams = PlayingQueue.getStreams()
+            it.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP)
             val currentIndex = PlayingQueue.currentIndex()
-
-            // Shuffle all upcoming songs after the current playing song
-            val toShuffle = streams.filterIndexed { queueIndex, _ -> queueIndex > currentIndex }
-            if (toShuffle.isNotEmpty()) {
-                val newQueue = streams.filterIndexed { queueIndex, _ -> queueIndex <= currentIndex } + toShuffle.shuffled()
-                PlayingQueue.setStreams(newQueue)
-                adapter.notifyDataSetChanged()
+            val start = currentIndex + 1
+            val count = PlayingQueue.size() - start
+            if (count > 0) {
+                PlayingQueue.shuffleUpcoming()
+                adapter.notifyItemRangeChanged(start, count)
                 updateQueueHeader()
             }
         }
 
         binding.clearQueue.setOnClickListener {
+            it.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP)
             MaterialAlertDialogBuilder(requireContext())
                 .setTitle(R.string.tooltip_clear_queue)
                 .setPositiveButton(R.string.okay) { _, _ ->

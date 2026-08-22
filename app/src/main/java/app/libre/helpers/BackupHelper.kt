@@ -95,9 +95,7 @@ object BackupHelper {
         PreferenceKeys.OFFLINE_SONGS_FOLDER_URI,
         PreferenceKeys.BACKUP_FOLDER_URI,
         PreferenceKeys.ENABLE_AUTO_BACKUP,
-        PreferenceKeys.AUTO_MUSIC_AUDIO_MODE,
-        PreferenceKeys.PLAYLIST_SORT_ORDER,
-        PreferenceKeys.PLAYLISTS_ORDER
+        PreferenceKeys.AUTO_MUSIC_AUDIO_MODE
     )
 
     /**

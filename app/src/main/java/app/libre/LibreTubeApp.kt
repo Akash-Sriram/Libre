@@ -6,7 +6,6 @@ import androidx.core.app.NotificationManagerCompat
 import app.libre.helpers.ImageHelper
 import app.libre.helpers.NewPipeExtractorInstance
 import app.libre.helpers.PreferenceHelper
-import app.libre.helpers.ProxyHelper
 import androidx.core.content.pm.ShortcutManagerCompat
 import app.libre.util.ExceptionHandler
 import kotlinx.coroutines.CoroutineScope
@@ -67,7 +66,6 @@ class LibreTubeApp : Application(), androidx.work.Configuration.Provider {
         ShortcutManagerCompat.removeAllDynamicShortcuts(this)
 
         NewPipeExtractorInstance.init()
-        app.libre.helpers.WifiSyncHelper.start(applicationContext)
 
         // Schedule periodic background sync for album metadata (runs once a day, deferred to not block startup)
         CoroutineScope(Dispatchers.IO).launch {

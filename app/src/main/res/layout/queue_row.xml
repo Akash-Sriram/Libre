@@ -41,10 +41,10 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:ellipsize="end"
-            android:maxLines="1"
+            android:maxLines="2"
             android:textColor="?android:attr/textColorSecondary"
-            android:textSize="13sp"
-            tools:text="Ilaiyaraaja &amp; S Janaki" />
+            android:textSize="12.5sp"
+            tools:text="Ilaiyaraaja &amp; S Janaki • Karakattakkaran" />
 
     </LinearLayout>
 

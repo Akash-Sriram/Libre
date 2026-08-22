@@ -65,7 +65,6 @@ import app.libre.ui.sheets.PlaybackOptionsSheet
 import app.libre.ui.sheets.PlayingQueueSheet
 import app.libre.ui.sheets.SleepTimerSheet
 import app.libre.ui.sheets.VideoOptionsBottomSheet
-import app.libre.util.DataSaverMode
 import app.libre.util.PlayingQueue
 import kotlinx.coroutines.launch
 import kotlin.math.absoluteValue
@@ -372,19 +371,49 @@ class AudioPlayerFragment : BasePlayerFragment(R.layout.fragment_audio_player) {
     private fun updateStreamInfo(metadata: MediaMetadata) {
         val binding = _binding ?: return
 
-        val artistName = metadata.artist?.toString()?.takeIf { it.isNotBlank() }
-            ?: PlayingQueue.getCurrent()?.uploaderName.orEmpty()
+        val currentStream = PlayingQueue.getCurrent()
+        val currentVideoId = currentStream?.url.orEmpty().toID()
+        val streamTitle = currentStream?.title ?: metadata.title?.toString()
 
-        binding.title.text = metadata.title
-        binding.miniPlayerTitle.text = metadata.title
-        binding.miniPlayerArtist.text = artistName
-        binding.miniPlayerArtist.visibility = if (artistName.isNotBlank()) View.VISIBLE else View.GONE
+        val localArtist = app.libre.helpers.LocalAudioMatcher.getArtistFromFile(currentVideoId, streamTitle)
+        val localAlbum = app.libre.helpers.LocalAudioMatcher.getAlbumFromFile(currentVideoId, streamTitle)
+        val localYear = app.libre.helpers.LocalAudioMatcher.getYearFromFile(currentVideoId, streamTitle)
 
-        binding.uploader.text = artistName
+        val rawArtist = localArtist
+            ?: metadata.artist?.toString()?.takeIf { it.isNotBlank() }
+            ?: currentStream?.uploaderName.orEmpty()
+        val cleanArtist = app.libre.helpers.LocalAudioMatcher.normalizeArtistString(rawArtist.replace(Regex("""\s*-\s*Topic\b""", RegexOption.IGNORE_CASE), "")) ?: ""
+
+        val albumName = localAlbum
+            ?: metadata.albumTitle?.toString()?.takeIf { it.isNotBlank() }
+            ?: currentStream?.albumName.orEmpty().trim()
+        val year = localYear
+            ?: metadata.recordingYear?.toString()?.takeIf { it.isNotBlank() }
+
+        val albumYearText = when {
+            albumName.isNotBlank() && !year.isNullOrBlank() -> "$albumName • $year"
+            albumName.isNotBlank() -> albumName
+            !year.isNullOrBlank() -> year
+            else -> ""
+        }
+
+        val trackNumber = app.libre.helpers.LocalAudioMatcher.getTrackNumberFromFile(currentVideoId, streamTitle)
+        val baseTitle = (metadata.title ?: streamTitle).toString()
+        val formattedTitle = app.libre.helpers.LocalAudioMatcher.formatTitleWithTrackNumber(baseTitle, trackNumber)
+
+        binding.title.text = formattedTitle
+        binding.miniPlayerTitle.text = formattedTitle
+        binding.miniPlayerArtist.text = cleanArtist
+        binding.miniPlayerArtist.visibility = if (cleanArtist.isNotBlank()) View.VISIBLE else View.GONE
+
+        binding.uploader.text = cleanArtist
         binding.uploader.setOnClickListener {
             val uploaderId = metadata.composer?.toString() ?: return@setOnClickListener
             NavigationHelper.navigateChannel(requireContext(), uploaderId)
         }
+
+        binding.albumAndYear.text = albumYearText
+        binding.albumAndYear.isVisible = albumYearText.isNotBlank()
 
         metadata.artworkUri?.let { updateThumbnailAsync(it) }
 
@@ -433,20 +462,8 @@ class AudioPlayerFragment : BasePlayerFragment(R.layout.fragment_audio_player) {
     }
 
     private fun updateThumbnailAsync(thumbnailUri: Uri) {
-        if (DataSaverMode.isEnabled(requireContext()) && !isOffline) {
-            binding.progress.isVisible = false
-            binding.thumbnail.setImageResource(R.drawable.ic_launcher_monochrome)
-            val primaryColor = ThemeHelper.getThemeColor(
-                requireContext(),
-                androidx.appcompat.R.attr.colorPrimary
-            )
-            binding.thumbnail.setColorFilter(primaryColor)
-            return
-        }
-
         binding.progress.isVisible = true
         binding.thumbnail.isGone = true
-        // reset color filter if data saver mode got toggled or conditions for it changed
         binding.thumbnail.setColorFilter(Color.TRANSPARENT)
 
         lifecycleScope.launch {

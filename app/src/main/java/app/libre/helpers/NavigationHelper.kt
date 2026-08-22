@@ -13,7 +13,6 @@ import androidx.fragment.app.replace
 import app.libre.NavDirections
 import app.libre.R
 import app.libre.constants.IntentData
-import app.libre.constants.PreferenceKeys
 import app.libre.enums.PlaylistType
 import app.libre.extensions.toID
 import app.libre.parcelable.PlayerData
@@ -92,7 +91,7 @@ object NavigationHelper {
         }
         if (attachedToRunningPlayer) return
 
-        val audioOnlyMode = PreferenceHelper.getBoolean(PreferenceKeys.AUDIO_ONLY_MODE, false) || isJioSaavn
+        val audioOnlyMode = isJioSaavn
         val attachedToRunningAudioPlayer = activity.runOnAudioPlayerFragment {
             // can only continue using player if in same mode (online/offline)
             // otherwise, recreate the player

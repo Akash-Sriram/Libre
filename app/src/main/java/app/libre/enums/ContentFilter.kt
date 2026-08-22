@@ -1,7 +1,8 @@
 package app.libre.enums
 
-import app.libre.constants.PreferenceKeys.SELECTED_FEED_FILTERS
 import app.libre.helpers.PreferenceHelper
+
+private const val SELECTED_FEED_FILTERS = "filter_feed"
 
 enum class ContentFilter {
     VIDEOS,

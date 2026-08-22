@@ -57,8 +57,8 @@ import app.libre.ui.fragments.PlayerFragment
 import app.libre.ui.extensions.onSystemInsets
 import app.libre.ui.models.PlaylistViewModel
 import app.libre.ui.models.SearchViewModel
-import app.libre.ui.preferences.BackupRestoreSettings
-import app.libre.ui.preferences.BackupRestoreSettings.Companion.FILETYPE_ANY
+import app.libre.helpers.LocalAudioMatcher
+import app.libre.util.TextUtils
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -89,7 +89,7 @@ class MainActivity : AbstractPlayerHostActivity() {
     private var playlistExportFormat: ImportFormat = ImportFormat.PIPED
     private var exportPlaylistId: String? = null
     private val createPlaylistsFile = registerForActivityResult(
-        ActivityResultContracts.CreateDocument(FILETYPE_ANY)
+        ActivityResultContracts.CreateDocument("*/*")
     ) { uri ->
         if (uri == null) return@registerForActivityResult
 
@@ -100,6 +100,19 @@ class MainActivity : AbstractPlayerHostActivity() {
                 playlistExportFormat,
                 selectedPlaylistIds = listOf(exportPlaylistId!!)
             )
+        }
+    }
+
+    private val requestInitialPermissions = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { results ->
+        val audioGranted = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            results[android.Manifest.permission.READ_MEDIA_AUDIO] == true
+        } else {
+            results[android.Manifest.permission.READ_EXTERNAL_STORAGE] == true
+        }
+        if (audioGranted) {
+            LocalAudioMatcher.startAutoScan(this)
         }
     }
 
@@ -168,38 +181,36 @@ class MainActivity : AbstractPlayerHostActivity() {
 
         loadIntentData()
 
-        showUserInfoDialogIfNeeded()
-
         lifecycleScope.launch(Dispatchers.IO) {
             kotlinx.coroutines.delay(4000L)
             UpdateHelper.cleanUpOldApks(this@MainActivity)
             UpdateHelper.checkForUpdateOnLaunch(this@MainActivity)
         }
 
-        // Request storage permissions to scan the Music folder
-        val permissions = mutableListOf<String>()
+        checkAndRequestInitialPermissions()
+        setupUnifiedBackCoordinator()
+        app.libre.helpers.WifiSyncHelper.start(applicationContext)
+    }
+
+    private fun checkAndRequestInitialPermissions() {
+        val missingPermissions = mutableListOf<String>()
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            if (androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                missingPermissions.add(android.Manifest.permission.POST_NOTIFICATIONS)
+            }
             if (androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.READ_MEDIA_AUDIO) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
-                permissions.add(android.Manifest.permission.READ_MEDIA_AUDIO)
+                missingPermissions.add(android.Manifest.permission.READ_MEDIA_AUDIO)
             }
         } else {
             if (androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.READ_EXTERNAL_STORAGE) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
-                permissions.add(android.Manifest.permission.READ_EXTERNAL_STORAGE)
+                missingPermissions.add(android.Manifest.permission.READ_EXTERNAL_STORAGE)
             }
         }
-        if (permissions.isNotEmpty()) {
-            androidx.core.app.ActivityCompat.requestPermissions(this, permissions.toTypedArray(), 1002)
+
+        if (missingPermissions.isNotEmpty()) {
+            requestInitialPermissions.launch(missingPermissions.toTypedArray())
         } else {
-            app.libre.helpers.LocalAudioMatcher.startAutoScan(this)
-        }
-
-        setupUnifiedBackCoordinator()
-    }
-
-    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == 1002 && grantResults.isNotEmpty() && grantResults[0] == android.content.pm.PackageManager.PERMISSION_GRANTED) {
-            app.libre.helpers.LocalAudioMatcher.startAutoScan(this)
+            LocalAudioMatcher.startAutoScan(this)
         }
     }
 
@@ -235,7 +246,7 @@ class MainActivity : AbstractPlayerHostActivity() {
 
     private fun addSearchQueryToHistory(query: String) {
         val searchHistoryEnabled =
-            PreferenceHelper.getBoolean(PreferenceKeys.SEARCH_HISTORY_TOGGLE, true)
+            PreferenceHelper.getBoolean("search_history_toggle", true)
         if (searchHistoryEnabled && query.isNotEmpty()) {
             lifecycleScope.launch(Dispatchers.IO) {
                 val newItem = SearchHistoryItem(query.trim())
@@ -658,36 +669,10 @@ class MainActivity : AbstractPlayerHostActivity() {
         playlistExportFormat = format
         exportPlaylistId = playlistId
 
-        val fileName =
-            BackupRestoreSettings.getExportFileName(this, format, playlistName, includeTimestamp)
+        val timestamp = if (includeTimestamp) "_${TextUtils.getFileSafeTimeStampNow()}" else ""
+        val extension = if (format == ImportFormat.PIPED) ".json" else ".txt"
+        val fileName = "${playlistName.replace(Regex("[^a-zA-Z0-9.-]"), "_")}${timestamp}${extension}"
         createPlaylistsFile.launch(fileName)
-    }
-
-    private fun showUserInfoDialogIfNeeded() {
-        // don't show the update information dialog for debug builds
-        if (BuildConfig.DEBUG) return
-
-        val lastShownVersionCode =
-            PreferenceHelper.getInt(PreferenceKeys.LAST_SHOWN_INFO_MESSAGE_VERSION_CODE, -1)
-
-        // mapping of version code to info message
-        val infoMessages = emptyList<Pair<Int, String>>()
-
-        val message =
-            infoMessages.lastOrNull { (versionCode, _) -> versionCode > lastShownVersionCode }?.second
-                ?: return
-
-        MaterialAlertDialogBuilder(this)
-            .setTitle(R.string.update_information)
-            .setMessage(message)
-            .setNegativeButton(R.string.okay, null)
-            .setPositiveButton(R.string.never_show_again) { _, _ ->
-                PreferenceHelper.putInt(
-                    PreferenceKeys.LAST_SHOWN_INFO_MESSAGE_VERSION_CODE,
-                    BuildConfig.VERSION_CODE
-                )
-            }
-            .show()
     }
 
     override fun minimizePlayerContainerLayout() {
@@ -821,5 +806,10 @@ class MainActivity : AbstractPlayerHostActivity() {
         val imm = getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as? android.view.inputmethod.InputMethodManager
         imm?.hideSoftInputFromWindow(searchView.windowToken, 0)
         return true
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        app.libre.helpers.WifiSyncHelper.stop()
     }
 }

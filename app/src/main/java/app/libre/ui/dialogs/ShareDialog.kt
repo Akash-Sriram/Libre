@@ -8,7 +8,6 @@ import androidx.core.widget.addTextChangedListener
 import androidx.fragment.app.DialogFragment
 import app.libre.R
 import app.libre.constants.IntentData
-import app.libre.constants.PreferenceKeys
 import app.libre.databinding.DialogShareBinding
 import app.libre.enums.ShareObjectType
 import app.libre.extensions.parcelable
@@ -44,12 +43,12 @@ class ShareDialog : DialogFragment() {
         if (shareObjectType == ShareObjectType.VIDEO) {
             binding.timeStampSwitchLayout.isVisible = true
             binding.timeCodeSwitch.isChecked = PreferenceHelper.getBoolean(
-                PreferenceKeys.SHARE_WITH_TIME_CODE,
+                "share_with_time_code",
                 false
             )
             binding.timeCodeSwitch.setOnCheckedChangeListener { _, isChecked ->
                 binding.timeStampInputLayout.isVisible = isChecked
-                PreferenceHelper.putBoolean(PreferenceKeys.SHARE_WITH_TIME_CODE, isChecked)
+                PreferenceHelper.putBoolean("share_with_time_code", isChecked)
                 binding.linkPreview.text = generateLinkText(binding)
             }
             binding.timeStamp.addTextChangedListener {

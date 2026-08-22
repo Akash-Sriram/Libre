@@ -2,171 +2,22 @@ package app.libre.helpers
 
 import android.content.Context
 import android.content.SharedPreferences
-import android.util.Log
 import androidx.core.content.edit
 import androidx.preference.PreferenceManager
-import app.libre.LibreTubeApp
-import app.libre.R
-import app.libre.api.TrendingCategory
-import app.libre.constants.PreferenceKeys
-import app.libre.enums.SbSkipOptions
 import app.libre.helpers.LocaleHelper.getDetectedCountry
-import kotlin.math.roundToInt
 
 object PreferenceHelper {
-    private val TAG = PreferenceHelper::class.simpleName
-
     /**
-     * Preference migration from [fromVersion] to [toVersion].
-     */
-    private class PreferenceMigration(
-        val fromVersion: Int, val toVersion: Int, val onMigration: () -> Unit
-    )
-
-    /**
-     * for normal preferences
+     * SharedPreferences instance
      */
     lateinit var settings: SharedPreferences
 
-    /**
-     * Migrations required to migrate the application to a newer preference version.
-     * The version is automatically determined from the number of migrations available.
-     */
-    private val MIGRATIONS = arrayOf(
-        PreferenceMigration(0, 1) {
-            LibreTubeApp.instance.resources
-                .getStringArray(R.array.sponsorBlockSegments)
-                .forEach { category ->
-                    val key = "${category}_category"
-                    val stored = getString(key, "visible")
-                    if (stored == "visible") {
-                        putString(key, SbSkipOptions.MANUAL.name.lowercase())
-                    }
-                }
-        },
-        PreferenceMigration(1, 2) {
-            putString("trending_category", "LIVE")
-        },
-        PreferenceMigration(2, 3) {
-            // git log -p -- app/src/main/java/com/github/libretube/constants/PreferenceKeys.kt | rg "^-.*const val [A-Z_]+" | awk '{printf("%s,", $6);}' | sort | uniq
-            listOf(
-                "player_audio_format",
-                "lbry_hls",
-                "confirm_unsubscribing",
-                "legacy_subscriptions",
-                "legacy_subscriptions_columns",
-                "filter_history_type",
-                "use_hls",
-                "last_stream_video_id",
-                "last_watched_feed_time",
-                "last_feed_refresh_timestamp_millis",
-                "custom_playback_speed",
-                "background_playback_speed",
-                "player_resize_mode",
-                "alternative_videos_layout",
-                "clearCustomInstances",
-                "auth",
-                "image_proxy_url",
-                "dearrow",
-                "unlimited_search_history",
-                "sb_highlights",
-                "audio_only_mode",
-                "last_stream_video_id",
-                "last_watched_feed_time",
-                "sb_contribute_key",
-                "dearrow_contribute_key",
-                "sb_user_id",
-                "fallback_piped_proxy",
-                "picture_in_picture",
-                "pause_on_quit",
-                "save_feed",
-                "filer_feed",
-                "max_concurrent_downloads",
-                "grid",
-                "sleep_timer_toggle",
-                "sleep_timer_delay",
-                "alternative_player_layout",
-                "auto_rotation",
-                "sb_show_markers",
-                "autoplay",
-                "sb_skip_manually_key",
-                "player_screen_brightness",
-                "selected_filer_feed",
-                "selected_feed_filer",
-                "feed_sort_oder",
-                "player_video_format",
-                "watch_position_toggle",
-                "background_playback_speed",
-                "break_reminder_toggle",
-                "break_reminder",
-                "notification_open_queue",
-                "data_saver_mode",
-                "import_from_yt",
-                "export_subs",
-                "last_stream_video_id",
-                "show_open_with",
-                "player_swipe_control",
-                "progressive_loading_interval",
-                "limit_hls",
-                "nav_bar_items",
-                "trending_layout",
-                "default_tab",
-                "backup_settings",
-                "restore_settings",
-                "hide_trending_page",
-                "sb_skip_manually",
-                "download_location",
-                "download_folder",
-            ).map { key -> remove(key) }
-        },
-        PreferenceMigration(3, 4) {
-            listOf("video_codecs", "audio_codecs").map { remove(it) }
-        },
-        PreferenceMigration(4, 5) {
-            remove("remember_playback_speed")
-        },
-        PreferenceMigration(5, 6) {
-            val currentSpeed = (settings.getString(PreferenceKeys.PLAYBACK_SPEED, null)
-                ?: return@PreferenceMigration).replace("F", "").toFloat()
-            // round to the nearest .25 playback speed
-            val speed = (currentSpeed * 4f).roundToInt() / 4f
-            putString(PreferenceKeys.PLAYBACK_SPEED, speed.toString())
-        },
-        PreferenceMigration(6, 7) {
-            remove("disable_video_image_proxy")
-        },
-        PreferenceMigration(7, 8) {
-            remove("image_cache_size")
-            remove("max_parallel_downloads")
-        }
-    )
-
-    /**
-     * set the context that is being used to access the shared preferences
-     */
     fun initialize(context: Context) {
         settings = getDefaultSharedPreferences(context)
     }
 
-    /**
-     * Migrate preference to a new version.
-     */
     fun migrate() {
-        var currentPrefVersion = getInt(PreferenceKeys.PREFERENCE_VERSION, 0)
-
-        while (currentPrefVersion < MIGRATIONS.count()) {
-            val next = currentPrefVersion + 1
-
-            val migration =
-                MIGRATIONS.find { it.fromVersion == currentPrefVersion && it.toVersion == next }
-            Log.i(TAG, "Performing migration from $currentPrefVersion to $next")
-            migration?.onMigration?.invoke()
-
-            currentPrefVersion++
-            // mark as successfully migrated
-            putInt(PreferenceKeys.PREFERENCE_VERSION, currentPrefVersion)
-        }
-
+        // No migrations needed for Libre
     }
 
     fun putString(key: String, value: String) {
@@ -220,15 +71,15 @@ object PreferenceHelper {
     }
 
     fun saveErrorLog(log: String) {
-        putString(PreferenceKeys.ERROR_LOG, log)
+        putString("error_log", log)
     }
 
     fun getErrorLog(): String {
-        return getString(PreferenceKeys.ERROR_LOG, "")
+        return getString("error_log", "")
     }
 
     fun getTrendingRegion(context: Context): String {
-        val regionPref = PreferenceHelper.getString(PreferenceKeys.REGION, "sys")
+        val regionPref = PreferenceHelper.getString("region", "sys")
 
         // get the system default country if auto region selected
         return if (regionPref == "sys") {
