@@ -91,6 +91,15 @@ object BackupHelper {
         }
     }
 
+    val EXPORTED_PREFERENCE_KEYS = setOf(
+        PreferenceKeys.OFFLINE_SONGS_FOLDER_URI,
+        PreferenceKeys.BACKUP_FOLDER_URI,
+        PreferenceKeys.ENABLE_AUTO_BACKUP,
+        PreferenceKeys.AUTO_MUSIC_AUDIO_MODE,
+        PreferenceKeys.PLAYLIST_SORT_ORDER,
+        PreferenceKeys.PLAYLISTS_ORDER
+    )
+
     /**
      * Build a complete backup file of all active categories
      */
@@ -98,16 +107,17 @@ object BackupHelper {
         val backupFile = BackupFile()
         backupFile.playlistBookmarks = Database.playlistBookmarkDao().getAll()
         backupFile.localPlaylists = Database.localPlaylistsDao().getAll()
-        backupFile.preferences = PreferenceHelper.settings.all.map { (key, value) ->
-            val jsonValue = when (value) {
-                is Number -> JsonPrimitive(value)
-                is Boolean -> JsonPrimitive(value)
-                is String -> JsonPrimitive(value)
-                is Set<*> -> JsonPrimitive(value.joinToString(","))
-                else -> JsonNull
+        backupFile.preferences = PreferenceHelper.settings.all
+            .filter { (key, _) -> key in EXPORTED_PREFERENCE_KEYS }
+            .map { (key, value) ->
+                val jsonValue = when (value) {
+                    is Number -> JsonPrimitive(value)
+                    is Boolean -> JsonPrimitive(value)
+                    is String -> JsonPrimitive(value)
+                    else -> JsonNull
+                }
+                PreferenceItem(key, jsonValue)
             }
-            PreferenceItem(key, jsonValue)
-        }
         backupFile
     }
 
@@ -248,8 +258,9 @@ object BackupHelper {
         if (preferences == null) return
 
         PreferenceManager.getDefaultSharedPreferences(context).edit(commit = true) {
-            // decide for each preference which type it is and save it to the preferences
+            // Only restore active, known preference keys and discard dead upstream keys
             preferences.forEach { (key, jsonValue) ->
+                if (key !in EXPORTED_PREFERENCE_KEYS) return@forEach
                 val value = if (jsonValue.isString) {
                     jsonValue.content
                 } else {
@@ -263,15 +274,7 @@ object BackupHelper {
                     is Float -> putFloat(key, value)
                     is Long -> putLong(key, value)
                     is Int -> putInt(key, value)
-                    is String -> {
-                        if (
-                            key == PreferenceKeys.SELECTED_FEED_FILTERS
-                        ) {
-                            putStringSet(key, value.split(",").toSet())
-                        } else {
-                            putString(key, value)
-                        }
-                    }
+                    is String -> putString(key, value)
                 }
             }
         }
