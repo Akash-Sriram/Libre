@@ -208,6 +208,44 @@ open class OnlinePlayerService : AbstractPlayerService() {
                 }
             } ?: return@launch
 
+            // In Audio Player mode, auto-upgrade music videos to their official Studio Master
+            var actualVideoId = videoId
+            if (isAudioOnlyPlayer && videoId.length == 11) {
+                val currentTitle = streams?.title.orEmpty()
+                val currentUploader = streams?.uploader.orEmpty()
+                val titleLower = currentTitle.lowercase()
+                val isLikelyMusicVideo = streams?.category.equals("Music", ignoreCase = true) ||
+                        titleLower.contains("video") || titleLower.contains("promo") ||
+                        titleLower.contains("official") || titleLower.contains("4k") ||
+                        titleLower.contains("song") || titleLower.contains("lyric")
+
+                if (isLikelyMusicVideo) {
+                    val rawArtist = currentUploader.replace(Regex("""\s*-\s*Topic\b""", RegexOption.IGNORE_CASE), "").trim()
+                    val artist = app.libre.helpers.LocalAudioMatcher.normalizeArtistString(rawArtist) ?: rawArtist
+                    val master = withContext(Dispatchers.IO) {
+                        app.libre.api.YtMusicApi.resolveStudioMaster(currentTitle, artist)
+                    }
+                    if (master != null) {
+                        val masterId = master.url.orEmpty().toID()
+                        if (masterId.isNotEmpty() && masterId != videoId) {
+                            val masterStreams = withContext(Dispatchers.IO) {
+                                try {
+                                    MediaServiceRepository.instance.getStreams(masterId)
+                                } catch (e: Exception) { null }
+                            }
+                            if (masterStreams != null) {
+                                actualVideoId = masterId
+                                streams = masterStreams.copy(
+                                    thumbnailUrl = master.thumbnail?.takeIf { it.isNotBlank() } ?: masterStreams.thumbnailUrl
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            videoId = actualVideoId
+
             streams?.toStreamItem(videoId)?.let {
                 PlayingQueue.updateCurrent(it)
                 if (!PlayingQueue.hasNext()) {
