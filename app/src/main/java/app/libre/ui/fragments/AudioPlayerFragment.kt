@@ -186,8 +186,23 @@ class AudioPlayerFragment : BasePlayerFragment(R.layout.fragment_audio_player) {
         }
 
         binding.openVideo.setOnClickListener {
-            val currentId = PlayingQueue.getCurrent()?.url?.toID()
-            switchToVideoMode(currentId ?: return@setOnClickListener)
+            val currentItem = PlayingQueue.getCurrent() ?: return@setOnClickListener
+            val currentId = currentItem.url?.toID() ?: return@setOnClickListener
+
+            val rawArtist = (currentItem.uploaderName ?: "").replace(Regex("""\s*-\s*Topic\b""", RegexOption.IGNORE_CASE), "").trim()
+            val artist = app.libre.helpers.LocalAudioMatcher.normalizeArtistString(rawArtist) ?: rawArtist
+            val title = currentItem.title.orEmpty()
+
+            lifecycleScope.launch(Dispatchers.IO) {
+                val officialVideo = app.libre.api.YtMusicApi.resolveOfficialVideo(title, artist)
+                val targetId = officialVideo?.url?.toID()?.takeIf { it.isNotEmpty() } ?: currentId
+                withContext(Dispatchers.Main) {
+                    if (targetId != currentId && officialVideo != null) {
+                        PlayingQueue.updateCurrent(officialVideo)
+                    }
+                    switchToVideoMode(targetId)
+                }
+            }
         }
 
         childFragmentManager.setFragmentResultListener(
@@ -250,6 +265,7 @@ class AudioPlayerFragment : BasePlayerFragment(R.layout.fragment_audio_player) {
     }
 
     fun switchToVideoMode(videoId: String) {
+        val currentPos = playerController?.currentPosition ?: 0L
         playerController?.sendCustomCommand(
             AbstractPlayerService.runPlayerActionCommand,
             Bundle().apply {
@@ -264,6 +280,7 @@ class AudioPlayerFragment : BasePlayerFragment(R.layout.fragment_audio_player) {
             playerData = PlayerData(
                 videoId = videoId,
                 isOffline = isOffline,
+                timestamp = currentPos,
                 forceVideo = true
             ),
             alreadyStarted = true
