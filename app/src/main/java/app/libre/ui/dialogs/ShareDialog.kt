@@ -39,7 +39,24 @@ class ShareDialog : DialogFragment() {
 
         val binding = DialogShareBinding.inflate(layoutInflater)
         
-        binding.shareHostGroup.isVisible = false
+        val isYouTubeVideo = shareObjectType == ShareObjectType.VIDEO && !app.libre.helpers.JioSaavnHelper.isJioSaavn(id, false)
+        if (isYouTubeVideo) {
+            binding.shareHostGroup.isVisible = true
+            val savedHost = PreferenceHelper.getString("share_link_host", "music")
+            if (savedHost == "youtube") {
+                binding.radioYoutube.isChecked = true
+            } else {
+                binding.radioYtMusic.isChecked = true
+            }
+
+            binding.shareHostGroup.setOnCheckedChangeListener { _, checkedId ->
+                val newHost = if (checkedId == R.id.radio_youtube) "youtube" else "music"
+                PreferenceHelper.putString("share_link_host", newHost)
+                binding.linkPreview.text = generateLinkText(binding)
+            }
+        } else {
+            binding.shareHostGroup.isVisible = false
+        }
 
         if (shareObjectType == ShareObjectType.VIDEO) {
             binding.timeStampSwitchLayout.isVisible = true
@@ -105,17 +122,18 @@ class ShareDialog : DialogFragment() {
 
         val cleanYtId = id.toID()
         val isMusicPlaylist = cleanYtId.startsWith("OLAK") || cleanYtId.startsWith("MPRE")
-        val host = if (isMusicPlaylist) YOUTUBE_MUSIC_URL else YOUTUBE_FRONTEND_URL
+        val isMusicTrack = binding.radioYtMusic.isChecked
+        val host = if (isMusicPlaylist || isMusicTrack) YOUTUBE_MUSIC_URL else YOUTUBE_FRONTEND_URL
         val url = when (shareObjectType) {
             ShareObjectType.VIDEO -> {
                 val queryParams = mutableListOf<String>()
                 if (binding.timeCodeSwitch.isChecked) {
                     queryParams += "t=${binding.timeStamp.text}"
                 }
-                val baseUrl = "$YOUTUBE_SHORT_URL/$cleanYtId"
+                val baseUrl = if (isMusicTrack) "$YOUTUBE_MUSIC_URL/watch?v=$cleanYtId" else "$YOUTUBE_SHORT_URL/$cleanYtId"
 
                 if (queryParams.isEmpty()) baseUrl
-                else baseUrl + "?" + queryParams.joinToString("&")
+                else baseUrl + (if (baseUrl.contains("?")) "&" else "?") + queryParams.joinToString("&")
             }
 
             ShareObjectType.PLAYLIST -> "$host/playlist?list=$cleanYtId"

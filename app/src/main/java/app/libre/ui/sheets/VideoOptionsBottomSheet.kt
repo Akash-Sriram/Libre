@@ -194,8 +194,11 @@ class VideoOptionsBottomSheet : ExpandedBottomSheet(R.layout.sheet_video_options
 
         binding.actionCopyLink.setOnClickListener {
             dismiss()
+            val shareHost = app.libre.helpers.PreferenceHelper.getString("share_link_host", "music")
             val url = if (videoId.startsWith("jsa_")) {
                 "https://www.jiosaavn.com/song/$videoId"
+            } else if (shareHost == "music") {
+                "https://music.youtube.com/watch?v=$videoId"
             } else {
                 "https://youtu.be/$videoId"
             }

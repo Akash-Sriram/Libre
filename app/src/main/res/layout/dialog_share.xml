@@ -16,17 +16,25 @@
 
         <RadioGroup
             android:id="@+id/share_host_group"
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical">
+            android:orientation="horizontal"
+            android:layout_marginBottom="8dp"
+            android:visibility="gone"
+            tools:visibility="visible">
 
-            <RadioButton
-                android:id="@+id/youtube"
+            <com.google.android.material.radiobutton.MaterialRadioButton
+                android:id="@+id/radio_yt_music"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="@string/youtube" />
+                android:text="YouTube Music" />
 
-
+            <com.google.android.material.radiobutton.MaterialRadioButton
+                android:id="@+id/radio_youtube"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="16dp"
+                android:text="YouTube Video" />
 
         </RadioGroup>
 
