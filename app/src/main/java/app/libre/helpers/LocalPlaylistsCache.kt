@@ -14,8 +14,8 @@ import kotlinx.coroutines.sync.withLock
 data class CachedPlaylistData(
     val playlist: LocalPlaylist,
     val songCount: Int,
-    val canonicalSignatures: Set<String>,
     val rawVideoIds: Set<String>,
+    val titleMap: Map<String, List<CanonicalTrack>>,
     val canonicalTracks: List<CanonicalTrack>
 )
 
@@ -40,22 +40,24 @@ object LocalPlaylistsCache {
             try {
                 val fullRelations = DatabaseHolder.Database.localPlaylistsDao().getAll()
                 cachedList = fullRelations.map { relation ->
-                    val signatures = HashSet<String>()
                     val videoIds = HashSet<String>()
                     val canonicalList = ArrayList<CanonicalTrack>()
+                    val tMap = HashMap<String, MutableList<CanonicalTrack>>()
 
                     for (video in relation.videos) {
                         videoIds.add(video.videoId)
                         val canonical = DuplicateAudioMatcher.resolveCanonicalTrackSync(video.toStreamItem())
-                        signatures.add(canonicalToKey(canonical))
                         canonicalList.add(canonical)
+                        if (canonical.cleanTitle.isNotEmpty()) {
+                            tMap.getOrPut(canonical.cleanTitle) { ArrayList() }.add(canonical)
+                        }
                     }
 
                     CachedPlaylistData(
                         playlist = relation.playlist,
                         songCount = relation.videos.size,
-                        canonicalSignatures = signatures,
                         rawVideoIds = videoIds,
+                        titleMap = tMap,
                         canonicalTracks = canonicalList
                     )
                 }
@@ -66,12 +68,6 @@ object LocalPlaylistsCache {
         }
     }
 
-    private fun canonicalToKey(canonical: CanonicalTrack): String {
-        val normTitle = canonical.cleanTitle.lowercase().replace(Regex("[^a-z0-9]"), "")
-        val normAlbum = canonical.cleanAlbum.lowercase().replace(Regex("[^a-z0-9]"), "")
-        return if (normAlbum.isNotEmpty()) "$normTitle::$normAlbum" else normTitle
-    }
-
     /**
      * Instantly checks if a song is in any local playlist using cross-source matching in 0.001ms.
      */
@@ -80,15 +76,17 @@ object LocalPlaylistsCache {
         if (list.isEmpty()) return false
         val targetVideoId = streamItem.url?.toID().orEmpty()
 
-        // 1. Exact Video ID / URL match is ultimate truth
+        // 1. Exact Video ID / URL match is ultimate truth (O(1) instant)
         if (targetVideoId.isNotEmpty()) {
             if (list.any { it.rawVideoIds.contains(targetVideoId) }) return true
         }
 
-        // 2. Strict Metadata Matching (Full Title + Artist/Album/Duration)
+        // 2. Strict Metadata Matching using O(1) title indexing
         val canonical = DuplicateAudioMatcher.resolveCanonicalTrackSync(streamItem)
+        if (canonical.cleanTitle.isEmpty()) return false
+
         return list.any { cached ->
-            cached.canonicalTracks.any { DuplicateAudioMatcher.isDuplicate(canonical, it) }
+            cached.titleMap[canonical.cleanTitle]?.any { DuplicateAudioMatcher.isDuplicate(canonical, it) } == true
         }
     }
 
@@ -106,9 +104,8 @@ object LocalPlaylistsCache {
         return list.map { cached ->
             val isDuplicate = targetCanonicals.any { target ->
                 (target.videoId.isNotEmpty() && cached.rawVideoIds.contains(target.videoId)) ||
-                    cached.canonicalTracks.any { DuplicateAudioMatcher.isDuplicate(target, it) }
+                    (target.cleanTitle.isNotEmpty() && cached.titleMap[target.cleanTitle]?.any { DuplicateAudioMatcher.isDuplicate(target, it) } == true)
             }
-
             PlaylistDisplayItem(
                 playlist = cached.playlist,
                 songCount = cached.songCount,

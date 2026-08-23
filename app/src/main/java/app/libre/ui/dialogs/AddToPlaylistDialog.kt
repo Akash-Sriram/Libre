@@ -157,7 +157,6 @@ class AddToPlaylistDialog : ExpandedBottomSheet(R.layout.sheet_add_to_playlist) 
                     lifecycleScope.launch(Dispatchers.IO) {
                         try {
                             PlaylistsHelper.addToPlaylist(playlist.id.toString(), *targetStreams.toTypedArray())
-                            LocalPlaylistsCache.reload()
                             withContext(Dispatchers.Main) {
                                 val playlistName = playlist.name.orEmpty()
                                 val message = try {
@@ -168,6 +167,7 @@ class AddToPlaylistDialog : ExpandedBottomSheet(R.layout.sheet_add_to_playlist) 
                                 Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
                                 dismiss()
                             }
+                            LocalPlaylistsCache.reload()
                         } catch (e: Exception) {
                             android.util.Log.e("AddToPlaylistDialog", "Error adding to playlist", e)
                             withContext(Dispatchers.Main) {
