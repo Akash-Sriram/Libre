@@ -226,10 +226,14 @@ class VideoOptionsBottomSheet : ExpandedBottomSheet(R.layout.sheet_video_options
                 act?.lifecycleScope?.launch(Dispatchers.IO) {
                     val rawArtist = (streamItem.uploaderName ?: "").replace(Regex("""\s*-\s*Topic\b""", RegexOption.IGNORE_CASE), "").trim()
                     val artist = app.libre.helpers.LocalAudioMatcher.normalizeArtistString(rawArtist) ?: rawArtist
-                    val master = app.libre.api.YtMusicApi.resolveStudioMaster(streamItem.title.orEmpty(), artist)
+                    val target = if (isLikelyVideoVersion) {
+                        app.libre.api.YtMusicApi.resolveStudioMaster(streamItem.title.orEmpty(), artist)
+                    } else {
+                        app.libre.api.YtMusicApi.resolveOfficialVideo(streamItem.title.orEmpty(), artist)
+                    }
                     withContext(Dispatchers.Main) {
-                        if (master != null) {
-                            val newId = master.url.orEmpty().toID()
+                        if (target != null) {
+                            val newId = target.url.orEmpty().toID()
                             if (newId.isNotEmpty() && newId != videoId) {
                                 NavigationHelper.navigateVideo(
                                     context,
@@ -237,7 +241,7 @@ class VideoOptionsBottomSheet : ExpandedBottomSheet(R.layout.sheet_video_options
                                         videoId = newId,
                                         keepQueue = true
                                     ),
-                                    audioOnlyPlayerRequested = isFromPlayer
+                                    audioOnlyPlayerRequested = isLikelyVideoVersion
                                 )
                             } else {
                                 android.widget.Toast.makeText(context, "Already playing best version", android.widget.Toast.LENGTH_SHORT).show()
