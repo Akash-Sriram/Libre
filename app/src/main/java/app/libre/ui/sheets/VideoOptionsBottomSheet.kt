@@ -209,7 +209,50 @@ class VideoOptionsBottomSheet : ExpandedBottomSheet(R.layout.sheet_video_options
             }
         }
 
-        // 7. Go to album
+        // 7. Song <-> Video Switcher
+        val isYouTube = videoId.length == 11
+        if (isYouTube) {
+            val titleLower = streamItem.title?.lowercase().orEmpty()
+            val isLikelyVideoVersion = titleLower.contains("video") || titleLower.contains("4k") || titleLower.contains("hd") || titleLower.contains("uhd")
+            binding.switchVersionText.text = if (isLikelyVideoVersion) "Switch to studio audio" else "Switch to official music video"
+            binding.switchVersionIcon.setImageResource(if (isLikelyVideoVersion) R.drawable.ic_audio else R.drawable.ic_video)
+            binding.actionSwitchVersion.isVisible = true
+            binding.actionSwitchVersion.addSpringTouchFeedback()
+
+            binding.actionSwitchVersion.setOnClickListener {
+                dismiss()
+                val context = requireContext()
+                val act = activity as? app.libre.ui.activities.MainActivity
+                act?.lifecycleScope?.launch(Dispatchers.IO) {
+                    val rawArtist = (streamItem.uploaderName ?: "").replace(Regex("""\s*-\s*Topic\b""", RegexOption.IGNORE_CASE), "").trim()
+                    val artist = app.libre.helpers.LocalAudioMatcher.normalizeArtistString(rawArtist) ?: rawArtist
+                    val master = app.libre.api.YtMusicApi.resolveStudioMaster(streamItem.title.orEmpty(), artist)
+                    withContext(Dispatchers.Main) {
+                        if (master != null) {
+                            val newId = master.url.orEmpty().toID()
+                            if (newId.isNotEmpty() && newId != videoId) {
+                                NavigationHelper.navigateVideo(
+                                    context,
+                                    playerData = PlayerData(
+                                        videoId = newId,
+                                        keepQueue = true
+                                    ),
+                                    audioOnlyPlayerRequested = isFromPlayer
+                                )
+                            } else {
+                                android.widget.Toast.makeText(context, "Already playing best version", android.widget.Toast.LENGTH_SHORT).show()
+                            }
+                        } else {
+                            android.widget.Toast.makeText(context, R.string.error, android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+            }
+        } else {
+            binding.actionSwitchVersion.isGone = true
+        }
+
+        // 8. Go to album
         val isInAlbum = arguments?.getBoolean("is_in_album", false) ?: false
         val candidateAlbumId = streamItem.albumId
         val albumName = streamItem.albumName?.takeIf { it.isNotBlank() }

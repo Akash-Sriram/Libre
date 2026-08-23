@@ -790,4 +790,132 @@ object YtMusicApi {
             return@withContext emptyList()
         }
     }
+
+    private val studioMasterCache = java.util.concurrent.ConcurrentHashMap<String, app.libre.api.obj.StreamItem>()
+
+    suspend fun resolveStudioMaster(title: String, artist: String? = null): app.libre.api.obj.StreamItem? = withContext(Dispatchers.IO) {
+        if (title.isBlank()) return@withContext null
+        val cacheKey = "${title.trim().lowercase()}::${artist?.trim()?.lowercase().orEmpty()}"
+        studioMasterCache[cacheKey]?.let { return@withContext it }
+
+        try {
+            var cleanTitle = title
+                .replace(Regex("""(?i)[\(\[\{]\s*(?:official\s*(?:music\s*)?(?:video|audio|lyric|hd|4k|remastered|track)?|lyric(?:s)?\s*video|full\s*(?:video|audio|song|track)|video\s*song|4k\s*uhd|remastered|hd|hq|audio|from\s+["'].*?["']|with\s+lyrics)\s*[\)\]\}]"""), " ")
+                .replace(Regex("""(?i)\b(video song|official video|full video|lyric video|audio song|video)\b"""), " ")
+                .replace(Regex("""[^a-zA-Z0-9\s]"""), " ")
+                .replace(Regex("""\s+"""), " ")
+                .trim()
+
+            val cleanArtist = artist?.replace(Regex("""\s*-\s*Topic\b""", RegexOption.IGNORE_CASE), "")?.trim().orEmpty()
+            val query = if (cleanArtist.isNotBlank()) "$cleanTitle $cleanArtist" else cleanTitle
+
+            val payload = JSONObject().apply {
+                put("context", JSONObject().apply {
+                    put("client", JSONObject().apply {
+                        put("clientName", "WEB_REMIX")
+                        put("clientVersion", "1.20240101.01.00")
+                        put("hl", "en")
+                        put("gl", "IN")
+                    })
+                })
+                put("query", query)
+                put("params", "EgWKAQIIAWoOEAQQAxAJEAUQChAQEBU=") // Songs filter
+            }
+
+            val request = Request.Builder()
+                .url("https://music.youtube.com/youtubei/v1/search")
+                .post(payload.toString().toRequestBody(JSON_MEDIA_TYPE))
+                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+                .header("Origin", "https://music.youtube.com")
+                .header("Referer", "https://music.youtube.com/")
+                .build()
+
+            val response = RetrofitInstance.httpClient.newCall(request).execute()
+            if (!response.isSuccessful) return@withContext null
+
+            val body = response.body.string()
+            val json = JSONObject(body)
+            val tabs = json.optJSONObject("contents")
+                ?.optJSONObject("tabbedSearchResultsRenderer")
+                ?.optJSONArray("tabs")
+            val sec = tabs?.optJSONObject(0)
+                ?.optJSONObject("tabRenderer")
+                ?.optJSONObject("content")
+                ?.optJSONObject("sectionListRenderer")
+                ?.optJSONArray("contents")
+
+            if (sec != null) {
+                for (i in 0 until sec.length()) {
+                    val s = sec.optJSONObject(i) ?: continue
+                    val shelf = s.optJSONObject("musicShelfRenderer") ?: continue
+                    val contents = shelf.optJSONArray("contents") ?: continue
+                    if (contents.length() > 0) {
+                        val renderer = contents.optJSONObject(0)?.optJSONObject("musicResponsiveListItemRenderer") ?: continue
+                        val flexCols = renderer.optJSONArray("flexColumns") ?: continue
+                        val col0 = flexCols.optJSONObject(0)
+                            ?.optJSONObject("musicResponsiveListItemFlexColumnRenderer")
+                            ?.optJSONObject("text")
+                            ?.optJSONArray("runs")
+                        val songTitle = col0?.optJSONObject(0)?.optString("text").orEmpty()
+                        val songVid = col0?.optJSONObject(0)?.optJSONObject("navigationEndpoint")
+                            ?.optJSONObject("watchEndpoint")?.optString("videoId") ?: continue
+
+                        val col1 = flexCols.optJSONObject(1)
+                            ?.optJSONObject("musicResponsiveListItemFlexColumnRenderer")
+                            ?.optJSONObject("text")
+                            ?.optJSONArray("runs")
+                        val songArtist = col1?.optJSONObject(0)?.optString("text").orEmpty()
+
+                        var songAlbum = ""
+                        if (flexCols.length() > 2) {
+                            val col2 = flexCols.optJSONObject(2)
+                                ?.optJSONObject("musicResponsiveListItemFlexColumnRenderer")
+                                ?.optJSONObject("text")
+                                ?.optJSONArray("runs")
+                            songAlbum = col2?.optJSONObject(0)?.optString("text").orEmpty()
+                        }
+
+                        val fixedCols = renderer.optJSONArray("fixedColumns")
+                        val durRun = fixedCols?.optJSONObject(0)
+                            ?.optJSONObject("musicResponsiveListItemFixedColumnRenderer")
+                            ?.optJSONObject("text")
+                            ?.optJSONArray("runs")
+                            ?.optJSONObject(0)?.optString("text")
+                        val durSec = if (!durRun.isNullOrBlank() && durRun.contains(":")) {
+                            val parts = durRun.split(":")
+                            if (parts.size == 2) {
+                                (parts[0].toLongOrNull() ?: 0L) * 60 + (parts[1].toLongOrNull() ?: 0L)
+                            } else if (parts.size == 3) {
+                                (parts[0].toLongOrNull() ?: 0L) * 3600 + (parts[1].toLongOrNull() ?: 0L) * 60 + (parts[2].toLongOrNull() ?: 0L)
+                            } else 0L
+                        } else 0L
+
+                        val thumbs = renderer.optJSONObject("thumbnail")
+                            ?.optJSONObject("musicThumbnailRenderer")
+                            ?.optJSONObject("thumbnail")
+                            ?.optJSONArray("thumbnails")
+                        val bestThumb = thumbs?.optJSONObject(thumbs.length() - 1)?.optString("url")
+                            ?.replace(Regex("""=w\d+-h\d+.*"""), "=w544-h544-l90-rj")
+                            .orEmpty()
+
+                        val result = app.libre.api.obj.StreamItem(
+                            url = "https://www.youtube.com/watch?v=$songVid",
+                            title = songTitle,
+                            uploaderName = songArtist.ifBlank { cleanArtist },
+                            thumbnail = bestThumb,
+                            albumName = songAlbum,
+                            duration = durSec,
+                            type = app.libre.api.obj.StreamItem.TYPE_STREAM
+                        )
+                        studioMasterCache[cacheKey] = result
+                        return@withContext result
+                    }
+                }
+            }
+            null
+        } catch (e: Exception) {
+            android.util.Log.e(TAG, "resolveStudioMaster error for $title", e)
+            null
+        }
+    }
 }
