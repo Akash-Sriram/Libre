@@ -27,8 +27,6 @@ class ShareDialog : DialogFragment() {
     private lateinit var id: String
     private lateinit var shareObjectType: ShareObjectType
     private lateinit var shareData: ShareData
-    private var studioMasterId: String? = null
-    private var officialVideoId: String? = null
     private var shareBinding: DialogShareBinding? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -62,29 +60,6 @@ class ShareDialog : DialogFragment() {
                 val newHost = if (checkedId == R.id.radio_youtube) "youtube" else "music"
                 PreferenceHelper.putString("share_link_host", newHost)
                 binding.linkPreview.text = generateLinkText(binding)
-            }
-
-            // Resolve both versions in background
-            val currentTitle = shareData.currentVideo.orEmpty()
-            if (currentTitle.isNotBlank()) {
-                CoroutineScope(Dispatchers.IO).launch {
-                    val titleLower = currentTitle.lowercase()
-                    val isLikelyVideo = titleLower.contains("video") || titleLower.contains("4k") || titleLower.contains("official")
-                    if (isLikelyVideo) {
-                        officialVideoId = id.toID()
-                        val master = app.libre.api.YtMusicApi.resolveStudioMaster(currentTitle)
-                        studioMasterId = master?.url?.toID() ?: id.toID()
-                    } else {
-                        studioMasterId = id.toID()
-                        val video = app.libre.api.YtMusicApi.resolveOfficialVideo(currentTitle)
-                        officialVideoId = video?.url?.toID() ?: id.toID()
-                    }
-                    withContext(kotlinx.coroutines.Dispatchers.Main) {
-                        if (isAdded && dialog?.isShowing == true) {
-                            binding.linkPreview.text = generateLinkText(binding)
-                        }
-                    }
-                }
             }
         } else {
             binding.shareHostGroup.isVisible = false
@@ -162,13 +137,7 @@ class ShareDialog : DialogFragment() {
                 if (binding.timeCodeSwitch.isChecked) {
                     queryParams += "t=${binding.timeStamp.text}"
                 }
-                val targetId = if (isMusicTrack) {
-                    studioMasterId ?: cleanYtId
-                } else {
-                    officialVideoId ?: cleanYtId
-                }
-
-                val baseUrl = if (isMusicTrack) "$YOUTUBE_MUSIC_URL/watch?v=$targetId" else "$YOUTUBE_SHORT_URL/$targetId"
+                val baseUrl = if (isMusicTrack) "$YOUTUBE_MUSIC_URL/watch?v=$cleanYtId" else "$YOUTUBE_SHORT_URL/$cleanYtId"
 
                 if (queryParams.isEmpty()) baseUrl
                 else baseUrl + (if (baseUrl.contains("?")) "&" else "?") + queryParams.joinToString("&")
