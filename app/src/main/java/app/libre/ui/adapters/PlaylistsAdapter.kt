@@ -34,10 +34,8 @@ class PlaylistsAdapter(
         val playlist = getItem(holder.bindingAdapterPosition)
         holder.binding.apply {
             // set imageview drawable as empty playlist if imageview empty
-            if (playlist.thumbnail.orEmpty().split("/").size <= 4) {
+            if (playlist.thumbnail.isNullOrBlank()) {
                 playlistThumbnail.setImageResource(R.drawable.ic_empty_playlist)
-                playlistThumbnail
-                    .setBackgroundColor(com.google.android.material.R.attr.colorSurface)
             } else {
                 ImageHelper.loadImage(playlist.thumbnail, playlistThumbnail)
             }
@@ -54,28 +52,6 @@ class PlaylistsAdapter(
 
             val fragmentManager = (root.context as BaseActivity).supportFragmentManager
             val showPlaylistOptions = {
-                fragmentManager.setFragmentResultListener(
-                    PLAYLIST_OPTIONS_REQUEST_KEY,
-                    (root.context as BaseActivity)
-                ) { _, resultBundle ->
-                    val newPlaylistName =
-                        resultBundle.getString(IntentData.playlistName)
-                    val isPlaylistToBeDeleted =
-                        resultBundle.getBoolean(IntentData.playlistTask)
-
-                    newPlaylistName?.let {
-                        playlistTitle.text = it
-                        playlist.name = it
-                    }
-
-                    if (isPlaylistToBeDeleted) {
-                        // Remove by ID, not by position — the captured `position` from
-                        // onBindViewHolder is stale by the time this callback fires if
-                        // another playlist was already deleted (causes IndexOutOfBoundsException).
-                        submitList(currentList.filter { it.id != playlist.id })
-                    }
-                }
-
                 val playlistOptionsDialog = PlaylistOptionsBottomSheet()
                 playlistOptionsDialog.arguments = android.os.Bundle().apply {
                     putString(IntentData.playlistId, playlist.id)

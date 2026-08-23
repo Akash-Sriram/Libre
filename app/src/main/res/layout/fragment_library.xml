@@ -66,16 +66,17 @@
                             android:layout_height="38dp"
                             android:ellipsize="end"
                             android:maxLines="1"
-                            android:paddingHorizontal="12dp"
+                            android:paddingHorizontal="14dp"
                             android:text="@string/creation_date"
-                            android:textColor="?attr/colorOnSurface"
+                            android:textColor="?attr/colorPrimary"
                             android:textSize="13sp"
+                            android:textStyle="bold"
                             android:tooltipText="@string/tooltip_sort"
                             app:cornerRadius="19dp"
-                            app:icon="@drawable/ic_sort"
+                            app:icon="@drawable/ic_swap_vert"
                             app:iconTint="?attr/colorPrimary"
                             app:iconSize="18dp"
-                            app:iconGravity="textEnd" />
+                            app:iconGravity="textStart" />
 
                     </LinearLayout>
 

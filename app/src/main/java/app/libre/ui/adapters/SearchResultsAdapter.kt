@@ -125,13 +125,17 @@ class SearchResultsAdapter(
             sourceBadge.backgroundTintList = android.content.res.ColorStateList.valueOf(badgeBg)
             sourceBadge.isVisible = true
 
-            val metaText = TextUtils.formatViewsString(
-                context = root.context,
-                views = item.views,
-                uploaded = item.uploaded,
-                uploader = item.uploaderName
-            )
-            channelName.text = metaText.ifBlank { item.uploaderName.orEmpty() }
+            val metaText = if (!item.albumName.isNullOrBlank() && !item.uploaderName.isNullOrBlank()) {
+                "${item.uploaderName} • ${item.albumName}"
+            } else {
+                TextUtils.formatViewsString(
+                    context = root.context,
+                    views = item.views,
+                    uploaded = item.uploaded,
+                    uploader = item.uploaderName
+                ).ifBlank { item.uploaderName.orEmpty() }
+            }
+            channelName.text = metaText
 
             root.setOnClickListener {
                 NavigationHelper.navigateVideo(root.context, PlayerData(item.url, timestamp = timeStamp))
@@ -165,22 +169,14 @@ class SearchResultsAdapter(
 
             watchProgress.setWatchProgressLength(videoId, item.duration)
 
-            val currentVideoId = videoId
-            root.tag = currentVideoId
-            activity.lifecycleScope.launch {
-                val isInPlaylist = withContext(Dispatchers.IO) {
-                    app.libre.db.DatabaseHolder.Database.localPlaylistsDao().isVideoInAnyPlaylist(currentVideoId)
-                }
-                if (root.tag == currentVideoId) {
-                    if (isInPlaylist) {
-                        downloadBadge.setImageResource(R.drawable.ic_bookmark)
-                        downloadBadge.setColorFilter(app.libre.helpers.ThemeHelper.getThemeColor(activity, androidx.appcompat.R.attr.colorPrimary))
-                        downloadBadge.isVisible = true
-                    } else {
-                        downloadBadge.clearColorFilter()
-                        downloadBadge.isGone = true
-                    }
-                }
+            val isInPlaylist = app.libre.helpers.LocalPlaylistsCache.isSongInAnyPlaylist(item.toStreamItem())
+            if (isInPlaylist) {
+                downloadBadge.setImageResource(R.drawable.ic_bookmark)
+                downloadBadge.setColorFilter(app.libre.helpers.ThemeHelper.getThemeColor(activity, androidx.appcompat.R.attr.colorPrimary))
+                downloadBadge.isVisible = true
+            } else {
+                downloadBadge.clearColorFilter()
+                downloadBadge.isGone = true
             }
         }
     }

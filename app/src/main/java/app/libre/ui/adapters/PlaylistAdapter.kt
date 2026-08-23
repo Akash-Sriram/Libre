@@ -58,10 +58,43 @@ class PlaylistAdapter(
         val fragmentManager = activity.supportFragmentManager
 
         with(holder.binding) {
-            val localTitle = app.libre.helpers.LocalAudioMatcher.getTitleFromFile(videoId, streamItem.title)
-            val baseTitle = (localTitle ?: streamItem.title).orEmpty()
-            val trackNumber = app.libre.helpers.LocalAudioMatcher.getTrackNumberFromFile(videoId, streamItem.title)
-            val displayTitle = app.libre.helpers.LocalAudioMatcher.formatTitleWithTrackNumber(baseTitle, trackNumber)
+            val displayTitle: String
+            val subtitleText: String
+
+            if (isLocalPlaylist) {
+                val localTitle = app.libre.helpers.LocalAudioMatcher.getTitleFromFile(videoId, streamItem.title)
+                val baseTitle = (localTitle ?: streamItem.title).orEmpty()
+                val trackNumber = app.libre.helpers.LocalAudioMatcher.getTrackNumberFromFile(videoId, streamItem.title)
+                displayTitle = app.libre.helpers.LocalAudioMatcher.formatTitleWithTrackNumber(baseTitle, trackNumber)
+
+                val localAlbum = app.libre.helpers.LocalAudioMatcher.getAlbumFromFile(videoId, streamItem.title)
+                val localYear = app.libre.helpers.LocalAudioMatcher.getYearFromFile(videoId, streamItem.title)
+                val album = localAlbum ?: streamItem.albumName.orEmpty().trim()
+                val year = localYear
+
+                subtitleText = when {
+                    album.isNotEmpty() && !year.isNullOrBlank() -> "$album • $year"
+                    album.isNotEmpty() -> album
+                    !year.isNullOrBlank() -> year
+                    else -> {
+                        val localArtist = app.libre.helpers.LocalAudioMatcher.getArtistFromFile(videoId, streamItem.title)
+                        val rawArtist = (localArtist ?: streamItem.uploaderName.orEmpty()).replace(Regex("""\s*-\s*Topic\b""", RegexOption.IGNORE_CASE), "").trim()
+                        app.libre.helpers.LocalAudioMatcher.normalizeArtistString(rawArtist) ?: rawArtist
+                    }
+                }
+            } else {
+                displayTitle = streamItem.title.orEmpty()
+                val rawArtist = streamItem.uploaderName.orEmpty().replace(Regex("""\s*-\s*Topic\b""", RegexOption.IGNORE_CASE), "").trim()
+                val cleanArtist = app.libre.helpers.LocalAudioMatcher.normalizeArtistString(rawArtist) ?: rawArtist
+                val album = streamItem.albumName.orEmpty().trim()
+
+                subtitleText = when {
+                    cleanArtist.isNotEmpty() && album.isNotEmpty() -> "$cleanArtist • $album"
+                    album.isNotEmpty() -> album
+                    cleanArtist.isNotEmpty() -> cleanArtist
+                    else -> ""
+                }
+            }
 
             val isCurrent = PlayingQueue.getCurrent()?.url?.toID() == videoId
             if (isCurrent) {
@@ -72,22 +105,6 @@ class PlaylistAdapter(
                 val defaultTextColor = ThemeHelper.getThemeColor(context, android.R.attr.textColorPrimary)
                 videoTitle.setTextColor(defaultTextColor)
                 videoTitle.text = displayTitle
-            }
-            val localAlbum = app.libre.helpers.LocalAudioMatcher.getAlbumFromFile(videoId, streamItem.title)
-            val localYear = app.libre.helpers.LocalAudioMatcher.getYearFromFile(videoId, streamItem.title)
-
-            val album = localAlbum ?: streamItem.albumName.orEmpty().trim()
-            val year = localYear
-
-            val subtitleText = when {
-                album.isNotEmpty() && !year.isNullOrBlank() -> "$album • $year"
-                album.isNotEmpty() -> album
-                !year.isNullOrBlank() -> year
-                else -> {
-                    val localArtist = app.libre.helpers.LocalAudioMatcher.getArtistFromFile(videoId, streamItem.title)
-                    val rawArtist = (localArtist ?: streamItem.uploaderName.orEmpty()).replace(Regex("""\s*-\s*Topic\b""", RegexOption.IGNORE_CASE), "").trim()
-                    app.libre.helpers.LocalAudioMatcher.normalizeArtistString(rawArtist) ?: rawArtist
-                }
             }
             channelName.text = subtitleText
 
@@ -121,6 +138,8 @@ class PlaylistAdapter(
                     arguments = android.os.Bundle().apply {
                         putParcelable(IntentData.streamItem, streamItem)
                         putString(IntentData.playlistId, playlistId)
+                        putBoolean("is_local_playlist", isLocalPlaylist)
+                        putBoolean("is_in_album", !isLocalPlaylist)
                     }
                 }.show(fragmentManager, VideoOptionsBottomSheet::class.java.name)
             }
@@ -142,27 +161,18 @@ class PlaylistAdapter(
                 downloadBadge.isGone = true
             } else {
                 // For album/public playlists, show badge if song is in any local playlist
-                val currentVideoId = videoId
-                root.tag = currentVideoId
-                activity.lifecycleScope.launch {
-                    val isInPlaylist = withContext(Dispatchers.IO) {
-                        app.libre.db.DatabaseHolder.Database.localPlaylistsDao()
-                            .isVideoInAnyPlaylist(currentVideoId)
-                    }
-                    if (root.tag == currentVideoId) {
-                        if (isInPlaylist) {
-                            downloadBadge.setImageResource(app.libre.R.drawable.ic_bookmark)
-                            downloadBadge.setColorFilter(
-                                app.libre.helpers.ThemeHelper.getThemeColor(
-                                    activity, androidx.appcompat.R.attr.colorPrimary
-                                )
-                            )
-                            downloadBadge.isVisible = true
-                        } else {
-                            downloadBadge.clearColorFilter()
-                            downloadBadge.isGone = true
-                        }
-                    }
+                val isInPlaylist = app.libre.helpers.LocalPlaylistsCache.isSongInAnyPlaylist(streamItem)
+                if (isInPlaylist) {
+                    downloadBadge.setImageResource(app.libre.R.drawable.ic_bookmark)
+                    downloadBadge.setColorFilter(
+                        app.libre.helpers.ThemeHelper.getThemeColor(
+                            activity, androidx.appcompat.R.attr.colorPrimary
+                        )
+                    )
+                    downloadBadge.isVisible = true
+                } else {
+                    downloadBadge.clearColorFilter()
+                    downloadBadge.isGone = true
                 }
             }
         }

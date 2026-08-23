@@ -108,6 +108,10 @@ class PlaylistFragment : DynamicLayoutManagerFragment(R.layout.fragment_playlist
 
         binding.playlistProgress.isVisible = true
 
+        parentFragmentManager.setFragmentResultListener("playlist_reload_key", viewLifecycleOwner) { _, _ ->
+            fetchPlaylist()
+        }
+
         lifecycleScope.launch(Dispatchers.IO) {
             isBookmarked = DatabaseHolder.Database.playlistBookmarkDao().includes(playlistId)
             withContext(Dispatchers.Main) {
@@ -299,7 +303,7 @@ class PlaylistFragment : DynamicLayoutManagerFragment(R.layout.fragment_playlist
                 val fragmentManager = (context as BaseActivity).supportFragmentManager
                 fragmentManager.setFragmentResultListener(
                     PlaylistOptionsBottomSheet.PLAYLIST_OPTIONS_REQUEST_KEY,
-                    (context as BaseActivity)
+                    viewLifecycleOwner
                 ) { _, resultBundle ->
                     val newPlaylistName =
                         resultBundle.getString(IntentData.playlistName)
@@ -445,13 +449,24 @@ class PlaylistFragment : DynamicLayoutManagerFragment(R.layout.fragment_playlist
         if (selectedSortOrder == 0) return items
         if (selectedSortOrder == 1) return items.reversed()
 
+        val isLocal = playlistType != PlaylistType.PUBLIC
         val sortables = items.map { item ->
             val videoId = item.item.url.orEmpty().toID()
-            val cachedTags = app.libre.helpers.LocalAudioMatcher.tagCache[videoId]
-                ?: app.libre.helpers.LocalAudioMatcher.tagCache[item.item.title.orEmpty()]
-            val title = cachedTags?.title ?: app.libre.helpers.LocalAudioMatcher.getTitleFromFile(videoId, item.item.title) ?: item.item.title.orEmpty()
-            val album = cachedTags?.album ?: app.libre.helpers.LocalAudioMatcher.getAlbumFromFile(videoId, item.item.title) ?: item.item.albumName.orEmpty()
-            val trackNumber = cachedTags?.trackNumber ?: app.libre.helpers.LocalAudioMatcher.getTrackNumberFromFile(videoId, item.item.title) ?: Int.MAX_VALUE
+            val title: String
+            val album: String
+            val trackNumber: Int
+
+            if (isLocal) {
+                val cachedTags = app.libre.helpers.LocalAudioMatcher.tagCache[videoId]
+                    ?: app.libre.helpers.LocalAudioMatcher.tagCache[item.item.title.orEmpty()]
+                title = cachedTags?.title ?: app.libre.helpers.LocalAudioMatcher.getTitleFromFile(videoId, item.item.title) ?: item.item.title.orEmpty()
+                album = cachedTags?.album ?: app.libre.helpers.LocalAudioMatcher.getAlbumFromFile(videoId, item.item.title) ?: item.item.albumName.orEmpty()
+                trackNumber = cachedTags?.trackNumber ?: app.libre.helpers.LocalAudioMatcher.getTrackNumberFromFile(videoId, item.item.title) ?: Int.MAX_VALUE
+            } else {
+                title = item.item.title.orEmpty()
+                album = item.item.albumName.orEmpty()
+                trackNumber = Int.MAX_VALUE
+            }
             val duration = item.item.duration ?: 0L
 
             SortablePlaylistItem(item, title, album, trackNumber, duration)
@@ -492,10 +507,13 @@ class PlaylistFragment : DynamicLayoutManagerFragment(R.layout.fragment_playlist
 
         val sorted = getSortedVideos()
         cachedSortedVideos = sorted
+        val isLocal = playlistType != PlaylistType.PUBLIC
         cachedSearchList = sorted.map { item ->
             val videoId = item.item.url.orEmpty().toID()
-            val tags = app.libre.helpers.LocalAudioMatcher.tagCache[videoId]
-                ?: app.libre.helpers.LocalAudioMatcher.tagCache[item.item.title.orEmpty()]
+            val tags = if (isLocal) {
+                app.libre.helpers.LocalAudioMatcher.tagCache[videoId]
+                    ?: app.libre.helpers.LocalAudioMatcher.tagCache[item.item.title.orEmpty()]
+            } else null
 
             val genre = tags?.genre.orEmpty()
             val albumArtist = tags?.albumArtist.orEmpty()

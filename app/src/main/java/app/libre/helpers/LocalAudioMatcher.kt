@@ -405,18 +405,20 @@ object LocalAudioMatcher {
     fun getLocalPathByTitle(title: String, artist: String = ""): String? {
         if (titleToPathMap.isEmpty()) return null
         val normalizedQuery = normalizeTitle(title)
-        if (normalizedQuery.isEmpty()) return null
+        if (normalizedQuery.length < 3) return null
 
         // 1. Exact normalized title match first
         titleToPathMap[normalizedQuery]?.let { return it }
 
-        // 2. Contains matching: either query contains key (e.g. YouTube full title contains song name)
-        // or key contains query (e.g. filename has extra album/movie tag)
+        // 2. Strict matching with minimum length 6
         val artistNorm = normalizeTitle(artist)
         return titleToPathMap.entries.firstOrNull { (key, _) ->
-            if (key.length >= 3 && normalizedQuery.contains(key)) return@firstOrNull true
-            if (normalizedQuery.length >= 3 && key.contains(normalizedQuery)) return@firstOrNull true
-            if (artistNorm.isNotEmpty() && key.contains(artistNorm) && (normalizedQuery.contains(key.take(8)) || key.contains(normalizedQuery.take(8)))) return@firstOrNull true
+            if (key.length >= 6 && (key == normalizedQuery || normalizedQuery.startsWith(key) || key.startsWith(normalizedQuery))) {
+                return@firstOrNull true
+            }
+            if (artistNorm.isNotEmpty() && key.contains(artistNorm) && normalizedQuery.length >= 6 && key.contains(normalizedQuery)) {
+                return@firstOrNull true
+            }
             false
         }?.value
     }
@@ -612,9 +614,6 @@ object LocalAudioMatcher {
         if (!title.isNullOrBlank()) {
             val titleMatch = getLocalPathByTitle(title)
             if (titleMatch != null) {
-                if (videoId.isNotEmpty()) {
-                    localAudioMap[videoId] = titleMatch
-                }
                 return titleMatch
             }
         }

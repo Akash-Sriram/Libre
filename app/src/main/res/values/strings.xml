@@ -270,6 +270,7 @@
     <string name="unlimited">Unlimited</string>
     <string name="background_mode">Background mode</string>
     <string name="add_to_queue">Add to queue</string>
+    <string name="added_to_queue">Added to queue</string>
     <string name="misc">Misc</string>
     <string name="take_a_break">Time to take a break</string>
     <string name="yt_shorts">Shorts</string>
@@ -614,4 +615,15 @@
     <string name="video_mode">Video mode</string>
     <string name="drag">Drag</string>
     <string name="copy_link">Copy link</string>
+    <string name="clean_duplicates">Clean duplicates</string>
+    <string name="find_duplicates">Find duplicates</string>
+    <string name="searching_duplicates">Scanning for duplicate tracks…</string>
+    <string name="no_duplicates_found">No duplicate tracks found in this playlist</string>
+    <string name="duplicates_found_title">%d Duplicates Detected</string>
+    <string name="remove_duplicates_btn">Remove %d Duplicate(s)</string>
+    <string name="duplicates_removed_success">Removed %d duplicate track(s)</string>
+    <string name="duplicate_warning_title">Duplicate Track(s) Detected</string>
+    <string name="duplicate_warning_message">Some tracks already exist in this playlist under another source. Would you like to skip duplicates?</string>
+    <string name="skip_duplicates">Skip Duplicates</string>
+    <string name="add_all">Add All</string>
 </resources>

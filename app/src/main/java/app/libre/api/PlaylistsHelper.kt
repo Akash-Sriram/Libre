@@ -28,7 +28,7 @@ object PlaylistsHelper {
 
     suspend fun getPlaylist(playlistId: String): Playlist {
         // JioSaavn search results prefix album IDs with "jsa_" to distinguish them from local playlists
-        if (playlistId.startsWith("jsa_")) {
+        if (playlistId.startsWith("jsa_") || playlistId.startsWith("jsa:") || playlistId.contains("jiosaavn.com")) {
             return JioSaavnMediaServiceRepository().getPlaylist(playlistId)
         }
         // load locally stored playlists with the auth api

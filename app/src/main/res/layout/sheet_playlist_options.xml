@@ -25,7 +25,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content" />
 
-            <!-- Song Info Header Card -->
+            <!-- Playlist Info Header Card -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -74,7 +74,7 @@
                         android:textColor="?attr/colorOnSurface"
                         android:textSize="15sp"
                         android:textStyle="bold"
-                        tools:text="Bombay Ponnu" />
+                        tools:text="Tamil Songs" />
 
                     <TextView
                         android:id="@+id/sheet_subtitle"
@@ -86,22 +86,22 @@
                         android:textAppearance="?attr/textAppearanceBodySmall"
                         android:textColor="?attr/colorOnSurfaceVariant"
                         android:textSize="12.5sp"
-                        tools:text="Anirudh Ravichander • Vedalam" />
+                        tools:text="1,678 songs" />
 
                 </LinearLayout>
 
-                <!-- Source Badge -->
+                <!-- Type Badge -->
                 <TextView
-                    android:id="@+id/sheet_source_badge"
+                    android:id="@+id/sheet_type_badge"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:background="@drawable/badge_pill_bg"
                     android:fontFamily="sans-serif-medium"
                     android:paddingHorizontal="7dp"
                     android:paddingVertical="3dp"
-                    android:textColor="#00B368"
+                    android:textColor="?attr/colorPrimary"
                     android:textSize="11sp"
-                    tools:text="JioSaavn" />
+                    tools:text="Local" />
 
             </LinearLayout>
 
@@ -112,35 +112,6 @@
                 app:dividerColor="?attr/colorOutlineVariant" />
 
             <!-- Action List -->
-            <LinearLayout
-                android:id="@+id/action_play_next"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:background="?selectableItemBackground"
-                android:clickable="true"
-                android:focusable="true"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:paddingHorizontal="20dp"
-                android:paddingVertical="13dp">
-
-                <ImageView
-                    android:layout_width="22dp"
-                    android:layout_height="22dp"
-                    android:src="@drawable/ic_next"
-                    app:tint="?attr/colorOnSurface" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="16dp"
-                    android:textAppearance="?attr/textAppearanceBodyLarge"
-                    android:textColor="?attr/colorOnSurface"
-                    android:textSize="14.5sp"
-                    android:text="@string/play_next" />
-
-            </LinearLayout>
-
             <LinearLayout
                 android:id="@+id/action_add_to_queue"
                 android:layout_width="match_parent"
@@ -200,7 +171,7 @@
             </LinearLayout>
 
             <LinearLayout
-                android:id="@+id/action_add_to_playlist"
+                android:id="@+id/action_clean_duplicates"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:background="?selectableItemBackground"
@@ -214,7 +185,7 @@
                 <ImageView
                     android:layout_width="22dp"
                     android:layout_height="22dp"
-                    android:src="@drawable/ic_bookmark"
+                    android:src="@drawable/ic_swap_vert"
                     app:tint="?attr/colorOnSurface" />
 
                 <TextView
@@ -224,12 +195,12 @@
                     android:textAppearance="?attr/textAppearanceBodyLarge"
                     android:textColor="?attr/colorOnSurface"
                     android:textSize="14.5sp"
-                    android:text="@string/addToPlaylist" />
+                    android:text="@string/clean_duplicates" />
 
             </LinearLayout>
 
             <LinearLayout
-                android:id="@+id/action_playback_speed"
+                android:id="@+id/action_rename"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:background="?selectableItemBackground"
@@ -238,14 +209,12 @@
                 android:gravity="center_vertical"
                 android:orientation="horizontal"
                 android:paddingHorizontal="20dp"
-                android:paddingVertical="13dp"
-                android:visibility="gone"
-                tools:visibility="visible">
+                android:paddingVertical="13dp">
 
                 <ImageView
                     android:layout_width="22dp"
                     android:layout_height="22dp"
-                    android:src="@drawable/ic_speed"
+                    android:src="@drawable/ic_edit"
                     app:tint="?attr/colorOnSurface" />
 
                 <TextView
@@ -255,12 +224,12 @@
                     android:textAppearance="?attr/textAppearanceBodyLarge"
                     android:textColor="?attr/colorOnSurface"
                     android:textSize="14.5sp"
-                    android:text="@string/playback_speed" />
+                    android:text="@string/renamePlaylist" />
 
             </LinearLayout>
 
             <LinearLayout
-                android:id="@+id/action_sleep_timer"
+                android:id="@+id/action_export"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:background="?selectableItemBackground"
@@ -269,14 +238,12 @@
                 android:gravity="center_vertical"
                 android:orientation="horizontal"
                 android:paddingHorizontal="20dp"
-                android:paddingVertical="13dp"
-                android:visibility="gone"
-                tools:visibility="visible">
+                android:paddingVertical="13dp">
 
                 <ImageView
                     android:layout_width="22dp"
                     android:layout_height="22dp"
-                    android:src="@drawable/ic_time"
+                    android:src="@drawable/ic_download"
                     app:tint="?attr/colorOnSurface" />
 
                 <TextView
@@ -286,7 +253,7 @@
                     android:textAppearance="?attr/textAppearanceBodyLarge"
                     android:textColor="?attr/colorOnSurface"
                     android:textSize="14.5sp"
-                    android:text="@string/sleep_timer" />
+                    android:text="@string/export_playlist" />
 
             </LinearLayout>
 
@@ -320,7 +287,7 @@
             </LinearLayout>
 
             <LinearLayout
-                android:id="@+id/action_copy_link"
+                android:id="@+id/action_clone"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:background="?selectableItemBackground"
@@ -344,12 +311,43 @@
                     android:textAppearance="?attr/textAppearanceBodyLarge"
                     android:textColor="?attr/colorOnSurface"
                     android:textSize="14.5sp"
-                    android:text="@string/copy_link" />
+                    android:text="@string/clonePlaylist" />
 
             </LinearLayout>
 
             <LinearLayout
-                android:id="@+id/action_channel"
+                android:id="@+id/action_bookmark"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="?selectableItemBackground"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingHorizontal="20dp"
+                android:paddingVertical="13dp">
+
+                <ImageView
+                    android:id="@+id/icon_bookmark"
+                    android:layout_width="22dp"
+                    android:layout_height="22dp"
+                    android:src="@drawable/ic_bookmark"
+                    app:tint="?attr/colorOnSurface" />
+
+                <TextView
+                    android:id="@+id/text_bookmark"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="16dp"
+                    android:textAppearance="?attr/textAppearanceBodyLarge"
+                    android:textColor="?attr/colorOnSurface"
+                    android:textSize="14.5sp"
+                    android:text="@string/add_to_bookmarks" />
+
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/action_delete"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:background="?selectableItemBackground"
@@ -363,47 +361,17 @@
                 <ImageView
                     android:layout_width="22dp"
                     android:layout_height="22dp"
-                    android:src="@drawable/ic_open"
-                    app:tint="?attr/colorOnSurface" />
+                    android:src="@drawable/ic_delete"
+                    app:tint="?attr/colorError" />
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="16dp"
                     android:textAppearance="?attr/textAppearanceBodyLarge"
-                    android:textColor="?attr/colorOnSurface"
+                    android:textColor="?attr/colorError"
                     android:textSize="14.5sp"
-                    android:text="@string/channels" />
-
-            </LinearLayout>
-
-            <LinearLayout
-                android:id="@+id/action_album"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:background="?selectableItemBackground"
-                android:clickable="true"
-                android:focusable="true"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:paddingHorizontal="20dp"
-                android:paddingVertical="13dp">
-
-                <ImageView
-                    android:layout_width="22dp"
-                    android:layout_height="22dp"
-                    android:src="@drawable/ic_playlist"
-                    app:tint="?attr/colorOnSurface" />
-
-                <TextView
-                    android:id="@+id/action_album_text"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="16dp"
-                    android:textAppearance="?attr/textAppearanceBodyLarge"
-                    android:textColor="?attr/colorOnSurface"
-                    android:textSize="14.5sp"
-                    android:text="Go to album" />
+                    android:text="@string/deletePlaylist" />
 
             </LinearLayout>
 

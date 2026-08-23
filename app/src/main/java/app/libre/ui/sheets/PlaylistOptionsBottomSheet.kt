@@ -1,166 +1,288 @@
 package app.libre.ui.sheets
 
 import android.os.Bundle
+import android.view.View
+import android.widget.Toast
+import androidx.core.view.isGone
+import androidx.core.view.isVisible
+import androidx.lifecycle.lifecycleScope
 import app.libre.R
 import app.libre.api.MediaServiceRepository
 import app.libre.api.PlaylistsHelper
 import app.libre.constants.IntentData
+import app.libre.databinding.SheetPlaylistOptionsBinding
 import app.libre.db.DatabaseHolder
 import app.libre.enums.ImportFormat
 import app.libre.enums.PlaylistType
 import app.libre.enums.ShareObjectType
+import app.libre.extensions.addSpringTouchFeedback
 import app.libre.extensions.serializable
 import app.libre.extensions.toID
 import app.libre.extensions.toastFromMainDispatcher
 import app.libre.helpers.BackgroundHelper
 import app.libre.helpers.ContextHelper
+import app.libre.helpers.DuplicateAudioMatcher
+import app.libre.helpers.ImageHelper
+import app.libre.helpers.NavigationHelper
 import app.libre.obj.ShareData
 import app.libre.parcelable.PlayerData
 import app.libre.ui.activities.MainActivity
 import app.libre.ui.base.BaseActivity
+import app.libre.ui.dialogs.CleanDuplicatesDialog
 import app.libre.ui.dialogs.DeletePlaylistDialog
 import app.libre.ui.dialogs.RenamePlaylistDialog
 import app.libre.ui.dialogs.ShareDialog
 import app.libre.util.PlayingQueue
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-class PlaylistOptionsBottomSheet : BaseBottomSheet() {
+/**
+ * Redesigned Material 3 bottom sheet for Playlist Options matching the sleek design of VideoOptionsBottomSheet.
+ */
+class PlaylistOptionsBottomSheet : ExpandedBottomSheet(R.layout.sheet_playlist_options) {
     private lateinit var playlistName: String
     private lateinit var playlistId: String
     private lateinit var playlistType: PlaylistType
 
-    private var exportFormat: ImportFormat = ImportFormat.PIPED
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
         arguments?.let {
-            playlistName = it.getString(IntentData.playlistName)!!
-            playlistId = it.getString(IntentData.playlistId)!!
-            playlistType = it.serializable(IntentData.playlistType)!!
+            playlistName = it.getString(IntentData.playlistName).orEmpty()
+            playlistId = it.getString(IntentData.playlistId).orEmpty()
+            playlistType = it.serializable(IntentData.playlistType) ?: PlaylistType.PUBLIC
+        }
+    }
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+        val binding = SheetPlaylistOptionsBinding.bind(view)
+        val context = requireContext()
+        val mFragmentManager = (context as BaseActivity).supportFragmentManager
+
+        // 1. Header Information
+        binding.sheetTitle.text = playlistName
+        val isLocal = playlistType != PlaylistType.PUBLIC
+        binding.sheetTypeBadge.text = if (isLocal) "Local Playlist" else "Public Playlist"
+        binding.sheetThumbnail.setImageResource(R.drawable.ic_playlist)
+
+        // Load thumbnail and count asynchronously
+        viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
+            val playlist = runCatching { PlaylistsHelper.getPlaylist(playlistId) }.getOrNull()
+            val thumbUrl = playlist?.thumbnailUrl
+            val count = playlist?.videos ?: playlist?.relatedStreams?.size ?: 0
+            val formattedCount = if (count == 1) "1 song" else "${java.text.NumberFormat.getNumberInstance().format(count)} songs"
+
+            val isBookmarked = DatabaseHolder.Database.playlistBookmarkDao().includes(playlistId)
+
+            withContext(Dispatchers.Main) {
+                binding.sheetSubtitle.text = formattedCount
+                if (!thumbUrl.isNullOrEmpty()) {
+                    ImageHelper.loadImage(thumbUrl, binding.sheetThumbnail)
+                }
+
+                if (isBookmarked) {
+                    binding.iconBookmark.setImageResource(R.drawable.ic_bookmark_outlined)
+                    binding.textBookmark.setText(R.string.remove_bookmark)
+                } else {
+                    binding.iconBookmark.setImageResource(R.drawable.ic_bookmark)
+                    binding.textBookmark.setText(R.string.add_to_bookmarks)
+                }
+            }
         }
 
-        setTitle(playlistName)
+        // 2. Action Visibility
+        binding.actionCleanDuplicates.isVisible = isLocal
+        binding.actionRename.isVisible = isLocal
+        binding.actionExport.isVisible = isLocal
+        binding.actionDelete.isVisible = isLocal
 
-        // options for the dialog
-        val optionsList = mutableListOf<Int>()
+        binding.actionShare.isVisible = !isLocal
+        binding.actionClone.isVisible = !isLocal
+        binding.actionBookmark.isVisible = !isLocal
 
-        if (PlayingQueue.isNotEmpty()) optionsList.add(R.string.add_to_queue)
+        // 3. Touch Feedback
+        binding.actionAddToQueue.addSpringTouchFeedback()
+        binding.actionPlayBackground.addSpringTouchFeedback()
+        binding.actionCleanDuplicates.addSpringTouchFeedback()
+        binding.actionRename.addSpringTouchFeedback()
+        binding.actionExport.addSpringTouchFeedback()
+        binding.actionDelete.addSpringTouchFeedback()
+        binding.actionShare.addSpringTouchFeedback()
+        binding.actionClone.addSpringTouchFeedback()
+        binding.actionBookmark.addSpringTouchFeedback()
 
-        val isBookmarked = runBlocking(Dispatchers.IO) {
-            DatabaseHolder.Database.playlistBookmarkDao().includes(playlistId)
-        }
+        // 4. Action Click Listeners
 
-        if (playlistType == PlaylistType.PUBLIC) {
-            optionsList.add(R.string.share)
-            optionsList.add(R.string.clonePlaylist)
+        val actScope = (context as BaseActivity).lifecycleScope
 
-            // only add the bookmark option to the playlist if public
-            optionsList.add(
-                if (isBookmarked) R.string.remove_bookmark else R.string.add_to_bookmarks
-            )
-        } else {
-            optionsList.add(R.string.renamePlaylist)
-            optionsList.add(R.string.export_playlist)
-            optionsList.add(R.string.deletePlaylist)
-        }
+        // Add to Queue
+        binding.actionAddToQueue.setOnClickListener {
+            dismiss()
+            actScope.launch(Dispatchers.IO) {
+                val playlist = runCatching { PlaylistsHelper.getPlaylist(playlistId) }.getOrNull()
+                val streams = playlist?.relatedStreams.orEmpty()
+                if (streams.isNotEmpty()) {
+                    val firstStream = streams.first()
+                    val firstVideoId = firstStream.url?.toID().orEmpty()
 
-        setSimpleItems(optionsList.map { getString(it) }) { which ->
-            val mFragmentManager = (context as BaseActivity).supportFragmentManager
-
-            when (optionsList[which]) {
-                // play the playlist in the background
-                R.string.playOnBackground -> {
-                    val playlist = withContext(Dispatchers.IO) {
-                        runCatching { PlaylistsHelper.getPlaylist(playlistId) }
-                    }.getOrElse {
-                        context?.toastFromMainDispatcher(R.string.error)
-                        return@setSimpleItems
+                    withContext(Dispatchers.Main) {
+                        if (PlayingQueue.getCurrent() == null) {
+                            PlayingQueue.setStreams(streams)
+                            NavigationHelper.navigateVideo(
+                                context,
+                                playerData = PlayerData(
+                                    videoId = firstVideoId,
+                                    playlistId = playlistId,
+                                    keepQueue = true
+                                )
+                            )
+                        } else {
+                            PlayingQueue.insertPlaylist(playlistId, null)
+                        }
+                        Toast.makeText(context, R.string.added_to_queue, Toast.LENGTH_SHORT).show()
                     }
+                } else {
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(context, R.string.error, Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+        }
 
-                    playlist.relatedStreams.firstOrNull()?.let {
+        // Play in Background
+        binding.actionPlayBackground.setOnClickListener {
+            dismiss()
+            actScope.launch(Dispatchers.IO) {
+                val playlist = runCatching { PlaylistsHelper.getPlaylist(playlistId) }.getOrNull()
+                val firstStream = playlist?.relatedStreams?.firstOrNull()
+                if (firstStream != null) {
+                    withContext(Dispatchers.Main) {
                         BackgroundHelper.playOnBackground(
-                            requireContext(),
-                            PlayerData(it.url!!.toID(), playlistId = playlistId)
+                            context,
+                            PlayerData(firstStream.url!!.toID(), playlistId = playlistId)
                         )
                     }
-                }
-
-                R.string.add_to_queue -> {
-                    PlayingQueue.insertPlaylist(playlistId, null)
-                }
-                // Clone the playlist to the users Piped account
-                R.string.clonePlaylist -> {
-                    val context = requireContext()
-                    val playlistId = withContext(Dispatchers.IO) {
-                        runCatching {
-                            PlaylistsHelper.clonePlaylist(playlistId)
-                        }.getOrNull()
+                } else {
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(context, R.string.error, Toast.LENGTH_SHORT).show()
                     }
-                    context.toastFromMainDispatcher(
-                        if (playlistId != null) R.string.playlistCloned else R.string.server_error
-                    )
                 }
-                // share the playlist
-                R.string.share -> {
-                    val newShareDialog = ShareDialog()
-                    newShareDialog.arguments = android.os.Bundle().apply {
-                        putString(IntentData.id, playlistId)
-                        putSerializable(IntentData.shareObjectType, ShareObjectType.PLAYLIST)
-                        putParcelable(IntentData.shareData, ShareData(currentPlaylist = playlistName))
+            }
+        }
+
+        // Clean Duplicates
+        binding.actionCleanDuplicates.setOnClickListener {
+            dismiss()
+            actScope.launch(Dispatchers.IO) {
+                val playlist = runCatching { PlaylistsHelper.getPlaylist(playlistId) }.getOrNull() ?: return@launch
+                val duplicateGroups = DuplicateAudioMatcher.findDuplicates(playlist.relatedStreams)
+                withContext(Dispatchers.Main) {
+                    if (duplicateGroups.isEmpty()) {
+                        Toast.makeText(context, R.string.no_duplicates_found, Toast.LENGTH_SHORT).show()
+                    } else {
+                        CleanDuplicatesDialog(duplicateGroups) { indicesToRemove ->
+                            actScope.launch(Dispatchers.IO) {
+                                for (idx in indicesToRemove) {
+                                    PlaylistsHelper.removeFromPlaylist(playlistId, idx)
+                                }
+                                withContext(Dispatchers.Main) {
+                                    Toast.makeText(
+                                        context,
+                                        context.getString(R.string.duplicates_removed_success, indicesToRemove.size),
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                    mFragmentManager.setFragmentResult("playlist_reload_key", Bundle.EMPTY)
+                                }
+                            }
+                        }.show(mFragmentManager, CleanDuplicatesDialog::class.java.name)
                     }
-                    // using parentFragmentManager, childFragmentManager doesn't work here
-                    newShareDialog.show(parentFragmentManager, ShareDialog::class.java.name)
                 }
+            }
+        }
 
-                R.string.deletePlaylist -> {
-                    val newDeletePlaylistDialog = DeletePlaylistDialog()
-                    newDeletePlaylistDialog.arguments = android.os.Bundle().apply {
-                        putString(IntentData.playlistId, playlistId)
+        // Rename Playlist
+        binding.actionRename.setOnClickListener {
+            dismiss()
+            val renameDialog = RenamePlaylistDialog()
+            renameDialog.arguments = Bundle().apply {
+                putString(IntentData.playlistId, playlistId)
+                putString(IntentData.playlistName, playlistName)
+            }
+            renameDialog.show(mFragmentManager, null)
+        }
+
+        // Export Playlist
+        binding.actionExport.setOnClickListener {
+            dismiss()
+            val formats = arrayOf("JSON (.json)", "URLs / IDs (.txt)")
+            com.google.android.material.dialog.MaterialAlertDialogBuilder(context)
+                .setTitle(R.string.export_playlist)
+                .setItems(formats) { _, which ->
+                    val format = if (which == 0) ImportFormat.PIPED else ImportFormat.URLSORIDS
+                    ContextHelper.unwrapActivity<MainActivity>(context)
+                        .startPlaylistExport(playlistId, playlistName, format, false)
+                }
+                .setNegativeButton(R.string.cancel, null)
+                .show()
+        }
+
+        // Delete Playlist
+        binding.actionDelete.setOnClickListener {
+            dismiss()
+            val deleteDialog = DeletePlaylistDialog()
+            deleteDialog.arguments = Bundle().apply {
+                putString(IntentData.playlistId, playlistId)
+            }
+            deleteDialog.show(mFragmentManager, null)
+        }
+
+        // Share Playlist
+        binding.actionShare.setOnClickListener {
+            dismiss()
+            val shareDialog = ShareDialog()
+            shareDialog.arguments = Bundle().apply {
+                putString(IntentData.id, playlistId)
+                putSerializable(IntentData.shareObjectType, ShareObjectType.PLAYLIST)
+                putParcelable(IntentData.shareData, ShareData(currentPlaylist = playlistName))
+            }
+            shareDialog.show(mFragmentManager, ShareDialog::class.java.name)
+        }
+
+        // Clone Playlist
+        binding.actionClone.setOnClickListener {
+            dismiss()
+            Toast.makeText(context, "Cloning playlist...", Toast.LENGTH_SHORT).show()
+            actScope.launch(Dispatchers.IO) {
+                val clonedId = runCatching { PlaylistsHelper.clonePlaylist(playlistId) }.getOrNull()
+                withContext(Dispatchers.Main) {
+                    if (clonedId != null) {
+                        Toast.makeText(context, R.string.playlistCloned, Toast.LENGTH_SHORT).show()
+                        mFragmentManager.setFragmentResult("playlist_reload_key", Bundle.EMPTY)
+                    } else {
+                        Toast.makeText(context, R.string.server_error, Toast.LENGTH_SHORT).show()
                     }
-                    newDeletePlaylistDialog.show(mFragmentManager, null)
                 }
+            }
+        }
 
-                R.string.renamePlaylist -> {
-                    val newRenamePlaylistDialog = RenamePlaylistDialog()
-                    newRenamePlaylistDialog.arguments = android.os.Bundle().apply {
-                        putString(IntentData.playlistId, playlistId)
-                        putString(IntentData.playlistName, playlistName)
-                    }
-                    newRenamePlaylistDialog.show(mFragmentManager, null)
+        // Bookmark Toggle
+        binding.actionBookmark.setOnClickListener {
+            dismiss()
+            actScope.launch(Dispatchers.IO) {
+                val isBookmarked = DatabaseHolder.Database.playlistBookmarkDao().includes(playlistId)
+                if (isBookmarked) {
+                    DatabaseHolder.Database.playlistBookmarkDao().deleteById(playlistId)
+                } else {
+                    val bookmark = try {
+                        PlaylistsHelper.getPlaylist(playlistId)
+                    } catch (e: Exception) {
+                        return@launch
+                    }.toPlaylistBookmark(playlistId)
+                    DatabaseHolder.Database.playlistBookmarkDao().insert(bookmark)
                 }
-
-
-
-                R.string.export_playlist -> {
-                    val context = requireContext()
-                    val formats = arrayOf("JSON (.json)", "URLs / IDs (.txt)")
-                    com.google.android.material.dialog.MaterialAlertDialogBuilder(context)
-                        .setTitle(R.string.export_playlist)
-                        .setItems(formats) { _, which ->
-                            val format = if (which == 0) ImportFormat.PIPED else ImportFormat.URLSORIDS
-                            ContextHelper.unwrapActivity<MainActivity>(context)
-                                .startPlaylistExport(playlistId, playlistName, format, false)
-                        }
-                        .setNegativeButton(R.string.cancel, null)
-                        .show()
-                }
-
-                else -> {
-                    withContext(Dispatchers.IO) {
-                        if (isBookmarked) {
-                            DatabaseHolder.Database.playlistBookmarkDao().deleteById(playlistId)
-                        } else {
-                            val bookmark = try {
-                                MediaServiceRepository.instance.getPlaylist(playlistId)
-                            } catch (e: Exception) {
-                                return@withContext
-                            }.toPlaylistBookmark(playlistId)
-                            DatabaseHolder.Database.playlistBookmarkDao().insert(bookmark)
-                        }
-                    }
+                withContext(Dispatchers.Main) {
+                    mFragmentManager.setFragmentResult("playlist_reload_key", Bundle.EMPTY)
                 }
             }
         }

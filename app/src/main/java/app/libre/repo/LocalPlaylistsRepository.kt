@@ -18,12 +18,11 @@ class LocalPlaylistsRepository: PlaylistRepository {
             ?: DatabaseHolder.Database.localPlaylistsDao().getAll().firstOrNull { it.playlist.id.toString() == playlistId }
             ?: throw NoSuchElementException("Playlist with id $playlistId not found")
 
-        val lastVideoThumbnail = relation.videos.lastOrNull()?.thumbnailUrl
-
+        val latestSongThumb = relation.videos.lastOrNull { !it.thumbnailUrl.isNullOrBlank() }?.thumbnailUrl
         return Playlist(
             name = relation.playlist.name,
             description = relation.playlist.description,
-            thumbnailUrl = lastVideoThumbnail ?: relation.playlist.thumbnailUrl,
+            thumbnailUrl = latestSongThumb ?: relation.playlist.thumbnailUrl,
             videos = relation.videos.size,
             relatedStreams = relation.videos.map { it.toStreamItem() }
         )
@@ -32,12 +31,13 @@ class LocalPlaylistsRepository: PlaylistRepository {
     override suspend fun getPlaylists(): List<Playlists> {
         return DatabaseHolder.Database.localPlaylistsDao().getAll()
             .map {
-                val lastVideoThumbnail = it.videos.lastOrNull()?.thumbnailUrl
+                val latestSongThumb = it.videos.lastOrNull { v -> !v.thumbnailUrl.isNullOrBlank() }?.thumbnailUrl
+                val thumb = latestSongThumb ?: it.playlist.thumbnailUrl
                 Playlists(
                     id = it.playlist.id.toString(),
                     name = it.playlist.name,
                     shortDescription = it.playlist.description,
-                    thumbnail = lastVideoThumbnail ?: it.playlist.thumbnailUrl,
+                    thumbnail = thumb,
                     videos = it.videos.size.toLong()
                 )
             }
@@ -49,31 +49,41 @@ class LocalPlaylistsRepository: PlaylistRepository {
             ?: DatabaseHolder.Database.localPlaylistsDao().getAll().firstOrNull { it.playlist.id.toString() == playlistId }
             ?: return false
 
+        val existingCanonical = localPlaylist.videos.map {
+            app.libre.helpers.DuplicateAudioMatcher.resolveCanonicalTrackSync(it.toStreamItem())
+        }.toMutableList()
+
         for (video in videos) {
             val localPlaylistItem = video.toLocalPlaylistItem(playlistId)
+            val candidateCanonical = app.libre.helpers.DuplicateAudioMatcher.resolveCanonicalTrackSync(video)
 
-            val existingVideo = DatabaseHolder.Database.localPlaylistsDao()
-                .getPlaylistVideo(playlistId, localPlaylistItem.videoId)
-            if (existingVideo != null) {
-                // update existing video metadata
-                localPlaylistItem.id = existingVideo.id
-                DatabaseHolder.Database.localPlaylistsDao().updatePlaylistVideo(localPlaylistItem)
+            val existingMatch = existingCanonical.firstOrNull {
+                app.libre.helpers.DuplicateAudioMatcher.isDuplicate(it, candidateCanonical)
+            }
+
+            if (existingMatch != null) {
+                // If duplicate exists across YouTube/JioSaavn, skip inserting duplicate
+                val existingVideo = DatabaseHolder.Database.localPlaylistsDao()
+                    .getPlaylistVideo(playlistId, existingMatch.videoId)
+                if (existingVideo != null && localPlaylistItem.videoId == existingVideo.videoId) {
+                    localPlaylistItem.id = existingVideo.id
+                    DatabaseHolder.Database.localPlaylistsDao().updatePlaylistVideo(localPlaylistItem)
+                }
                 continue
             }
 
             // add the new video to the database
             DatabaseHolder.Database.localPlaylistsDao().addPlaylistVideo(localPlaylistItem)
+            existingCanonical.add(candidateCanonical)
 
             val playlist = localPlaylist.playlist
-            if (playlist.thumbnailUrl.isEmpty()) {
-                // set the new playlist thumbnail URL
-                localPlaylistItem.thumbnailUrl?.let {
-                    playlist.thumbnailUrl = it
-                    DatabaseHolder.Database.localPlaylistsDao().updatePlaylist(playlist)
-                }
+            localPlaylistItem.thumbnailUrl?.takeIf { it.isNotBlank() }?.let {
+                playlist.thumbnailUrl = it
+                DatabaseHolder.Database.localPlaylistsDao().updatePlaylist(playlist)
             }
         }
 
+        app.libre.helpers.LocalPlaylistsCache.reload()
         return true
     }
 
@@ -84,6 +94,7 @@ class LocalPlaylistsRepository: PlaylistRepository {
             ?: return false
         playlist.name = newName
         DatabaseHolder.Database.localPlaylistsDao().updatePlaylist(playlist)
+        app.libre.helpers.LocalPlaylistsCache.reload()
 
         return true
     }
@@ -95,27 +106,44 @@ class LocalPlaylistsRepository: PlaylistRepository {
             ?: return false
         playlist.description = newDescription
         DatabaseHolder.Database.localPlaylistsDao().updatePlaylist(playlist)
+        app.libre.helpers.LocalPlaylistsCache.reload()
 
         return true
     }
 
     override suspend fun clonePlaylist(playlistId: String): String {
-        val playlist = MediaServiceRepository.instance.getPlaylist(playlistId)
-        val newPlaylist = createPlaylist(playlist.name ?: "Unknown name")
+        val playlist = PlaylistsHelper.getPlaylist(playlistId)
+        val playlistName = playlist.name ?: "Unknown name"
+        val newPlaylist = createPlaylist(playlistName)
 
-        PlaylistsHelper.addToPlaylist(newPlaylist, *playlist.relatedStreams.toTypedArray())
+        val streams = playlist.relatedStreams
+        if (streams.isNotEmpty()) {
+            PlaylistsHelper.addToPlaylist(newPlaylist, *streams.toTypedArray())
+        }
+
+        if (!playlist.thumbnailUrl.isNullOrEmpty()) {
+            val idLong = newPlaylist.toLongOrNull()
+            val localPlaylist = (if (idLong != null) DatabaseHolder.Database.localPlaylistsDao().getById(idLong)?.playlist else null)
+            if (localPlaylist != null) {
+                localPlaylist.thumbnailUrl = playlist.thumbnailUrl!!
+                DatabaseHolder.Database.localPlaylistsDao().updatePlaylist(localPlaylist)
+            }
+        }
 
         var nextPage = playlist.nextpage
         while (nextPage != null) {
             val pageToFetch = nextPage
             nextPage = runCatching {
                 MediaServiceRepository.instance.getPlaylistNextPage(playlistId, pageToFetch).apply {
-                    PlaylistsHelper.addToPlaylist(newPlaylist, *relatedStreams.toTypedArray())
+                    if (relatedStreams.isNotEmpty()) {
+                        PlaylistsHelper.addToPlaylist(newPlaylist, *relatedStreams.toTypedArray())
+                    }
                 }.nextpage
             }.getOrNull()
         }
 
-        return playlistId
+        app.libre.helpers.LocalPlaylistsCache.reload()
+        return newPlaylist
     }
 
     override suspend fun removeFromPlaylist(playlistId: String, index: Int): Boolean {
@@ -133,6 +161,7 @@ class LocalPlaylistsRepository: PlaylistRepository {
                 transaction.videos.getOrNull(1)?.thumbnailUrl.orEmpty()
         }
         DatabaseHolder.Database.localPlaylistsDao().updatePlaylist(transaction.playlist)
+        app.libre.helpers.LocalPlaylistsCache.reload()
 
         return true
     }
@@ -160,16 +189,20 @@ class LocalPlaylistsRepository: PlaylistRepository {
                 }
             }
         }
+        app.libre.helpers.LocalPlaylistsCache.reload()
     }
 
     override suspend fun createPlaylist(playlistName: String): String {
         val playlist = LocalPlaylist(name = playlistName, thumbnailUrl = "")
-        return DatabaseHolder.Database.localPlaylistsDao().createPlaylist(playlist).toString()
+        val result = DatabaseHolder.Database.localPlaylistsDao().createPlaylist(playlist).toString()
+        app.libre.helpers.LocalPlaylistsCache.reload()
+        return result
     }
 
     override suspend fun deletePlaylist(playlistId: String): Boolean {
         DatabaseHolder.Database.localPlaylistsDao().deletePlaylistById(playlistId)
         DatabaseHolder.Database.localPlaylistsDao().deletePlaylistItemsByPlaylistId(playlistId)
+        app.libre.helpers.LocalPlaylistsCache.reload()
 
         return true
     }

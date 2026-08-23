@@ -47,6 +47,12 @@ class DeletePlaylistDialog : DialogFragment() {
                                 PlaylistOptionsBottomSheet.PLAYLIST_OPTIONS_REQUEST_KEY,
                                 Bundle().apply { putBoolean(IntentData.playlistTask, true) }
                             )
+                            setFragmentResult("playlist_reload_key", Bundle.EMPTY)
+                            activity?.supportFragmentManager?.setFragmentResult("playlist_reload_key", Bundle.EMPTY)
+                            activity?.supportFragmentManager?.setFragmentResult(
+                                PlaylistOptionsBottomSheet.PLAYLIST_OPTIONS_REQUEST_KEY,
+                                Bundle().apply { putBoolean(IntentData.playlistTask, true) }
+                            )
                         }
                     }
                 }

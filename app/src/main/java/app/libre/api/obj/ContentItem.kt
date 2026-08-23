@@ -24,7 +24,9 @@ data class ContentItem(
     val subscribers: Long = -1,
     val videos: Long = -1,
     val verified: Boolean? = null,
-    val source: String = "youtube"
+    val source: String = "youtube",
+    val albumName: String? = null,
+    val albumId: String? = null
 ) {
     fun toStreamItem() = StreamItem(
         url = url,
@@ -39,6 +41,8 @@ data class ContentItem(
         uploaderVerified = uploaderVerified,
         shortDescription = shortDescription,
         views = views,
-        isShort = isShort == true
+        isShort = isShort == true,
+        albumName = albumName,
+        albumId = albumId
     )
 }

@@ -11,9 +11,14 @@ import app.libre.databinding.SheetVideoOptionsBinding
 import app.libre.extensions.addSpringTouchFeedback
 import app.libre.extensions.parcelable
 import app.libre.extensions.toID
+import app.libre.extensions.toastFromMainDispatcher
 import app.libre.helpers.ImageHelper
 import app.libre.helpers.NavigationHelper
 import app.libre.parcelable.PlayerData
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import app.libre.ui.dialogs.AddToPlaylistDialog
 import app.libre.ui.dialogs.ShareDialog
 import app.libre.util.PlayingQueue
@@ -23,6 +28,9 @@ import app.libre.util.PlayingQueue
  */
 class VideoOptionsBottomSheet : ExpandedBottomSheet(R.layout.sheet_video_options) {
     private lateinit var streamItem: StreamItem
+
+    var onPlaybackSpeedClick: (() -> Unit)? = null
+    var onSleepTimerClick: (() -> Unit)? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -34,28 +42,48 @@ class VideoOptionsBottomSheet : ExpandedBottomSheet(R.layout.sheet_video_options
         val binding = SheetVideoOptionsBinding.bind(view)
         val videoId = streamItem.url?.toID() ?: return
 
-        // 1. Resolve local clean metadata
-        val localTitle = app.libre.helpers.LocalAudioMatcher.getTitleFromFile(videoId, streamItem.title)
-        val baseTitle = (localTitle ?: streamItem.title).orEmpty()
-        val trackNumber = app.libre.helpers.LocalAudioMatcher.getTrackNumberFromFile(videoId, streamItem.title)
-        val displayTitle = app.libre.helpers.LocalAudioMatcher.formatTitleWithTrackNumber(baseTitle, trackNumber)
+        // 1. Resolve metadata (sync with local tags ONLY for local playlists)
+        val isLocalPlaylist = arguments?.getBoolean("is_local_playlist", false) ?: false
+        val isFromPlayer = arguments?.getBoolean("is_from_player", false) ?: false
+        val displayTitle: String
+        val subtitleText: String
 
-        val localArtist = app.libre.helpers.LocalAudioMatcher.getArtistFromFile(videoId, streamItem.title)
-        val localAlbum = app.libre.helpers.LocalAudioMatcher.getAlbumFromFile(videoId, streamItem.title)
-        val localYear = app.libre.helpers.LocalAudioMatcher.getYearFromFile(videoId, streamItem.title)
+        if (isLocalPlaylist || isFromPlayer) {
+            val localTitle = app.libre.helpers.LocalAudioMatcher.getTitleFromFile(videoId, streamItem.title)
+            val baseTitle = (localTitle ?: streamItem.title).orEmpty()
+            val trackNumber = app.libre.helpers.LocalAudioMatcher.getTrackNumberFromFile(videoId, streamItem.title)
+            displayTitle = app.libre.helpers.LocalAudioMatcher.formatTitleWithTrackNumber(baseTitle, trackNumber)
 
-        val album = localAlbum ?: streamItem.albumName.orEmpty().trim()
-        val year = localYear
-        val rawArtist = (localArtist ?: streamItem.uploaderName.orEmpty()).replace(Regex("""\s*-\s*Topic\b""", RegexOption.IGNORE_CASE), "").trim()
-        val artist = app.libre.helpers.LocalAudioMatcher.normalizeArtistString(rawArtist) ?: rawArtist
+            val localArtist = app.libre.helpers.LocalAudioMatcher.getArtistFromFile(videoId, streamItem.title)
+            val localAlbum = app.libre.helpers.LocalAudioMatcher.getAlbumFromFile(videoId, streamItem.title)
+            val localYear = app.libre.helpers.LocalAudioMatcher.getYearFromFile(videoId, streamItem.title)
 
-        val subtitleText = when {
-            artist.isNotEmpty() && album.isNotEmpty() && !year.isNullOrBlank() -> "$artist • $album ($year)"
-            artist.isNotEmpty() && album.isNotEmpty() -> "$artist • $album"
-            artist.isNotEmpty() && !year.isNullOrBlank() -> "$artist • $year"
-            artist.isNotEmpty() -> artist
-            album.isNotEmpty() -> album
-            else -> ""
+            val album = localAlbum ?: streamItem.albumName.orEmpty().trim()
+            val year = localYear
+            val rawArtist = (localArtist ?: streamItem.uploaderName.orEmpty()).replace(Regex("""\s*-\s*Topic\b""", RegexOption.IGNORE_CASE), "").trim()
+            val artist = app.libre.helpers.LocalAudioMatcher.normalizeArtistString(rawArtist) ?: rawArtist
+
+            subtitleText = when {
+                artist.isNotEmpty() && album.isNotEmpty() && !year.isNullOrBlank() -> "$artist • $album ($year)"
+                artist.isNotEmpty() && album.isNotEmpty() -> "$artist • $album"
+                artist.isNotEmpty() && !year.isNullOrBlank() -> "$artist • $year"
+                artist.isNotEmpty() -> artist
+                album.isNotEmpty() -> album
+                else -> ""
+            }
+        } else {
+            // Online search results, albums, public playlists: direct authentic online metadata
+            displayTitle = streamItem.title.orEmpty()
+            val rawArtist = streamItem.uploaderName.orEmpty().replace(Regex("""\s*-\s*Topic\b""", RegexOption.IGNORE_CASE), "").trim()
+            val artist = app.libre.helpers.LocalAudioMatcher.normalizeArtistString(rawArtist) ?: rawArtist
+            val album = streamItem.albumName.orEmpty().trim()
+
+            subtitleText = when {
+                artist.isNotEmpty() && album.isNotEmpty() -> "$artist • $album"
+                album.isNotEmpty() -> album
+                artist.isNotEmpty() -> artist
+                else -> ""
+            }
         }
 
         binding.sheetTitle.text = displayTitle
@@ -83,10 +111,28 @@ class VideoOptionsBottomSheet : ExpandedBottomSheet(R.layout.sheet_video_options
         binding.actionChannel.addSpringTouchFeedback()
 
         // 5. Actions visibility
-        val isCurrentPlaying = PlayingQueue.getCurrent()?.url?.toID() == videoId
+        val isCurrentPlaying = isFromPlayer || PlayingQueue.getCurrent()?.url?.toID() == videoId
         binding.actionPlayNext.isGone = isCurrentPlaying
         binding.actionAddToQueue.isGone = isCurrentPlaying
+        binding.actionPlayBackground.isGone = isFromPlayer
         binding.actionChannel.isGone = streamItem.uploaderUrl.isNullOrEmpty()
+
+        binding.actionPlaybackSpeed.isVisible = isFromPlayer
+        binding.actionSleepTimer.isVisible = isFromPlayer
+        if (isFromPlayer) {
+            binding.actionPlaybackSpeed.addSpringTouchFeedback()
+            binding.actionSleepTimer.addSpringTouchFeedback()
+            binding.actionPlaybackSpeed.setOnClickListener {
+                val cb = onPlaybackSpeedClick
+                dismiss()
+                cb?.invoke()
+            }
+            binding.actionSleepTimer.setOnClickListener {
+                val cb = onSleepTimerClick
+                dismiss()
+                cb?.invoke()
+            }
+        }
 
         // 6. Action Clicks
         binding.actionPlayNext.setOnClickListener {
@@ -96,13 +142,29 @@ class VideoOptionsBottomSheet : ExpandedBottomSheet(R.layout.sheet_video_options
 
         binding.actionAddToQueue.setOnClickListener {
             dismiss()
-            PlayingQueue.add(streamItem)
+            val context = requireContext()
+            if (PlayingQueue.getCurrent() == null) {
+                PlayingQueue.setStreams(listOf(streamItem))
+                NavigationHelper.navigateVideo(
+                    context,
+                    playerData = PlayerData(
+                        videoId = videoId,
+                        timestamp = 0L
+                    ),
+                    audioOnlyPlayerRequested = true
+                )
+            } else {
+                PlayingQueue.add(streamItem)
+            }
+            android.widget.Toast.makeText(context, R.string.added_to_queue, android.widget.Toast.LENGTH_SHORT).show()
         }
 
         binding.actionPlayBackground.setOnClickListener {
             dismiss()
+            val context = requireContext()
+            PlayingQueue.setStreams(listOf(streamItem))
             NavigationHelper.navigateVideo(
-                requireContext(),
+                context,
                 playerData = PlayerData(
                     videoId = videoId,
                     timestamp = 0L
@@ -144,6 +206,39 @@ class VideoOptionsBottomSheet : ExpandedBottomSheet(R.layout.sheet_video_options
             dismiss()
             streamItem.uploaderUrl?.let {
                 NavigationHelper.navigateChannel(requireContext(), it)
+            }
+        }
+
+        // 7. Go to album
+        val isInAlbum = arguments?.getBoolean("is_in_album", false) ?: false
+        val candidateAlbumId = streamItem.albumId
+        val albumName = streamItem.albumName?.takeIf { it.isNotBlank() }
+            ?: if (isLocalPlaylist || isFromPlayer) app.libre.helpers.LocalAudioMatcher.getAlbumFromFile(videoId, streamItem.title) else null
+        val hasAlbum = !isInAlbum && (!candidateAlbumId.isNullOrBlank() || !albumName.isNullOrBlank())
+        binding.actionAlbum.isVisible = hasAlbum
+        if (hasAlbum) {
+            binding.actionAlbum.addSpringTouchFeedback()
+            binding.actionAlbumText.text = "Go to album"
+            binding.actionAlbum.setOnClickListener {
+                dismiss()
+                val context = requireContext()
+                if (!candidateAlbumId.isNullOrBlank() && (candidateAlbumId.startsWith("MPRE") || candidateAlbumId.startsWith("OLAK") || candidateAlbumId.startsWith("VL") || candidateAlbumId.startsWith("PL") || candidateAlbumId.startsWith("jsa_album_"))) {
+                    NavigationHelper.navigatePlaylist(context, candidateAlbumId, app.libre.enums.PlaylistType.PUBLIC)
+                } else if (!albumName.isNullOrBlank()) {
+                    val rawArtist = (streamItem.uploaderName ?: "").replace(Regex("""\s*-\s*Topic\b""", RegexOption.IGNORE_CASE), "").trim()
+                    val artist = app.libre.helpers.LocalAudioMatcher.normalizeArtistString(rawArtist) ?: rawArtist
+                    val act = activity as? app.libre.ui.activities.MainActivity
+                    act?.lifecycleScope?.launch(Dispatchers.IO) {
+                        val resolvedId = app.libre.api.YtMusicApi.resolveAlbumId(albumName, artist)
+                        withContext(Dispatchers.Main) {
+                            if (!resolvedId.isNullOrBlank()) {
+                                NavigationHelper.navigatePlaylist(context, resolvedId, app.libre.enums.PlaylistType.PUBLIC)
+                            } else {
+                                android.widget.Toast.makeText(context, R.string.error, android.widget.Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    }
+                }
             }
         }
     }

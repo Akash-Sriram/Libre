@@ -24,10 +24,20 @@ fun String.toID(): String {
         return ytMatch.groupValues[1]
     }
 
-    // 3. JioSaavn URL or token
-    val jsaMatch = Regex("""jiosaavn\.com/song/[^/\s]+/([A-Za-z0-9_-]{6,20})""").find(trimmed)
-    if (jsaMatch != null) {
-        return "jsa:${jsaMatch.groupValues[1]}"
+    // 3. JioSaavn Track, Album or Playlist URL
+    val jsaSongMatch = Regex("""jiosaavn\.com/song/[^/\s]+/([A-Za-z0-9_-]+)""").find(trimmed)
+    if (jsaSongMatch != null) {
+        return "jsa:${jsaSongMatch.groupValues[1]}"
+    }
+
+    val jsaAlbumMatch = Regex("""jiosaavn\.com/album/[^/\s]+/([A-Za-z0-9_-]+)""").find(trimmed)
+    if (jsaAlbumMatch != null) {
+        return "jsa_album_${jsaAlbumMatch.groupValues[1]}"
+    }
+
+    val jsaPlaylistMatch = Regex("""jiosaavn\.com/featured/[^/\s]+/([A-Za-z0-9_-]+)""").find(trimmed)
+    if (jsaPlaylistMatch != null) {
+        return "jsa_playlist_${jsaPlaylistMatch.groupValues[1]}"
     }
 
     // 4. Prefix cleanup for YTM browse/playlist prefixes (VL, etc.)

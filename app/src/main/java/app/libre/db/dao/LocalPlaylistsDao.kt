@@ -20,6 +20,12 @@ interface LocalPlaylistsDao {
     @Query("SELECT * FROM LocalPlaylist WHERE id = :playlistId")
     suspend fun getById(playlistId: Long): LocalPlaylistWithVideos?
 
+    @Query("SELECT * FROM LocalPlaylist")
+    suspend fun getPlaylistsOnly(): List<LocalPlaylist>
+
+    @Query("SELECT COUNT(*) FROM localPlaylistItem WHERE playlistId = :playlistId")
+    suspend fun getPlaylistCount(playlistId: String): Int
+
     @Query("SELECT EXISTS(SELECT 1 FROM localPlaylistItem WHERE videoId = :videoId LIMIT 1)")
     suspend fun isVideoInAnyPlaylist(videoId: String): Boolean
 

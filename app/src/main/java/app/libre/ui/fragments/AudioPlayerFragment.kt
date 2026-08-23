@@ -623,62 +623,21 @@ class AudioPlayerFragment : BasePlayerFragment(R.layout.fragment_audio_player) {
     }
 
     private fun showMoreOptionsSheet() {
-        val options = mutableListOf<Pair<Int, () -> Unit>>()
-
-        val current = PlayingQueue.getCurrent()
-        if (current != null) {
-            options.add(R.string.addToPlaylist to {
-                AddToPlaylistDialog().apply {
-                    arguments = Bundle().apply {
-                        putParcelable(IntentData.videoInfo, current)
-                    }
-                }.show(childFragmentManager, AddToPlaylistDialog::class.java.name)
-            })
-        }
-
-        options.add(R.string.playback_speed to {
-            playerController?.let {
-                PlaybackOptionsSheet(it).show(childFragmentManager)
+        val current = PlayingQueue.getCurrent() ?: return
+        val targetFm = requireActivity().supportFragmentManager
+        VideoOptionsBottomSheet().apply {
+            arguments = Bundle().apply {
+                putParcelable(IntentData.streamItem, current)
+                putBoolean("is_from_player", true)
+                putBoolean("is_local_playlist", true)
             }
-        })
-
-        options.add(R.string.sleep_timer to {
-            SleepTimerSheet().show(childFragmentManager)
-        })
-
-        if (current != null) {
-            val videoId = current.url?.toID()
-            if (videoId != null) {
-                options.add(R.string.share to {
-                    val bundle = Bundle().apply {
-                        putString(IntentData.id, videoId)
-                        putSerializable(IntentData.shareObjectType, app.libre.enums.ShareObjectType.VIDEO)
-                        putParcelable(IntentData.shareData, app.libre.obj.ShareData(currentVideo = current.title))
-                    }
-                    val newShareDialog = app.libre.ui.dialogs.ShareDialog()
-                    newShareDialog.arguments = bundle
-                    newShareDialog.show(childFragmentManager, app.libre.ui.dialogs.ShareDialog::class.java.name)
-                })
+            onPlaybackSpeedClick = {
+                playerController?.let { PlaybackOptionsSheet(it).show(targetFm) }
             }
-        }
-
-        val chapters = chaptersModel.chaptersLiveData.value
-        if (!chapters.isNullOrEmpty()) {
-            options.add(R.string.chapters to {
-                ChaptersBottomSheet().apply {
-                    arguments = Bundle().apply {
-                        putLong(IntentData.duration, playerController?.duration?.div(1000) ?: 0L)
-                    }
-                }.show(childFragmentManager)
-            })
-        }
-
-        BaseBottomSheet().apply {
-            setTitle(this@AudioPlayerFragment.getString(R.string.more_options))
-            setSimpleItems(options.map { this@AudioPlayerFragment.getString(it.first) }) { which ->
-                options[which].second.invoke()
+            onSleepTimerClick = {
+                SleepTimerSheet().show(targetFm)
             }
-        }.show(childFragmentManager)
+        }.show(targetFm, VideoOptionsBottomSheet::class.java.name)
     }
 
     private fun updateChapterIndex() {

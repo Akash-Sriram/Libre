@@ -23,15 +23,17 @@ data class StreamItem(
     val uploaded: Long = 0,
     val shortDescription: String? = null,
     val isShort: Boolean = false,
-    val albumName: String? = null
+    val albumName: String? = null,
+    val albumId: String? = null
 ) : Parcelable {
     val isLive get() = !isShort && ((duration == null) || (duration <= 0L))
     val isUpcoming get() = uploaded > System.currentTimeMillis()
 
     fun toLocalPlaylistItem(playlistId: String): LocalPlaylistItem {
+        val cleanVideoId = (url ?: "").toID().ifEmpty { url.orEmpty() }
         return LocalPlaylistItem(
-            playlistId = playlistId.toInt(),
-            videoId = url!!.toID(),
+            playlistId = playlistId.toIntOrNull() ?: 0,
+            videoId = cleanVideoId,
             title = title,
             uploader = uploaderName,
             thumbnailUrl = thumbnail,

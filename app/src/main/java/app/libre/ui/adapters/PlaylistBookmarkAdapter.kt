@@ -8,7 +8,7 @@ import androidx.core.view.isVisible
 import androidx.recyclerview.widget.ListAdapter
 import app.libre.R
 import app.libre.constants.IntentData
-import app.libre.databinding.PlaylistsRowBinding
+import app.libre.databinding.ItemLibraryPlaylistGridBinding
 import app.libre.db.DatabaseHolder
 import app.libre.db.obj.PlaylistBookmark
 import app.libre.enums.PlaylistType
@@ -31,7 +31,7 @@ class PlaylistBookmarkAdapter: ListAdapter<PlaylistBookmark, PlaylistBookmarkVie
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): PlaylistBookmarkViewHolder {
         val layoutInflater = LayoutInflater.from(parent.context)
         return PlaylistBookmarkViewHolder(
-            PlaylistsRowBinding.inflate(layoutInflater, parent, false)
+            ItemLibraryPlaylistGridBinding.inflate(layoutInflater, parent, false)
         )
     }
 
@@ -53,33 +53,12 @@ class PlaylistBookmarkAdapter: ListAdapter<PlaylistBookmark, PlaylistBookmarkVie
         with(holder.binding) {
             ImageHelper.loadImage(bookmark.thumbnailUrl, playlistThumbnail)
             playlistTitle.text = bookmark.playlistName
-            playlistTitle.maxLines = 2
 
-            // Rich 2-line structure with online metadata
-            val uploaderName = bookmark.uploader
-            val playlistName = bookmark.playlistName.orEmpty()
-            val playlistId = bookmark.playlistId
-            val subtitleParts = mutableListOf<String>()
-
-            if (!uploaderName.isNullOrEmpty()) {
-                subtitleParts.add(uploaderName)
-            }
-            if (playlistId.startsWith("RD") || playlistName.startsWith("Mix -")) {
-                subtitleParts.add("Dynamic Mix")
-            } else if (bookmark.videos > 0) {
-                val formattedCount = java.text.NumberFormat.getNumberInstance().format(bookmark.videos)
-                subtitleParts.add(if (bookmark.videos == 1) "1 song" else "$formattedCount songs")
-            } else {
-                subtitleParts.add("Playlist")
-            }
-
-            videoCount.text = subtitleParts.joinToString(" • ")
+            val count = bookmark.videos
+            val formattedCount = java.text.NumberFormat.getNumberInstance().format(count)
+            videoCount.text = if (count == 1) "1 song" else "$formattedCount songs"
 
             root.addSpringTouchFeedback(0.96f)
-
-            optionsMenu.setOnClickListener {
-                showPlaylistOptions(root.context, bookmark)
-            }
 
             root.setOnClickListener {
                 NavigationHelper.navigatePlaylist(

@@ -638,9 +638,10 @@ class NewPipeMediaServiceRepository : MediaServiceRepository {
     override suspend fun getPlaylist(playlistId: String): Playlist {
         val cleanPlaylistId = playlistId.toID()
         
-        if (cleanPlaylistId.startsWith("MPREb_") || cleanPlaylistId.startsWith("FEmusic_")) {
-            val ytmAlbum = YtMusicApi.fetchAlbum(cleanPlaylistId)
-            if (ytmAlbum != null) return ytmAlbum
+        if (cleanPlaylistId.startsWith("MPREb_") || cleanPlaylistId.startsWith("FEmusic_") || cleanPlaylistId.startsWith("OLAK") || cleanPlaylistId.startsWith("VLOLAK")) {
+            val browseId = if (cleanPlaylistId.startsWith("OLAK") && !cleanPlaylistId.startsWith("VL")) "VL$cleanPlaylistId" else cleanPlaylistId
+            val ytmAlbum = YtMusicApi.fetchAlbum(browseId)
+            if (ytmAlbum != null && ytmAlbum.relatedStreams.isNotEmpty()) return ytmAlbum
         }
 
         // Helper to synthesize dynamic radio playlist from a seed track

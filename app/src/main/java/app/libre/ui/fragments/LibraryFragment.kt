@@ -38,6 +38,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+import app.libre.ui.sheets.PlaylistOptionsBottomSheet
+
 class LibraryFragment : DynamicLayoutManagerFragment(R.layout.fragment_library) {
     private var _binding: FragmentLibraryBinding? = null
     private val binding get() = _binding!!
@@ -94,6 +96,15 @@ class LibraryFragment : DynamicLayoutManagerFragment(R.layout.fragment_library) 
                 fetchPlaylists()
             }
         }
+
+        val updateCallback: (String, Bundle) -> Unit = { _, _ ->
+            fetchPlaylists()
+            initBookmarks()
+        }
+        parentFragmentManager.setFragmentResultListener("playlist_reload_key", viewLifecycleOwner, updateCallback)
+        parentFragmentManager.setFragmentResultListener(PlaylistOptionsBottomSheet.PLAYLIST_OPTIONS_REQUEST_KEY, viewLifecycleOwner, updateCallback)
+        activity?.supportFragmentManager?.setFragmentResultListener("playlist_reload_key", viewLifecycleOwner, updateCallback)
+        activity?.supportFragmentManager?.setFragmentResultListener(PlaylistOptionsBottomSheet.PLAYLIST_OPTIONS_REQUEST_KEY, viewLifecycleOwner, updateCallback)
         binding.searchFab.setOnClickListener {
             findNavController().navigate(R.id.openSearch)
         }

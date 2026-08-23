@@ -104,7 +104,8 @@ class ShareDialog : DialogFragment() {
         }
 
         val cleanYtId = id.toID()
-        val host = YOUTUBE_FRONTEND_URL
+        val isMusicPlaylist = cleanYtId.startsWith("OLAK") || cleanYtId.startsWith("MPRE")
+        val host = if (isMusicPlaylist) YOUTUBE_MUSIC_URL else YOUTUBE_FRONTEND_URL
         val url = when (shareObjectType) {
             ShareObjectType.VIDEO -> {
                 val queryParams = mutableListOf<String>()

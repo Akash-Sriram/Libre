@@ -23,6 +23,7 @@ object UpdateHelper {
     private const val GITHUB_API_URL = "https://api.github.com/repos/Akash-Sriram/Libre/releases/latest"
 
     fun checkForUpdateOnLaunch(activity: android.app.Activity) {
+        if (BuildConfig.DEBUG) return
         val appContext = activity.applicationContext
         CoroutineScope(Dispatchers.IO).launch {
             try {
@@ -67,6 +68,14 @@ object UpdateHelper {
 
     fun checkForUpdate(context: Context) {
         val appContext = context.applicationContext
+        if (BuildConfig.DEBUG) {
+            Toast.makeText(
+                appContext,
+                "Test build (${BuildConfig.VERSION_NAME}) - Updates disabled",
+                Toast.LENGTH_SHORT
+            ).show()
+            return
+        }
         Toast.makeText(appContext, "Checking for updates...", Toast.LENGTH_SHORT).show()
         
         CoroutineScope(Dispatchers.IO).launch {
