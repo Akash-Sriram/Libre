@@ -407,20 +407,17 @@ object LocalAudioMatcher {
         val normalizedQuery = normalizeTitle(title)
         if (normalizedQuery.length < 3) return null
 
-        // 1. Exact normalized title match first
+        // 1. Exact normalized title match
         titleToPathMap[normalizedQuery]?.let { return it }
 
-        // 2. Strict matching with minimum length 6
+        // 2. Exact match with artist if provided
         val artistNorm = normalizeTitle(artist)
-        return titleToPathMap.entries.firstOrNull { (key, _) ->
-            if (key.length >= 6 && (key == normalizedQuery || normalizedQuery.startsWith(key) || key.startsWith(normalizedQuery))) {
-                return@firstOrNull true
-            }
-            if (artistNorm.isNotEmpty() && key.contains(artistNorm) && normalizedQuery.length >= 6 && key.contains(normalizedQuery)) {
-                return@firstOrNull true
-            }
-            false
-        }?.value
+        if (artistNorm.isNotEmpty()) {
+            val combined = "$artistNorm $normalizedQuery"
+            titleToPathMap[combined]?.let { return it }
+        }
+
+        return null
     }
 
     /**

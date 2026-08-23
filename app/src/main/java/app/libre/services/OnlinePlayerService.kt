@@ -148,10 +148,12 @@ open class OnlinePlayerService : AbstractPlayerService() {
         // so that it can be canceled once a different video is loaded
         fetchVideoInfoJob = scope.launch {
             val currentQueueItem = PlayingQueue.getCurrent()
+            val isJio = app.libre.helpers.JioSaavnHelper.isJioSaavn(videoId)
+
             // Only use local audio fast-path if this is an audio-only player session
             val localPath = if (isAudioOnlyPlayer) {
                 app.libre.helpers.LocalAudioMatcher.getLocalPathAsync(videoId)
-                    ?: currentQueueItem?.title?.let { app.libre.helpers.LocalAudioMatcher.getLocalPathByTitle(it, currentQueueItem.uploaderName.orEmpty()) }
+                    ?: if (isJio) currentQueueItem?.title?.let { app.libre.helpers.LocalAudioMatcher.getLocalPathByTitle(it, currentQueueItem.uploaderName.orEmpty()) } else null
             } else null
 
             if (localPath != null) {
@@ -205,23 +207,6 @@ open class OnlinePlayerService : AbstractPlayerService() {
                     return@withContext null
                 }
             } ?: return@launch
-
-            // After fetching streams, try a title-based local match (for JioSaavn and other
-            // non-YouTube songs that don't have a YouTube ID in their filename).
-            // In video mode, ALWAYS stream full video and audio online.
-            val titleLocalPath = if (isAudioOnlyPlayer) {
-                streams?.let { s ->
-                    app.libre.helpers.LocalAudioMatcher.getLocalPathByTitle(
-                        title = s.title,
-                        artist = s.uploader
-                    )
-                }
-            } else null
-            if (titleLocalPath != null) {
-                Log.i("OnlinePlayerService", "Title match found for '${streams?.title}': $titleLocalPath. Playing locally!")
-                // Register in the ID map so setStreamSource finds it via getLocalPath(videoId)
-                app.libre.helpers.LocalAudioMatcher.registerTitleMatch(videoId, titleLocalPath)
-            }
 
             streams?.toStreamItem(videoId)?.let {
                 PlayingQueue.updateCurrent(it)
