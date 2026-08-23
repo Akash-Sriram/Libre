@@ -24,6 +24,7 @@ import app.libre.helpers.ImageHelper
 import app.libre.helpers.LocalPlaylistsCache
 import app.libre.ui.sheets.ExpandedBottomSheet
 import app.libre.util.PlayingQueue
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -145,35 +146,30 @@ class AddToPlaylistDialog : ExpandedBottomSheet(R.layout.sheet_add_to_playlist) 
 
             holder.binding.root.addSpringTouchFeedback()
             holder.binding.root.setOnClickListener {
-                val context = requireContext()
+                val context = requireContext().applicationContext
+                val playlistName = playlist.name.orEmpty()
                 if (item.isAlreadyInPlaylist) {
                     val songTitle = targetStreams.firstOrNull()?.title ?: "Song"
                     Toast.makeText(
                         context,
-                        "\"$songTitle\" is already in ${playlist.name}",
+                        "\"$songTitle\" is already in $playlistName",
                         Toast.LENGTH_SHORT
                     ).show()
                 } else {
-                    lifecycleScope.launch(Dispatchers.IO) {
+                    val message = try {
+                        context.getString(R.string.added_to_playlist, playlistName)
+                    } catch (e: Exception) {
+                        "Added to playlist $playlistName"
+                    }
+                    Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                    dismiss()
+
+                    CoroutineScope(Dispatchers.IO).launch {
                         try {
                             PlaylistsHelper.addToPlaylist(playlist.id.toString(), *targetStreams.toTypedArray())
-                            withContext(Dispatchers.Main) {
-                                val playlistName = playlist.name.orEmpty()
-                                val message = try {
-                                    context.getString(R.string.added_to_playlist, playlistName)
-                                } catch (e: Exception) {
-                                    "Added to playlist $playlistName"
-                                }
-                                Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
-                                dismiss()
-                            }
                             LocalPlaylistsCache.reload()
                         } catch (e: Exception) {
                             android.util.Log.e("AddToPlaylistDialog", "Error adding to playlist", e)
-                            withContext(Dispatchers.Main) {
-                                Toast.makeText(context, "Added to playlist ${playlist.name}", Toast.LENGTH_SHORT).show()
-                                dismiss()
-                            }
                         }
                     }
                 }
