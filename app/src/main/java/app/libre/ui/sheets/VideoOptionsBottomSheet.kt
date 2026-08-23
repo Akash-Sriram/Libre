@@ -261,7 +261,7 @@ class VideoOptionsBottomSheet : ExpandedBottomSheet(R.layout.sheet_video_options
         val candidateAlbumId = streamItem.albumId
         val albumName = streamItem.albumName?.takeIf { it.isNotBlank() }
             ?: if (isLocalPlaylist || isFromPlayer) app.libre.helpers.LocalAudioMatcher.getAlbumFromFile(videoId, streamItem.title) else null
-        val hasAlbum = !isInAlbum && (!candidateAlbumId.isNullOrBlank() || !albumName.isNullOrBlank())
+        val hasAlbum = !isInAlbum && (isYouTube || !candidateAlbumId.isNullOrBlank() || !albumName.isNullOrBlank())
         binding.actionAlbum.isVisible = hasAlbum
         if (hasAlbum) {
             binding.actionAlbum.addSpringTouchFeedback()
@@ -271,12 +271,20 @@ class VideoOptionsBottomSheet : ExpandedBottomSheet(R.layout.sheet_video_options
                 val context = requireContext()
                 if (!candidateAlbumId.isNullOrBlank() && (candidateAlbumId.startsWith("MPRE") || candidateAlbumId.startsWith("OLAK") || candidateAlbumId.startsWith("VL") || candidateAlbumId.startsWith("PL") || candidateAlbumId.startsWith("jsa_album_"))) {
                     NavigationHelper.navigatePlaylist(context, candidateAlbumId, app.libre.enums.PlaylistType.PUBLIC)
-                } else if (!albumName.isNullOrBlank()) {
+                } else {
                     val rawArtist = (streamItem.uploaderName ?: "").replace(Regex("""\s*-\s*Topic\b""", RegexOption.IGNORE_CASE), "").trim()
                     val artist = app.libre.helpers.LocalAudioMatcher.normalizeArtistString(rawArtist) ?: rawArtist
                     val act = activity as? app.libre.ui.activities.MainActivity
                     act?.lifecycleScope?.launch(Dispatchers.IO) {
-                        val resolvedId = app.libre.api.YtMusicApi.resolveAlbumId(albumName, artist)
+                        var targetAlbum = albumName
+                        if (targetAlbum.isNullOrBlank()) {
+                            val master = app.libre.api.YtMusicApi.resolveStudioMaster(streamItem.title.orEmpty(), artist)
+                            targetAlbum = master?.albumName?.takeIf { it.isNotBlank() }
+                        }
+                        val resolvedId = if (!targetAlbum.isNullOrBlank()) {
+                            app.libre.api.YtMusicApi.resolveAlbumId(targetAlbum, artist)
+                        } else null
+
                         withContext(Dispatchers.Main) {
                             if (!resolvedId.isNullOrBlank()) {
                                 NavigationHelper.navigatePlaylist(context, resolvedId, app.libre.enums.PlaylistType.PUBLIC)

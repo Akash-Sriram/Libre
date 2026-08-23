@@ -557,13 +557,13 @@ object YtMusicApi {
                 put("context", JSONObject().apply {
                     put("client", JSONObject().apply {
                         put("clientName", "WEB_REMIX")
-                        put("clientVersion", "1.20231211.01.00")
+                        put("clientVersion", "1.20240101.01.00")
                         put("hl", "en")
                         put("gl", "IN")
                     })
                 })
                 put("query", q)
-                put("params", "Eg-KAQwIABAAGAAgACgB") // Albums filter
+                put("params", "EgWKAQIYAWoOEAQQAxAJEAUQChAQEBU=") // Albums filter
             }
 
             val request = Request.Builder()
