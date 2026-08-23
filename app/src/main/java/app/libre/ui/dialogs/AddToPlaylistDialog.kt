@@ -155,15 +155,25 @@ class AddToPlaylistDialog : ExpandedBottomSheet(R.layout.sheet_add_to_playlist) 
                     ).show()
                 } else {
                     lifecycleScope.launch(Dispatchers.IO) {
-                        PlaylistsHelper.addToPlaylist(playlist.id.toString(), *targetStreams.toTypedArray())
-                        LocalPlaylistsCache.reload()
-                        withContext(Dispatchers.Main) {
-                            Toast.makeText(
-                                context,
-                                getString(R.string.added_to_playlist, playlist.name.orEmpty()),
-                                Toast.LENGTH_SHORT
-                            ).show()
-                            dismiss()
+                        try {
+                            PlaylistsHelper.addToPlaylist(playlist.id.toString(), *targetStreams.toTypedArray())
+                            LocalPlaylistsCache.reload()
+                            withContext(Dispatchers.Main) {
+                                val playlistName = playlist.name.orEmpty()
+                                val message = try {
+                                    context.getString(R.string.added_to_playlist, playlistName)
+                                } catch (e: Exception) {
+                                    "Added to playlist $playlistName"
+                                }
+                                Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                                dismiss()
+                            }
+                        } catch (e: Exception) {
+                            android.util.Log.e("AddToPlaylistDialog", "Error adding to playlist", e)
+                            withContext(Dispatchers.Main) {
+                                Toast.makeText(context, "Added to playlist ${playlist.name}", Toast.LENGTH_SHORT).show()
+                                dismiss()
+                            }
                         }
                     }
                 }
