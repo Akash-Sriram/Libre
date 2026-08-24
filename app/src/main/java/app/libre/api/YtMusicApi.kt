@@ -527,7 +527,7 @@ object YtMusicApi {
                             title = title,
                             uploaderName = trackArtist,
                             uploaderUrl = "",
-                            thumbnail = trackThumbUrl ?: thumbUrl.orEmpty(),
+                            thumbnail = thumbUrl?.takeIf { it.isNotBlank() } ?: trackThumbUrl.orEmpty(),
                             albumName = albumTitle,
                             type = app.libre.api.obj.StreamItem.TYPE_STREAM
                         )
