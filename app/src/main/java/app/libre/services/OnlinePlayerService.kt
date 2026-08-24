@@ -210,7 +210,8 @@ open class OnlinePlayerService : AbstractPlayerService() {
 
             // In Audio Player mode, auto-upgrade music videos to their official Studio Master
             var actualVideoId = videoId
-            if (isAudioOnlyPlayer && videoId.length == 11) {
+            val isFromAlbum = !currentQueueItem?.albumName.isNullOrBlank() || playlistId?.startsWith("OLAK") == true || playlistId?.startsWith("MPRE") == true
+            if (isAudioOnlyPlayer && videoId.length == 11 && !isFromAlbum) {
                 val currentTitle = streams?.title.orEmpty()
                 val currentUploader = streams?.uploader.orEmpty()
                 val isAlreadyStudioMaster = currentUploader.endsWith("- Topic", ignoreCase = true)
@@ -249,7 +250,7 @@ open class OnlinePlayerService : AbstractPlayerService() {
 
             // Preserve album artwork if passed from album queue
             val queueThumb = currentQueueItem?.thumbnail
-            if (!queueThumb.isNullOrBlank() && streams != null && (streams!!.thumbnailUrl.isNullOrBlank() || isAudioOnlyPlayer)) {
+            if (!queueThumb.isNullOrBlank() && streams != null && (streams!!.thumbnailUrl.isNullOrBlank() || isAudioOnlyPlayer || isFromAlbum)) {
                 streams = streams!!.copy(thumbnailUrl = queueThumb)
             }
 
