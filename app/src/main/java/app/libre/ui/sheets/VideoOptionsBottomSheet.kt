@@ -280,13 +280,18 @@ class VideoOptionsBottomSheet : ExpandedBottomSheet(R.layout.sheet_video_options
                     val act = activity as? app.libre.ui.activities.MainActivity
                     act?.lifecycleScope?.launch(Dispatchers.IO) {
                         var targetAlbum = albumName
+                        var resolvedId: String? = null
                         if (targetAlbum.isNullOrBlank()) {
                             val master = app.libre.api.YtMusicApi.resolveStudioMaster(streamItem.title.orEmpty(), artist)
                             targetAlbum = master?.albumName?.takeIf { it.isNotBlank() }
+                            resolvedId = master?.albumId?.takeIf { it.isNotBlank() }
                         }
-                        val resolvedId = if (!targetAlbum.isNullOrBlank()) {
-                            app.libre.api.YtMusicApi.resolveAlbumId(targetAlbum, artist)
-                        } else null
+                        if (resolvedId.isNullOrBlank() && !targetAlbum.isNullOrBlank()) {
+                            resolvedId = app.libre.api.YtMusicApi.resolveAlbumId(targetAlbum, artist)
+                        }
+                        if (resolvedId.isNullOrBlank()) {
+                            resolvedId = app.libre.api.YtMusicApi.resolveAlbumId(streamItem.title.orEmpty(), artist)
+                        }
 
                         withContext(Dispatchers.Main) {
                             if (!resolvedId.isNullOrBlank()) {

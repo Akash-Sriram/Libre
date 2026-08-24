@@ -583,7 +583,7 @@ object YtMusicApi {
                     if (card != null) {
                         val runs = card.optJSONObject("title")?.optJSONArray("runs")
                         val bId = runs?.optJSONObject(0)?.optJSONObject("navigationEndpoint")?.optJSONObject("browseEndpoint")?.optString("browseId")
-                        if (!bId.isNullOrBlank() && (bId.startsWith("MPRE") || bId.startsWith("OLAK"))) {
+                        if (!bId.isNullOrBlank() && (bId.startsWith("MPRE") || bId.startsWith("OLAK") || bId.startsWith("VL"))) {
                             return@withContext bId
                         }
                     }
@@ -592,11 +592,21 @@ object YtMusicApi {
                         val contents = shelf.optJSONArray("contents") ?: continue
                         for (j in 0 until contents.length()) {
                             val mr = contents.optJSONObject(j)?.optJSONObject("musicResponsiveListItemRenderer") ?: continue
+                            val menuItems = mr.optJSONObject("menu")?.optJSONObject("menuRenderer")?.optJSONArray("items")
+                            if (menuItems != null) {
+                                for (mIdx in 0 until menuItems.length()) {
+                                    val toggle = menuItems.optJSONObject(mIdx)?.optJSONObject("toggleMenuServiceItemRenderer")
+                                    val plId = toggle?.optJSONObject("toggledServiceEndpoint")?.optJSONObject("likeEndpoint")?.optJSONObject("target")?.optString("playlistId").orEmpty()
+                                    if (plId.startsWith("OLAK")) {
+                                        return@withContext "VL$plId"
+                                    }
+                                }
+                            }
                             val flexCols = mr.optJSONArray("flexColumns")
                             val runs = flexCols?.optJSONObject(0)?.optJSONObject("musicResponsiveListItemFlexColumnRenderer")?.optJSONObject("text")?.optJSONArray("runs")
                             val bId = runs?.optJSONObject(0)?.optJSONObject("navigationEndpoint")?.optJSONObject("browseEndpoint")?.optString("browseId")
                                 ?: mr.optJSONObject("navigationEndpoint")?.optJSONObject("browseEndpoint")?.optString("browseId")
-                            if (!bId.isNullOrBlank() && (bId.startsWith("MPRE") || bId.startsWith("OLAK"))) {
+                            if (!bId.isNullOrBlank() && (bId.startsWith("MPRE") || bId.startsWith("OLAK") || bId.startsWith("VL"))) {
                                 return@withContext bId
                             }
                         }
@@ -922,6 +932,7 @@ object YtMusicApi {
                                                 uploaderUrl = "",
                                                 thumbnail = aCover,
                                                 albumName = aTitle,
+                                                albumId = targetBrowse,
                                                 type = app.libre.api.obj.StreamItem.TYPE_STREAM
                                             )
                                             studioMasterCache[cacheKey] = item
