@@ -420,7 +420,14 @@ class AudioPlayerFragment : BasePlayerFragment(R.layout.fragment_audio_player) {
         binding.albumAndYear.text = albumYearText
         binding.albumAndYear.isVisible = albumYearText.isNotBlank()
 
-        val preferredArtwork = PlayingQueue.getCurrent()?.thumbnail?.takeIf { it.isNotBlank() }?.toUri() ?: metadata.artworkUri
+        val currentQueueItem = PlayingQueue.getCurrent()
+        val currentId = currentQueueItem?.url?.toID()
+        val localArtUri = if (currentId != null) app.libre.helpers.LocalAudioMatcher.getEmbeddedArtUri(requireContext(), currentId)?.toUri() else null
+        val isAlbumPlaylist = currentQueueItem?.albumName?.isNotBlank() == true && (currentQueueItem.albumId?.startsWith("OLAK") == true || currentQueueItem.albumId?.startsWith("MPRE") == true || currentQueueItem.albumId?.startsWith("jsa_album_") == true)
+        val preferredArtwork = localArtUri 
+            ?: (if (isAlbumPlaylist) currentQueueItem?.thumbnail?.takeIf { it.isNotBlank() }?.toUri() else null)
+            ?: metadata.artworkUri
+            ?: currentQueueItem?.thumbnail?.takeIf { it.isNotBlank() }?.toUri()
         preferredArtwork?.let { updateThumbnailAsync(it) }
 
         if (noAutoVideoSwitch || isOffline) {

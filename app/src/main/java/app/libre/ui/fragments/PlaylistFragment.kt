@@ -338,11 +338,12 @@ class PlaylistFragment : DynamicLayoutManagerFragment(R.layout.fragment_playlist
                 }
                 binding.shuffleBTN.setOnClickListener {
                     val albumArt = playlistThumbnailUrl
+                    val isTrueAlbum = playlistId.startsWith("OLAK") || playlistId.startsWith("MPRE") || playlistId.startsWith("jsa_album_")
                     val sortedStreams = getSortedVideos()
                     val queueItems = sortedStreams.map {
                         val base = it.item
                         val cleanUrl = base.url?.toID() ?: base.url
-                        if (!albumArt.isNullOrBlank() && (playlistType == PlaylistType.PUBLIC || playlistId.startsWith("OLAK") || playlistId.startsWith("MPRE"))) {
+                        if (!albumArt.isNullOrBlank() && isTrueAlbum) {
                             base.copy(url = cleanUrl, thumbnail = albumArt, albumName = playlistName)
                         } else {
                             base.copy(url = cleanUrl)
@@ -423,11 +424,12 @@ class PlaylistFragment : DynamicLayoutManagerFragment(R.layout.fragment_playlist
         if (playlistFeed.isEmpty()) return
 
         val albumArt = playlistThumbnailUrl
+        val isTrueAlbum = playlistId.startsWith("OLAK") || playlistId.startsWith("MPRE") || playlistId.startsWith("jsa_album_")
         val sortedStreams = getSortedVideos()
         val queueItems = sortedStreams.map {
             val base = it.item
             val cleanUrl = base.url?.toID() ?: base.url
-            if (!albumArt.isNullOrBlank() && (playlistType == PlaylistType.PUBLIC || playlistId.startsWith("OLAK") || playlistId.startsWith("MPRE"))) {
+            if (!albumArt.isNullOrBlank() && isTrueAlbum) {
                 base.copy(url = cleanUrl, thumbnail = albumArt, albumName = playlistName)
             } else {
                 base.copy(url = cleanUrl)
