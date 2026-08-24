@@ -213,13 +213,16 @@ open class OnlinePlayerService : AbstractPlayerService() {
             if (isAudioOnlyPlayer && videoId.length == 11) {
                 val currentTitle = streams?.title.orEmpty()
                 val currentUploader = streams?.uploader.orEmpty()
+                val isAlreadyStudioMaster = currentUploader.endsWith("- Topic", ignoreCase = true)
                 val titleLower = currentTitle.lowercase()
-                val isLikelyMusicVideo = streams?.category.equals("Music", ignoreCase = true) ||
-                        titleLower.contains("video") || titleLower.contains("promo") ||
-                        titleLower.contains("official") || titleLower.contains("4k") ||
-                        titleLower.contains("song") || titleLower.contains("lyric")
+                val isExplicitMusicVideo = !isAlreadyStudioMaster && (
+                    titleLower.contains("video song") || titleLower.contains("official video") ||
+                    titleLower.contains("music video") || titleLower.contains("promo") ||
+                    titleLower.contains("full video") || titleLower.contains("4k video") ||
+                    titleLower.contains("lyric video")
+                )
 
-                if (isLikelyMusicVideo) {
+                if (isExplicitMusicVideo) {
                     val rawArtist = currentUploader.replace(Regex("""\s*-\s*Topic\b""", RegexOption.IGNORE_CASE), "").trim()
                     val artist = app.libre.helpers.LocalAudioMatcher.normalizeArtistString(rawArtist) ?: rawArtist
                     val master = withContext(Dispatchers.IO) {
@@ -242,6 +245,12 @@ open class OnlinePlayerService : AbstractPlayerService() {
                         }
                     }
                 }
+            }
+
+            // Preserve album artwork if passed from album queue
+            val queueThumb = currentQueueItem?.thumbnail
+            if (!queueThumb.isNullOrBlank() && streams != null && (streams!!.thumbnailUrl.isNullOrBlank() || isAudioOnlyPlayer)) {
+                streams = streams!!.copy(thumbnailUrl = queueThumb)
             }
 
             videoId = actualVideoId
