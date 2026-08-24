@@ -275,22 +275,28 @@ class VideoOptionsBottomSheet : ExpandedBottomSheet(R.layout.sheet_video_options
                 if (!candidateAlbumId.isNullOrBlank() && (candidateAlbumId.startsWith("MPRE") || candidateAlbumId.startsWith("OLAK") || candidateAlbumId.startsWith("VL") || candidateAlbumId.startsWith("PL") || candidateAlbumId.startsWith("jsa_album_"))) {
                     NavigationHelper.navigatePlaylist(context, candidateAlbumId, app.libre.enums.PlaylistType.PUBLIC)
                 } else {
-                    val rawArtist = (streamItem.uploaderName ?: "").replace(Regex("""\s*-\s*Topic\b""", RegexOption.IGNORE_CASE), "").trim()
-                    val artist = app.libre.helpers.LocalAudioMatcher.normalizeArtistString(rawArtist) ?: rawArtist
                     val act = activity as? app.libre.ui.activities.MainActivity
                     act?.lifecycleScope?.launch(Dispatchers.IO) {
-                        var targetAlbum = albumName
                         var resolvedId: String? = null
-                        if (targetAlbum.isNullOrBlank()) {
-                            val master = app.libre.api.YtMusicApi.resolveStudioMaster(streamItem.title.orEmpty(), artist)
-                            targetAlbum = master?.albumName?.takeIf { it.isNotBlank() }
-                            resolvedId = master?.albumId?.takeIf { it.isNotBlank() }
+                        if (videoId.length == 11) {
+                            resolvedId = app.libre.api.YtMusicApi.resolveAlbumForVideo(videoId)
                         }
-                        if (resolvedId.isNullOrBlank() && !targetAlbum.isNullOrBlank()) {
-                            resolvedId = app.libre.api.YtMusicApi.resolveAlbumId(targetAlbum, artist)
-                        }
+
                         if (resolvedId.isNullOrBlank()) {
-                            resolvedId = app.libre.api.YtMusicApi.resolveAlbumId(streamItem.title.orEmpty(), artist)
+                            val rawArtist = (streamItem.uploaderName ?: "").replace(Regex("""\s*-\s*Topic\b""", RegexOption.IGNORE_CASE), "").trim()
+                            val artist = app.libre.helpers.LocalAudioMatcher.normalizeArtistString(rawArtist) ?: rawArtist
+                            var targetAlbum = albumName
+                            if (targetAlbum.isNullOrBlank()) {
+                                val master = app.libre.api.YtMusicApi.resolveStudioMaster(streamItem.title.orEmpty(), artist)
+                                targetAlbum = master?.albumName?.takeIf { it.isNotBlank() }
+                                resolvedId = master?.albumId?.takeIf { it.isNotBlank() }
+                            }
+                            if (resolvedId.isNullOrBlank() && !targetAlbum.isNullOrBlank()) {
+                                resolvedId = app.libre.api.YtMusicApi.resolveAlbumId(targetAlbum, artist)
+                            }
+                            if (resolvedId.isNullOrBlank()) {
+                                resolvedId = app.libre.api.YtMusicApi.resolveAlbumId(streamItem.title.orEmpty(), artist)
+                            }
                         }
 
                         withContext(Dispatchers.Main) {

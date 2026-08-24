@@ -537,6 +537,43 @@ object YtMusicApi {
         }
     }
 
+    suspend fun resolveAlbumForVideo(videoId: String): String? = withContext(Dispatchers.IO) {
+        if (videoId.length != 11) return@withContext null
+        try {
+            val payload = JSONObject().apply {
+                put("context", JSONObject().apply {
+                    put("client", JSONObject().apply {
+                        put("clientName", "WEB_REMIX")
+                        put("clientVersion", "1.20240101.01.00")
+                        put("hl", "en")
+                        put("gl", "IN")
+                    })
+                })
+                put("videoId", videoId)
+            }
+            val request = Request.Builder()
+                .url("https://music.youtube.com/youtubei/v1/next")
+                .post(payload.toString().toRequestBody(JSON_MEDIA_TYPE))
+                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+                .header("Origin", "https://music.youtube.com")
+                .header("Referer", "https://music.youtube.com/")
+                .build()
+
+            val response = RetrofitInstance.httpClient.newCall(request).execute()
+            if (!response.isSuccessful) return@withContext null
+
+            val body = response.body.string()
+            val mpreMatch = Regex(""""browseId":\s*"(MPREb_[a-zA-Z0-9_-]+)"""").find(body)?.groupValues?.getOrNull(1)
+            if (!mpreMatch.isNullOrBlank()) return@withContext mpreMatch
+
+            val olakMatch = Regex(""""(?:playlistId|browseId)":\s*"(OLAK5uy_[a-zA-Z0-9_-]+)"""").find(body)?.groupValues?.getOrNull(1)
+            if (!olakMatch.isNullOrBlank()) return@withContext "VL$olakMatch"
+        } catch (e: Exception) {
+            android.util.Log.e(TAG, "resolveAlbumForVideo error for $videoId", e)
+        }
+        return@withContext null
+    }
+
     suspend fun resolveAlbumId(albumName: String, artistName: String? = null): String? = withContext(Dispatchers.IO) {
         if (albumName.isBlank()) return@withContext null
         try {
