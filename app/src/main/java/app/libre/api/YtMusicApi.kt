@@ -694,6 +694,85 @@ object YtMusicApi {
             val body = response.body.string()
             val json = JSONObject(body)
             val results = mutableListOf<app.libre.api.obj.ContentItem>()
+            val seenIds = mutableSetOf<String>()
+
+            // For Albums search, first check if default search Top Card points to the official primary album
+            if (filter == "music_albums") {
+                try {
+                    val topPayload = JSONObject().apply {
+                        put("context", JSONObject().apply {
+                            put("client", JSONObject().apply {
+                                put("clientName", "WEB_REMIX")
+                                put("clientVersion", "1.20240101.01.00")
+                                put("hl", "en")
+                                put("gl", "IN")
+                            })
+                        })
+                        put("query", query)
+                    }
+                    val topReq = Request.Builder()
+                        .url("https://music.youtube.com/youtubei/v1/search")
+                        .post(topPayload.toString().toRequestBody(JSON_MEDIA_TYPE))
+                        .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+                        .header("Origin", "https://music.youtube.com")
+                        .header("Referer", "https://music.youtube.com/")
+                        .build()
+                    val topResp = RetrofitInstance.httpClient.newCall(topReq).execute()
+                    if (topResp.isSuccessful) {
+                        val tBody = topResp.body.string()
+                        val tJson = JSONObject(tBody)
+                        val tSec = tJson.optJSONObject("contents")?.optJSONObject("tabbedSearchResultsRenderer")
+                            ?.optJSONArray("tabs")?.optJSONObject(0)?.optJSONObject("tabRenderer")
+                            ?.optJSONObject("content")?.optJSONObject("sectionListRenderer")?.optJSONArray("contents")
+                        if (tSec != null) {
+                            for (ti in 0 until tSec.length()) {
+                                val tCard = tSec.optJSONObject(ti)?.optJSONObject("musicCardShelfRenderer") ?: continue
+                                val menuItems = tCard.optJSONObject("menu")?.optJSONObject("menuRenderer")?.optJSONArray("items")
+                                var albumBrowseId: String? = null
+                                if (menuItems != null) {
+                                    for (mi in 0 until menuItems.length()) {
+                                        val bId = menuItems.optJSONObject(mi)?.optJSONObject("menuNavigationItemRenderer")
+                                            ?.optJSONObject("navigationEndpoint")?.optJSONObject("browseEndpoint")?.optString("browseId")
+                                        if (!bId.isNullOrBlank() && (bId.startsWith("MPREb_") || bId.startsWith("OLAK5uy_"))) {
+                                            albumBrowseId = bId
+                                            break
+                                        }
+                                    }
+                                }
+                                if (albumBrowseId == null) {
+                                    val cTitleRuns = tCard.optJSONObject("title")?.optJSONArray("runs")
+                                    val bId = cTitleRuns?.optJSONObject(0)?.optJSONObject("navigationEndpoint")?.optJSONObject("browseEndpoint")?.optString("browseId")
+                                    if (!bId.isNullOrBlank() && (bId.startsWith("MPREb_") || bId.startsWith("OLAK5uy_"))) {
+                                        albumBrowseId = bId
+                                    }
+                                }
+                                if (albumBrowseId != null) {
+                                    val albumObj = fetchAlbum(albumBrowseId)
+                                    if (albumObj != null) {
+                                        val cleanId = albumBrowseId
+                                        seenIds.add(cleanId)
+                                        results.add(
+                                            app.libre.api.obj.ContentItem(
+                                                url = albumBrowseId,
+                                                type = app.libre.api.obj.StreamItem.TYPE_PLAYLIST,
+                                                thumbnail = albumObj.thumbnailUrl.orEmpty(),
+                                                title = albumObj.name,
+                                                name = albumObj.name,
+                                                uploaderName = albumObj.uploader,
+                                                videos = albumObj.videos.toLong(),
+                                                source = "ytm"
+                                            )
+                                        )
+                                        break
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.e(TAG, "music_albums top card extraction failed", e)
+                }
+            }
 
             val contents = json.optJSONObject("contents")
                 ?.optJSONObject("tabbedSearchResultsRenderer")
@@ -800,6 +879,9 @@ object YtMusicApi {
                         } else {
                             playlistId ?: browseNav?.optString("browseId") ?: videoId ?: continue
                         }
+
+                        if (seenIds.contains(finalId)) continue
+                        seenIds.add(finalId)
 
                         results.add(
                             app.libre.api.obj.ContentItem(
