@@ -70,6 +70,7 @@ class PlaylistFragment : DynamicLayoutManagerFragment(R.layout.fragment_playlist
     // general playlist information
     private lateinit var playlistId: String
     private var playlistName: String? = null
+    private var playlistThumbnailUrl: String? = null
     private var playlistType = PlaylistType.PUBLIC
 
     // runtime variables
@@ -405,10 +406,23 @@ class PlaylistFragment : DynamicLayoutManagerFragment(R.layout.fragment_playlist
     private fun startVideoItemPlayback(streamItem: StreamItem) {
         if (playlistFeed.isEmpty()) return
 
+        val albumArt = playlistThumbnailUrl
         val sortedStreams = getSortedVideos()
-        PlayingQueue.setStreams(sortedStreams.map { it.item })
+        val queueItems = sortedStreams.map {
+            if (!albumArt.isNullOrBlank() && (playlistType == PlaylistType.PUBLIC || playlistId.startsWith("OLAK") || playlistId.startsWith("MPRE"))) {
+                it.item.copy(thumbnail = albumArt, albumName = playlistName)
+            } else {
+                it.item
+            }
+        }
+        PlayingQueue.setStreams(queueItems)
 
-        navigateVideo(streamItem)
+        val targetItem = if (!albumArt.isNullOrBlank() && (playlistType == PlaylistType.PUBLIC || playlistId.startsWith("OLAK") || playlistId.startsWith("MPRE"))) {
+            streamItem.copy(thumbnail = albumArt, albumName = playlistName)
+        } else {
+            streamItem
+        }
+        navigateVideo(targetItem)
     }
 
     /**
@@ -750,6 +764,7 @@ class PlaylistFragment : DynamicLayoutManagerFragment(R.layout.fragment_playlist
 
     // Update the Cover/Thumbnail of the playlist if the first video was removed
     private fun setPlaylistThumbnail(thumbnailUrl: String?) {
+        playlistThumbnailUrl = thumbnailUrl
         if (!thumbnailUrl.isNullOrEmpty()) {
             ImageHelper.loadImage(thumbnailUrl, binding.thumbnail)
             lifecycleScope.launch {
