@@ -721,41 +721,7 @@ class PlayerFragment : BasePlayerFragment(R.layout.fragment_player), CustomPlaye
         playerController.release()
         killPlayerFragment()
 
-        val context = requireContext()
-        val isYt = videoId.length == 11
-        val titleLower = currentTitle.lowercase()
-        val isLikelyVideo = isYt && (titleLower.contains("video") || titleLower.contains("4k") || titleLower.contains("official") || titleLower.contains("promo"))
-
-        if (isLikelyVideo) {
-            val act = activity as? app.libre.ui.activities.MainActivity
-            act?.lifecycleScope?.launch(Dispatchers.IO) {
-                val companionAudio = app.libre.api.YtMusicApi.companionPairMap[videoId]
-                    ?: app.libre.util.PlayingQueue.getStreams().firstOrNull { 
-                        it.uploaderName?.endsWith("- Topic", ignoreCase = true) == true ||
-                        (!it.title.isNullOrBlank() && currentTitle.contains(it.title.orEmpty(), ignoreCase = true))
-                    }
-                val rawArtist = currentUploader.replace(Regex("""\s*-\s*Topic\b""", RegexOption.IGNORE_CASE), "").trim()
-                val artist = app.libre.helpers.LocalAudioMatcher.normalizeArtistString(rawArtist) ?: rawArtist
-                val master = companionAudio ?: app.libre.api.YtMusicApi.resolveStudioMaster(currentTitle, artist)
-                withContext(Dispatchers.Main) {
-                    val targetId = master?.url?.toID()?.takeIf { it.isNotEmpty() } ?: videoId
-                    if (targetId != videoId && master != null) {
-                        PlayingQueue.updateCurrent(master)
-                    }
-                    NavigationHelper.navigateVideo(
-                        context,
-                        playerData = PlayerData(
-                            videoId = targetId,
-                            timestamp = currentPosition,
-                            keepQueue = true
-                        ),
-                        audioOnlyPlayerRequested = true
-                    )
-                }
-            }
-        } else {
-            NavigationHelper.openAudioPlayerFragment(context, offlinePlayer = isOffline, noAutoVideoSwitch = true)
-        }
+        NavigationHelper.openAudioPlayerFragment(requireContext(), offlinePlayer = isOffline, noAutoVideoSwitch = true)
     }
 
     private fun updateFullscreenOrientation() {

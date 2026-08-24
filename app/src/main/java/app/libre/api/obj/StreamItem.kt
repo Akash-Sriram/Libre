@@ -29,6 +29,26 @@ data class StreamItem(
     val isLive get() = !isShort && ((duration == null) || (duration <= 0L))
     val isUpcoming get() = uploaded > System.currentTimeMillis()
 
+    fun toContentItem() = ContentItem(
+        url = url.orEmpty(),
+        type = type ?: TYPE_STREAM,
+        thumbnail = thumbnail.orEmpty(),
+        title = title,
+        name = title,
+        uploaderName = uploaderName,
+        uploaderUrl = uploaderUrl,
+        uploaderAvatar = uploaderAvatar,
+        duration = duration ?: -1L,
+        views = views ?: -1L,
+        isShort = isShort,
+        uploaderVerified = uploaderVerified,
+        uploaded = uploaded,
+        shortDescription = shortDescription,
+        albumName = albumName,
+        albumId = albumId,
+        source = "ytm"
+    )
+
     fun toLocalPlaylistItem(playlistId: String): LocalPlaylistItem {
         val cleanVideoId = (url ?: "").toID().ifEmpty { url.orEmpty() }
         return LocalPlaylistItem(

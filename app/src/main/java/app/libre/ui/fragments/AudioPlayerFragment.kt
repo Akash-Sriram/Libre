@@ -189,24 +189,7 @@ class AudioPlayerFragment : BasePlayerFragment(R.layout.fragment_audio_player) {
         binding.openVideo.setOnClickListener {
             val currentItem = PlayingQueue.getCurrent() ?: return@setOnClickListener
             val currentId = currentItem.url?.toID() ?: return@setOnClickListener
-
-            val rawArtist = (currentItem.uploaderName ?: "").replace(Regex("""\s*-\s*Topic\b""", RegexOption.IGNORE_CASE), "").trim()
-            val artist = app.libre.helpers.LocalAudioMatcher.normalizeArtistString(rawArtist) ?: rawArtist
-            val title = currentItem.title.orEmpty()
-
-            lifecycleScope.launch(Dispatchers.IO) {
-                val officialVideo = app.libre.api.YtMusicApi.resolveOfficialVideo(title, artist)
-                val targetId = officialVideo?.url?.toID()?.takeIf { it.isNotEmpty() } ?: currentId
-                if (officialVideo != null) {
-                    app.libre.api.YtMusicApi.registerCompanionPair(currentItem, officialVideo)
-                }
-                withContext(Dispatchers.Main) {
-                    if (targetId != currentId && officialVideo != null) {
-                        PlayingQueue.updateCurrent(officialVideo)
-                    }
-                    switchToVideoMode(targetId)
-                }
-            }
+            switchToVideoMode(currentId)
         }
 
         childFragmentManager.setFragmentResultListener(
