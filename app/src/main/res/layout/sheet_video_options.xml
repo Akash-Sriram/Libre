@@ -291,39 +291,6 @@
             </LinearLayout>
 
             <LinearLayout
-                android:id="@+id/action_switch_version"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:background="?selectableItemBackground"
-                android:clickable="true"
-                android:focusable="true"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:paddingHorizontal="20dp"
-                android:paddingVertical="13dp"
-                android:visibility="gone"
-                tools:visibility="visible">
-
-                <ImageView
-                    android:id="@+id/switch_version_icon"
-                    android:layout_width="22dp"
-                    android:layout_height="22dp"
-                    android:src="@drawable/ic_audio"
-                    app:tint="?attr/colorOnSurface" />
-
-                <TextView
-                    android:id="@+id/switch_version_text"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="16dp"
-                    android:textAppearance="?attr/textAppearanceBodyLarge"
-                    android:textColor="?attr/colorOnSurface"
-                    android:textSize="14.5sp"
-                    android:text="Switch to studio audio" />
-
-            </LinearLayout>
-
-            <LinearLayout
                 android:id="@+id/action_share"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
