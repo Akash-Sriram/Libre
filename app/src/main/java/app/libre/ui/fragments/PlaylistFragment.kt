@@ -354,8 +354,12 @@ class PlaylistFragment : DynamicLayoutManagerFragment(R.layout.fragment_playlist
                                 .deleteById(playlistId)
                         } else {
                             val liveCount = playlistFeed.size
+                            val bestThumb = playlistThumbnailUrl?.takeIf { it.isNotBlank() }
+                                ?: response.thumbnailUrl?.takeIf { it.isNotBlank() }
+                                ?: playlistFeed.firstOrNull { !it.thumbnail.isNullOrBlank() }?.thumbnail
                             val currentBookmark = response.copy(
                                 name = playlistName ?: response.name,
+                                thumbnailUrl = bestThumb,
                                 videos = if (liveCount > 0) liveCount else response.videos
                             ).toPlaylistBookmark(playlistId)
                             DatabaseHolder.Database.playlistBookmarkDao()
@@ -764,12 +768,15 @@ class PlaylistFragment : DynamicLayoutManagerFragment(R.layout.fragment_playlist
 
     // Update the Cover/Thumbnail of the playlist if the first video was removed
     private fun setPlaylistThumbnail(thumbnailUrl: String?) {
-        playlistThumbnailUrl = thumbnailUrl
-        if (!thumbnailUrl.isNullOrEmpty()) {
-            ImageHelper.loadImage(thumbnailUrl, binding.thumbnail)
+        val effectiveThumbnail = thumbnailUrl?.takeIf { it.isNotBlank() }
+            ?: playlistFeed.firstOrNull { !it.thumbnail.isNullOrBlank() }?.thumbnail
+            ?: playlistFeed.lastOrNull { !it.thumbnail.isNullOrBlank() }?.thumbnail
+        playlistThumbnailUrl = effectiveThumbnail
+        if (!effectiveThumbnail.isNullOrEmpty()) {
+            ImageHelper.loadImage(effectiveThumbnail, binding.thumbnail)
             lifecycleScope.launch {
                 val ctx = context ?: return@launch
-                val bitmap = ImageHelper.getImage(ctx, thumbnailUrl)
+                val bitmap = ImageHelper.getImage(ctx, effectiveThumbnail)
                 if (bitmap != null) {
                     withContext(Dispatchers.Default) {
                         val softBitmap = if (bitmap.config == android.graphics.Bitmap.Config.HARDWARE) {
