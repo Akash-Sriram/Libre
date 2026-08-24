@@ -459,30 +459,38 @@ object LocalAudioMatcher {
      * Extracts the embedded album art from the audio file using MediaMetadataRetriever.
      * Returns raw JPEG/PNG bytes or null if no art is embedded.
      */
-    fun getEmbeddedArt(videoId: String): ByteArray? {
-        if (embeddedArtCache.containsKey(videoId)) return embeddedArtCache[videoId]
+    fun getEmbeddedArt(videoIdOrPath: String): ByteArray? {
+        if (embeddedArtCache.containsKey(videoIdOrPath)) return embeddedArtCache[videoIdOrPath]
 
-        val path = localAudioMap[videoId] ?: toJsaKey(videoId)?.let { localAudioMap[it] } ?: return null
+        val path = if (videoIdOrPath.startsWith("/") || videoIdOrPath.contains("\\") || java.io.File(videoIdOrPath).exists()) {
+            videoIdOrPath
+        } else {
+            localAudioMap[videoIdOrPath] ?: toJsaKey(videoIdOrPath)?.let { localAudioMap[it] } ?: return null
+        }
+
         val art = try {
             MediaMetadataRetriever().use { retriever ->
                 retriever.setDataSource(path)
                 retriever.embeddedPicture
             }
         } catch (e: Exception) {
-            Log.w(TAG, "Could not extract embedded art for $videoId: ${e.message}")
+            Log.w(TAG, "Could not extract embedded art for $videoIdOrPath: ${e.message}")
             null
         }
-        embeddedArtCache[videoId] = art
+        if (art != null) {
+            embeddedArtCache[videoIdOrPath] = art
+        }
         return art
     }
 
     /**
      * Returns a file:// URI pointing to cached extracted artwork to avoid large Binder transactions.
      */
-    fun getEmbeddedArtUri(context: android.content.Context, videoId: String): String? {
-        val artBytes = getEmbeddedArt(videoId) ?: return null
+    fun getEmbeddedArtUri(context: android.content.Context, videoIdOrPath: String): String? {
+        val artBytes = getEmbeddedArt(videoIdOrPath) ?: return null
+        val safeName = videoIdOrPath.replace(Regex("""[^a-zA-Z0-9_-]"""), "_").takeLast(30)
         return try {
-            val artFile = java.io.File(context.cacheDir, "art_$videoId.jpg")
+            val artFile = java.io.File(context.cacheDir, "art_$safeName.jpg")
             if (!artFile.exists() || artFile.length() == 0L) {
                 artFile.writeBytes(artBytes)
             }

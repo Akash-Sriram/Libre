@@ -147,7 +147,10 @@ open class OnlinePlayerService : AbstractPlayerService() {
         // start loading the video info while keeping a reference to the job
         // so that it can be canceled once a different video is loaded
         fetchVideoInfoJob = scope.launch {
-            val currentQueueItem = PlayingQueue.getCurrent()
+            val currentQueueItem = PlayingQueue.getItem(videoId) ?: PlayingQueue.getCurrent()
+            if (currentQueueItem != null && currentQueueItem.url?.toID() == videoId.toID()) {
+                PlayingQueue.updateCurrent(currentQueueItem)
+            }
             val isJio = app.libre.helpers.JioSaavnHelper.isJioSaavn(videoId)
 
             // Only use local audio fast-path if this is an audio-only player session
@@ -170,10 +173,12 @@ open class OnlinePlayerService : AbstractPlayerService() {
                     }
                 } else null
                 
-                val streamItem = playlistItem?.toStreamItem() ?: currentQueueItem
-                val thumbnailUrl = app.libre.helpers.LocalAudioMatcher.getEmbeddedArtUri(this@OnlinePlayerService, videoId)
-                    ?: cached?.thumbnailUrl?.takeIf { it.isNotBlank() }
-                    ?: streamItem?.thumbnail.orEmpty()
+                val streamItem = currentQueueItem ?: playlistItem?.toStreamItem()
+                val localArt = app.libre.helpers.LocalAudioMatcher.getEmbeddedArtUri(this@OnlinePlayerService, videoId)
+                    ?: app.libre.helpers.LocalAudioMatcher.getEmbeddedArtUri(this@OnlinePlayerService, localPath)
+                val thumbnailUrl = localArt
+                    ?: streamItem?.thumbnail?.takeIf { it.isNotBlank() }
+                    ?: cached?.thumbnailUrl.orEmpty()
                 
                 streams = Streams(
                     title = app.libre.helpers.LocalAudioMatcher.getTitleFromFile(videoId, streamItem?.title) ?: cached?.title?.takeIf { it.isNotBlank() } ?: streamItem?.title ?: "Local Audio",
@@ -248,9 +253,9 @@ open class OnlinePlayerService : AbstractPlayerService() {
                 }
             }
 
-            // Preserve album artwork if passed from album queue
+            // Only preserve album artwork if this is an official album playlist
             val queueThumb = currentQueueItem?.thumbnail
-            if (!queueThumb.isNullOrBlank() && streams != null && (streams!!.thumbnailUrl.isNullOrBlank() || isAudioOnlyPlayer || isFromAlbum)) {
+            if (isFromAlbum && !queueThumb.isNullOrBlank() && streams != null && streams!!.thumbnailUrl.isNullOrBlank()) {
                 streams = streams!!.copy(thumbnailUrl = queueThumb)
             }
 

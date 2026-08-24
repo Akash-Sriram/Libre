@@ -148,6 +148,11 @@ object PlayingQueue {
 
     fun getCurrent(): StreamItem? = currentStream
 
+    fun getItem(videoId: String): StreamItem? = synchronized(queue) {
+        val cleanId = videoId.toID()
+        return queue.firstOrNull { it.url?.toID() == cleanId }
+    }
+
     fun contains(streamItem: StreamItem): Boolean {
         return synchronized(queue) {
             val targetId = streamItem.url?.toID() ?: return@synchronized false
