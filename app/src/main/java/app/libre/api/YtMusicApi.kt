@@ -403,11 +403,24 @@ object YtMusicApi {
             val body = response.body.string()
             val json = JSONObject(body)
 
-            // If this is an MPRE album, redirect to its official OLAK studio audio playlist to get master audio tracks
-            if (formattedBrowseId.startsWith("MPRE")) {
-                val olakMatch = Regex("""OLAK5uy_[a-zA-Z0-9_-]+""").find(body)?.value
-                if (olakMatch != null && formattedBrowseId != "VL$olakMatch") {
-                    return@withContext fetchAlbum("VL$olakMatch")
+            // If this is an OLAK playlist without header, check if there is an MPRE album browseId in the tracks to get the rich album master
+            if (formattedBrowseId.contains("OLAK")) {
+                val secList = json.optJSONObject("contents")
+                    ?.optJSONObject("twoColumnBrowseResultsRenderer")
+                    ?.optJSONObject("secondaryContents")
+                    ?.optJSONObject("sectionListRenderer")
+                    ?.optJSONArray("contents")
+                val shelf = secList?.optJSONObject(0)?.optJSONObject("musicPlaylistShelfRenderer")
+                val firstItem = shelf?.optJSONArray("contents")?.optJSONObject(0)?.optJSONObject("musicResponsiveListItemRenderer")
+                val menuItems = firstItem?.optJSONObject("menu")?.optJSONObject("menuRenderer")?.optJSONArray("items")
+                if (menuItems != null) {
+                    for (mIdx in 0 until menuItems.length()) {
+                        val mItem = menuItems.optJSONObject(mIdx)?.optJSONObject("menuNavigationItemRenderer")
+                        val bId = mItem?.optJSONObject("navigationEndpoint")?.optJSONObject("browseEndpoint")?.optString("browseId")
+                        if (!bId.isNullOrBlank() && bId.startsWith("MPRE")) {
+                            return@withContext fetchAlbum(bId)
+                        }
+                    }
                 }
             }
 
