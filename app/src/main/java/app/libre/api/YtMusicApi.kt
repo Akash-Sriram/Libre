@@ -615,9 +615,9 @@ object YtMusicApi {
     ): List<app.libre.api.obj.ContentItem> = withContext(Dispatchers.IO) {
         try {
             val params = when (filter) {
-                "music_songs" -> "EgWKAQIIAWoMEAMQBBAJEA4QChAF"
+                "music_songs" -> "EgWKAQIIAWoOEAQQAxAJEAUQChAQEBU="
                 "music_videos" -> "EgWKAQIYAWoMEAMQBBAJEA4QChAF"
-                "music_albums" -> "EgWKAQIBAWoMEAMQBBAJEA4QChAF"
+                "music_albums" -> "EgWKAQIYAWoOEAQQAxAJEAUQChAQEBU="
                 "music_playlists" -> "EgWKAQIQAWoMEAMQBBAJEA4QChAF"
                 else -> null
             }

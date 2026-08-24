@@ -30,7 +30,8 @@ class SearchPagingSource(
             }
 
             val items = result.items.toMutableList()
-            if (params.key == null && searchQuery.isNotBlank() && (searchFilter == "combined_all" || searchFilter == "all" || searchFilter.contains("music"))) {
+            val isSongOrAllFilter = searchFilter in listOf("combined_all", "all", "music_songs", "songs")
+            if (params.key == null && searchQuery.isNotBlank() && isSongOrAllFilter) {
                 val studioMaster = withContext(Dispatchers.IO) {
                     try {
                         app.libre.api.YtMusicApi.resolveStudioMaster(searchQuery)
