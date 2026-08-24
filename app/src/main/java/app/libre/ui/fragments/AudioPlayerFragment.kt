@@ -196,6 +196,9 @@ class AudioPlayerFragment : BasePlayerFragment(R.layout.fragment_audio_player) {
             lifecycleScope.launch(Dispatchers.IO) {
                 val officialVideo = app.libre.api.YtMusicApi.resolveOfficialVideo(title, artist)
                 val targetId = officialVideo?.url?.toID()?.takeIf { it.isNotEmpty() } ?: currentId
+                if (officialVideo != null) {
+                    app.libre.api.YtMusicApi.registerCompanionPair(currentItem, officialVideo)
+                }
                 withContext(Dispatchers.Main) {
                     if (targetId != currentId && officialVideo != null) {
                         PlayingQueue.updateCurrent(officialVideo)

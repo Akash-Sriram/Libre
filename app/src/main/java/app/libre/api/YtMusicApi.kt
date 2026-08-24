@@ -1,5 +1,6 @@
 package app.libre.api
 
+import app.libre.extensions.toID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
@@ -791,12 +792,32 @@ object YtMusicApi {
         }
     }
 
+    val companionPairMap = java.util.concurrent.ConcurrentHashMap<String, app.libre.api.obj.StreamItem>()
+
+    fun registerCompanionPair(audioItem: app.libre.api.obj.StreamItem, videoItem: app.libre.api.obj.StreamItem) {
+        val aId = audioItem.url?.toID().orEmpty()
+        val vId = videoItem.url?.toID().orEmpty()
+        if (aId.isNotEmpty()) companionPairMap[vId] = audioItem
+        if (vId.isNotEmpty()) companionPairMap[aId] = videoItem
+    }
+
     private val studioMasterCache = java.util.concurrent.ConcurrentHashMap<String, app.libre.api.obj.StreamItem>()
 
     suspend fun resolveStudioMaster(title: String, artist: String? = null): app.libre.api.obj.StreamItem? = withContext(Dispatchers.IO) {
         if (title.isBlank()) return@withContext null
         val cacheKey = "${title.trim().lowercase()}::${artist?.trim()?.lowercase().orEmpty()}"
         studioMasterCache[cacheKey]?.let { return@withContext it }
+
+        // Check if queue has a matching topic stream from the album first
+        val queueMatch = app.libre.util.PlayingQueue.getStreams().firstOrNull {
+            it.uploaderName?.endsWith("- Topic", ignoreCase = true) == true &&
+                !it.title.isNullOrBlank() &&
+                (title.contains(it.title.orEmpty(), ignoreCase = true) || it.title.orEmpty().contains(title, ignoreCase = true))
+        }
+        if (queueMatch != null) {
+            studioMasterCache[cacheKey] = queueMatch
+            return@withContext queueMatch
+        }
 
         try {
             var cleanTitle = title
