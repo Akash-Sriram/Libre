@@ -337,9 +337,21 @@ class PlaylistFragment : DynamicLayoutManagerFragment(R.layout.fragment_playlist
                     startVideoItemPlayback(getSortedVideos().first().item)
                 }
                 binding.shuffleBTN.setOnClickListener {
-                    val queue = playlistFeed.shuffled()
-                    PlayingQueue.setStreams(queue)
-                    navigateVideo(queue.firstOrNull() ?: return@setOnClickListener)
+                    val albumArt = playlistThumbnailUrl
+                    val sortedStreams = getSortedVideos()
+                    val queueItems = sortedStreams.map {
+                        val base = it.item
+                        val cleanUrl = base.url?.toID() ?: base.url
+                        if (!albumArt.isNullOrBlank() && (playlistType == PlaylistType.PUBLIC || playlistId.startsWith("OLAK") || playlistId.startsWith("MPRE"))) {
+                            base.copy(url = cleanUrl, thumbnail = albumArt, albumName = playlistName)
+                        } else {
+                            base.copy(url = cleanUrl)
+                        }
+                    }
+                    val shuffled = PlayingQueue.smartShuffleList(queueItems)
+                    val firstItem = shuffled.firstOrNull() ?: return@setOnClickListener
+                    PlayingQueue.setStreams(shuffled, firstItem)
+                    navigateVideo(firstItem)
                 }
             }
 
@@ -413,19 +425,18 @@ class PlaylistFragment : DynamicLayoutManagerFragment(R.layout.fragment_playlist
         val albumArt = playlistThumbnailUrl
         val sortedStreams = getSortedVideos()
         val queueItems = sortedStreams.map {
+            val base = it.item
+            val cleanUrl = base.url?.toID() ?: base.url
             if (!albumArt.isNullOrBlank() && (playlistType == PlaylistType.PUBLIC || playlistId.startsWith("OLAK") || playlistId.startsWith("MPRE"))) {
-                it.item.copy(thumbnail = albumArt, albumName = playlistName)
+                base.copy(url = cleanUrl, thumbnail = albumArt, albumName = playlistName)
             } else {
-                it.item
+                base.copy(url = cleanUrl)
             }
         }
-        PlayingQueue.setStreams(queueItems)
+        val targetId = streamItem.url?.toID() ?: streamItem.url
+        val targetItem = queueItems.firstOrNull { it.url?.toID() == targetId } ?: streamItem
 
-        val targetItem = if (!albumArt.isNullOrBlank() && (playlistType == PlaylistType.PUBLIC || playlistId.startsWith("OLAK") || playlistId.startsWith("MPRE"))) {
-            streamItem.copy(thumbnail = albumArt, albumName = playlistName)
-        } else {
-            streamItem
-        }
+        PlayingQueue.setStreams(queueItems, targetItem)
         navigateVideo(targetItem)
     }
 

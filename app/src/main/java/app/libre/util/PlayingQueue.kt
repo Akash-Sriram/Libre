@@ -114,9 +114,20 @@ object PlayingQueue {
     fun hasNext() = getNext() != null
 
     fun updateCurrent(streamItem: StreamItem) = synchronized(queue) {
-        currentStream = streamItem
+        val targetId = streamItem.url?.toID()
+        val index = if (!targetId.isNullOrBlank()) {
+            queue.indexOfFirst { it.url?.toID() == targetId }
+        } else -1
 
-        if (!contains(streamItem)) add(streamItem)
+        if (index != -1) {
+            queue[index] = streamItem
+            currentStream = streamItem
+        } else {
+            currentStream = streamItem
+            if (!contains(streamItem)) {
+                queue.add(streamItem)
+            }
+        }
     }
 
     fun isNotEmpty() = queue.isNotEmpty()
@@ -128,15 +139,20 @@ object PlayingQueue {
     fun isLast() = currentIndex() == size() - 1
 
     fun currentIndex(): Int = synchronized(queue) {
+        val targetId = currentStream?.url?.toID()
+        if (targetId.isNullOrBlank()) return 0
         return queue.indexOfFirst {
-            it.url?.toID() == currentStream?.url?.toID()
+            it.url?.toID() == targetId
         }.takeIf { it >= 0 } ?: 0
     }
 
     fun getCurrent(): StreamItem? = currentStream
 
-    fun contains(streamItem: StreamItem) = synchronized(queue) {
-        queue.any { it.url?.toID() == streamItem.url?.toID() }
+    fun contains(streamItem: StreamItem): Boolean {
+        return synchronized(queue) {
+            val targetId = streamItem.url?.toID() ?: return@synchronized false
+            queue.any { it.url?.toID() == targetId }
+        }
     }
 
     // direct indexed access without creating defensive list copies
@@ -147,10 +163,12 @@ object PlayingQueue {
     // only returns a copy of the queue, no write access
     fun getStreams() = queue.toList()
 
-    fun setStreams(streams: List<StreamItem>) = synchronized(queue) {
-        queue.clear()
-
-        queue.addAll(streams)
+    fun setStreams(streams: List<StreamItem>, initialCurrent: StreamItem? = null) {
+        synchronized(queue) {
+            queue.clear()
+            queue.addAll(streams)
+            currentStream = initialCurrent ?: streams.firstOrNull()
+        }
     }
 
     fun remove(index: Int) = synchronized(queue) {
