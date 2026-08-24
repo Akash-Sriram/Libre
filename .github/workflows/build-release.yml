@@ -31,7 +31,7 @@ jobs:
           sed -i 's/resValue("string", "app_name", "Libre Debug")/resValue("string", "app_name", "Libre")/g' app/build.gradle.kts
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           java-version: 17
           distribution: "temurin"
