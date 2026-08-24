@@ -13,6 +13,7 @@ import androidx.activity.OnBackPressedCallback
 import androidx.constraintlayout.motion.widget.MotionLayout
 import androidx.constraintlayout.motion.widget.TransitionAdapter
 import androidx.core.math.MathUtils.clamp
+import androidx.core.net.toUri
 import androidx.core.view.isGone
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
@@ -436,7 +437,8 @@ class AudioPlayerFragment : BasePlayerFragment(R.layout.fragment_audio_player) {
         binding.albumAndYear.text = albumYearText
         binding.albumAndYear.isVisible = albumYearText.isNotBlank()
 
-        metadata.artworkUri?.let { updateThumbnailAsync(it) }
+        val preferredArtwork = PlayingQueue.getCurrent()?.thumbnail?.takeIf { it.isNotBlank() }?.toUri() ?: metadata.artworkUri
+        preferredArtwork?.let { updateThumbnailAsync(it) }
 
         if (noAutoVideoSwitch || isOffline) {
             autoSwitchChecked = true  // no auto-switching in these modes — suppress STATE_READY retries
