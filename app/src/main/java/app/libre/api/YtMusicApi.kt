@@ -830,6 +830,125 @@ object YtMusicApi {
             val cleanArtist = artist?.replace(Regex("""\s*-\s*Topic\b""", RegexOption.IGNORE_CASE), "")?.trim().orEmpty()
             val query = if (cleanArtist.isNotBlank()) "$cleanTitle $cleanArtist" else cleanTitle
 
+            // 2. Search Albums first to locate official full album track (e.g. TCU49lzQa8Y) with White Album Cover
+            val albumPayload = JSONObject().apply {
+                put("context", JSONObject().apply {
+                    put("client", JSONObject().apply {
+                        put("clientName", "WEB_REMIX")
+                        put("clientVersion", "1.20240101.01.00")
+                        put("hl", "en")
+                        put("gl", "IN")
+                    })
+                })
+                put("query", query)
+                put("params", "EgWKAQIYAWoOEAQQAxAJEAUQChAQEBU=") // Albums filter
+            }
+
+            val albumRequest = Request.Builder()
+                .url("https://music.youtube.com/youtubei/v1/search")
+                .post(albumPayload.toString().toRequestBody(JSON_MEDIA_TYPE))
+                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+                .header("Origin", "https://music.youtube.com")
+                .header("Referer", "https://music.youtube.com/")
+                .build()
+
+            val albumResponse = RetrofitInstance.httpClient.newCall(albumRequest).execute()
+            if (albumResponse.isSuccessful) {
+                val aBody = albumResponse.body.string()
+                val aJson = JSONObject(aBody)
+                val aSec = aJson.optJSONObject("contents")
+                    ?.optJSONObject("tabbedSearchResultsRenderer")
+                    ?.optJSONArray("tabs")?.optJSONObject(0)
+                    ?.optJSONObject("tabRenderer")?.optJSONObject("content")
+                    ?.optJSONObject("sectionListRenderer")?.optJSONArray("contents")
+
+                val aShelf = aSec?.optJSONObject(0)?.optJSONObject("musicShelfRenderer")
+                val aContents = aShelf?.optJSONArray("contents")
+                if (aContents != null) {
+                    for (ai in 0 until minOf(aContents.length(), 2)) {
+                        val itm = aContents.optJSONObject(ai)?.optJSONObject("musicResponsiveListItemRenderer") ?: continue
+                        var targetBrowse = itm.optJSONObject("navigationEndpoint")?.optJSONObject("browseEndpoint")?.optString("browseId").orEmpty()
+                        val menuItems = itm.optJSONObject("menu")?.optJSONObject("menuRenderer")?.optJSONArray("items")
+                        if (menuItems != null) {
+                            for (mi in 0 until menuItems.length()) {
+                                val toggle = menuItems.optJSONObject(mi)?.optJSONObject("toggleMenuServiceItemRenderer")
+                                val plId = toggle?.optJSONObject("toggledServiceEndpoint")?.optJSONObject("likeEndpoint")?.optJSONObject("target")?.optString("playlistId").orEmpty()
+                                if (plId.isNotEmpty()) {
+                                    targetBrowse = "VL$plId"
+                                    break
+                                }
+                            }
+                        }
+
+                        if (targetBrowse.isNotEmpty()) {
+                            val bPayload = JSONObject().apply {
+                                put("context", JSONObject().apply {
+                                    put("client", JSONObject().apply {
+                                        put("clientName", "WEB_REMIX")
+                                        put("clientVersion", "1.20240101.01.00")
+                                        put("hl", "en")
+                                        put("gl", "IN")
+                                    })
+                                })
+                                put("browseId", targetBrowse)
+                            }
+                            val bReq = Request.Builder()
+                                .url("https://music.youtube.com/youtubei/v1/browse")
+                                .post(bPayload.toString().toRequestBody(JSON_MEDIA_TYPE))
+                                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+                                .header("Origin", "https://music.youtube.com")
+                                .header("Referer", "https://music.youtube.com/")
+                                .build()
+                            val bResp = RetrofitInstance.httpClient.newCall(bReq).execute()
+                            if (bResp.isSuccessful) {
+                                val bBody = bResp.body.string()
+                                val bJson = JSONObject(bBody)
+                                val header = bJson.optJSONObject("header")?.optJSONObject("musicDetailHeaderRenderer")
+                                    ?: bJson.optJSONObject("header")?.optJSONObject("musicResponsiveHeaderRenderer")
+                                val aTitle = header?.optJSONObject("title")?.optJSONArray("runs")?.optJSONObject(0)?.optString("text").orEmpty()
+                                val aThumbs = header?.optJSONObject("thumbnail")?.optJSONObject("croppedSquareThumbnailRenderer")?.optJSONObject("thumbnail")?.optJSONArray("thumbnails")
+                                val aCover = aThumbs?.optJSONObject(aThumbs.length() - 1)?.optString("url").orEmpty()
+
+                                val bSec = bJson.optJSONObject("contents")?.optJSONObject("twoColumnBrowseResultsRenderer")
+                                    ?.optJSONObject("secondaryContents")?.optJSONObject("sectionListRenderer")?.optJSONArray("contents")
+                                    ?: bJson.optJSONObject("contents")?.optJSONObject("singleColumnBrowseResultsRenderer")
+                                        ?.optJSONArray("tabs")?.optJSONObject(0)?.optJSONObject("tabRenderer")
+                                        ?.optJSONObject("content")?.optJSONObject("sectionListRenderer")?.optJSONArray("contents")
+
+                                val bShelf = bSec?.optJSONObject(0)?.optJSONObject("musicShelfRenderer")
+                                    ?: bSec?.optJSONObject(0)?.optJSONObject("musicPlaylistShelfRenderer")
+                                val bItems = bShelf?.optJSONArray("contents")
+                                if (bItems != null) {
+                                    for (bi in 0 until bItems.length()) {
+                                        val trackRenderer = bItems.optJSONObject(bi)?.optJSONObject("musicResponsiveListItemRenderer") ?: continue
+                                        val tFlex = trackRenderer.optJSONArray("flexColumns")?.optJSONObject(0)
+                                            ?.optJSONObject("musicResponsiveListItemFlexColumnRenderer")?.optJSONObject("text")?.optJSONArray("runs")
+                                        val tTitle = tFlex?.optJSONObject(0)?.optString("text").orEmpty()
+                                        val tVid = trackRenderer.optJSONObject("playlistItemData")?.optString("videoId").orEmpty()
+                                        val cleanSearch = cleanTitle.filter { it.isLetterOrDigit() }.lowercase()
+                                        val cleanTrack = tTitle.filter { it.isLetterOrDigit() }.lowercase()
+                                        if (tVid.isNotEmpty() && (cleanSearch in cleanTrack || cleanTrack in cleanSearch)) {
+                                            val item = app.libre.api.obj.StreamItem(
+                                                url = "https://www.youtube.com/watch?v=$tVid",
+                                                title = tTitle,
+                                                uploaderName = cleanArtist.ifBlank { aTitle },
+                                                uploaderUrl = "",
+                                                thumbnail = aCover,
+                                                albumName = aTitle,
+                                                type = app.libre.api.obj.StreamItem.TYPE_STREAM
+                                            )
+                                            studioMasterCache[cacheKey] = item
+                                            return@withContext item
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 3. Fallback: Search Songs
             val payload = JSONObject().apply {
                 put("context", JSONObject().apply {
                     put("client", JSONObject().apply {
