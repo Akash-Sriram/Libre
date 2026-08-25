@@ -19,9 +19,8 @@ class LocalPlaylistsRepository: PlaylistRepository {
             ?: DatabaseHolder.Database.localPlaylistsDao().getAll().firstOrNull { it.playlist.id.toString() == playlistId }
             ?: throw NoSuchElementException("Playlist with id $playlistId not found")
 
-        val latestSongThumb = relation.videos.lastOrNull { !it.thumbnailUrl.isNullOrBlank() }?.thumbnailUrl.orEmpty()
-        val isStaleThumb = relation.playlist.thumbnailUrl.isNullOrBlank() || relation.videos.none { it.thumbnailUrl == relation.playlist.thumbnailUrl }
-        val bestThumb = if (isStaleThumb) latestSongThumb else relation.playlist.thumbnailUrl.orEmpty()
+        val latestSongThumb = relation.videos.lastOrNull { !it.thumbnailUrl.isNullOrBlank() }?.thumbnailUrl
+        val bestThumb = latestSongThumb ?: relation.playlist.thumbnailUrl.orEmpty()
         return Playlist(
             name = relation.playlist.name,
             description = relation.playlist.description,
@@ -34,9 +33,8 @@ class LocalPlaylistsRepository: PlaylistRepository {
     override suspend fun getPlaylists(): List<Playlists> {
         return DatabaseHolder.Database.localPlaylistsDao().getAll()
             .map {
-                val latestSongThumb = it.videos.lastOrNull { v -> !v.thumbnailUrl.isNullOrBlank() }?.thumbnailUrl.orEmpty()
-                val isStaleThumb = it.playlist.thumbnailUrl.isNullOrBlank() || it.videos.none { v -> v.thumbnailUrl == it.playlist.thumbnailUrl }
-                val thumb = if (isStaleThumb) latestSongThumb else it.playlist.thumbnailUrl.orEmpty()
+                val latestSongThumb = it.videos.lastOrNull { v -> !v.thumbnailUrl.isNullOrBlank() }?.thumbnailUrl
+                val thumb = latestSongThumb ?: it.playlist.thumbnailUrl.orEmpty()
                 Playlists(
                     id = it.playlist.id.toString(),
                     name = it.playlist.name,

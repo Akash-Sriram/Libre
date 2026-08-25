@@ -53,13 +53,9 @@ object LocalPlaylistsCache {
                         }
                     }
 
-                    val latestSongThumb = relation.videos.lastOrNull { !it.thumbnailUrl.isNullOrBlank() }?.thumbnailUrl.orEmpty()
-                    val isStaleThumb = relation.playlist.thumbnailUrl.isNullOrBlank() || relation.videos.none { it.thumbnailUrl == relation.playlist.thumbnailUrl }
-                    val effectivePlaylist = if (isStaleThumb) {
-                        relation.playlist.copy(thumbnailUrl = latestSongThumb)
-                    } else {
-                        relation.playlist
-                    }
+                    val latestSongThumb = relation.videos.lastOrNull { !it.thumbnailUrl.isNullOrBlank() }?.thumbnailUrl
+                    val effectiveThumb = latestSongThumb ?: relation.playlist.thumbnailUrl.orEmpty()
+                    val effectivePlaylist = relation.playlist.copy(thumbnailUrl = effectiveThumb)
 
                     CachedPlaylistData(
                         playlist = effectivePlaylist,
