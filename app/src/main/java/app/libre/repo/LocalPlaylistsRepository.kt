@@ -19,9 +19,9 @@ class LocalPlaylistsRepository: PlaylistRepository {
             ?: DatabaseHolder.Database.localPlaylistsDao().getAll().firstOrNull { it.playlist.id.toString() == playlistId }
             ?: throw NoSuchElementException("Playlist with id $playlistId not found")
 
-        val firstSongThumb = relation.videos.firstOrNull { !it.thumbnailUrl.isNullOrBlank() }?.thumbnailUrl
-        val latestSongThumb = relation.videos.lastOrNull { !it.thumbnailUrl.isNullOrBlank() }?.thumbnailUrl
-        val bestThumb = relation.playlist.thumbnailUrl?.takeIf { it.isNotBlank() } ?: firstSongThumb ?: latestSongThumb
+        val latestSongThumb = relation.videos.lastOrNull { !it.thumbnailUrl.isNullOrBlank() }?.thumbnailUrl.orEmpty()
+        val isStaleThumb = relation.playlist.thumbnailUrl.isNullOrBlank() || relation.videos.none { it.thumbnailUrl == relation.playlist.thumbnailUrl }
+        val bestThumb = if (isStaleThumb) latestSongThumb else relation.playlist.thumbnailUrl.orEmpty()
         return Playlist(
             name = relation.playlist.name,
             description = relation.playlist.description,
@@ -34,9 +34,9 @@ class LocalPlaylistsRepository: PlaylistRepository {
     override suspend fun getPlaylists(): List<Playlists> {
         return DatabaseHolder.Database.localPlaylistsDao().getAll()
             .map {
-                val firstSongThumb = it.videos.firstOrNull { v -> !v.thumbnailUrl.isNullOrBlank() }?.thumbnailUrl
-                val latestSongThumb = it.videos.lastOrNull { v -> !v.thumbnailUrl.isNullOrBlank() }?.thumbnailUrl
-                val thumb = it.playlist.thumbnailUrl?.takeIf { t -> t.isNotBlank() } ?: firstSongThumb ?: latestSongThumb
+                val latestSongThumb = it.videos.lastOrNull { v -> !v.thumbnailUrl.isNullOrBlank() }?.thumbnailUrl.orEmpty()
+                val isStaleThumb = it.playlist.thumbnailUrl.isNullOrBlank() || it.videos.none { v -> v.thumbnailUrl == it.playlist.thumbnailUrl }
+                val thumb = if (isStaleThumb) latestSongThumb else it.playlist.thumbnailUrl.orEmpty()
                 Playlists(
                     id = it.playlist.id.toString(),
                     name = it.playlist.name,
@@ -175,11 +175,10 @@ class LocalPlaylistsRepository: PlaylistRepository {
         val videoToRemove = transaction.videos.getOrNull(index) ?: return false
         DatabaseHolder.Database.localPlaylistsDao().removePlaylistVideo(videoToRemove)
 
-        // set a new playlist thumbnail if the first video got removed
-        if (index == 0) {
-            transaction.playlist.thumbnailUrl =
-                transaction.videos.getOrNull(1)?.thumbnailUrl.orEmpty()
-        }
+        // Recalculate and set the new playlist thumbnail from the remaining tracks (last added track)
+        val remainingVideos = transaction.videos.filter { it.id != videoToRemove.id }
+        val newThumb = remainingVideos.lastOrNull { !it.thumbnailUrl.isNullOrBlank() }?.thumbnailUrl.orEmpty()
+        transaction.playlist.thumbnailUrl = newThumb
         DatabaseHolder.Database.localPlaylistsDao().updatePlaylist(transaction.playlist)
         app.libre.helpers.LocalPlaylistsCache.reload()
 
