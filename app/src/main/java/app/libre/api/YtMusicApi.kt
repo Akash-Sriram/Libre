@@ -458,8 +458,42 @@ object YtMusicApi {
 
             val tracks = mutableListOf<app.libre.api.obj.StreamItem>()
 
+            // For MPRE albums, fetch the companion OLAK studio audio playlist to get pure master audio tracks
+            var masterTrackJson = json
+            if (formattedBrowseId.startsWith("MPRE")) {
+                val olakMatch = Regex("""OLAK5uy_[a-zA-Z0-9_-]+""").find(body)?.value
+                if (olakMatch != null) {
+                    try {
+                        val masterPayload = JSONObject().apply {
+                            put("context", JSONObject().apply {
+                                put("client", JSONObject().apply {
+                                    put("clientName", "WEB_REMIX")
+                                    put("clientVersion", "1.20240101.01.00")
+                                    put("hl", "en")
+                                    put("gl", "IN")
+                                })
+                            })
+                            put("browseId", "VL$olakMatch")
+                        }
+                        val masterReq = Request.Builder()
+                            .url("https://music.youtube.com/youtubei/v1/browse")
+                            .post(masterPayload.toString().toRequestBody(JSON_MEDIA_TYPE))
+                            .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+                            .header("Origin", "https://music.youtube.com")
+                            .header("Referer", "https://music.youtube.com/")
+                            .build()
+                        val masterResp = RetrofitInstance.httpClient.newCall(masterReq).execute()
+                        if (masterResp.isSuccessful) {
+                            masterTrackJson = JSONObject(masterResp.body.string())
+                        }
+                    } catch (e: Exception) {
+                        android.util.Log.e(TAG, "Failed to fetch master OLAK tracks", e)
+                    }
+                }
+            }
+
             // 1. Check singleColumnBrowseResultsRenderer
-            var sectionContents = json.optJSONObject("contents")
+            var sectionContents = masterTrackJson.optJSONObject("contents")
                 ?.optJSONObject("singleColumnBrowseResultsRenderer")
                 ?.optJSONArray("tabs")
                 ?.optJSONObject(0)
@@ -473,7 +507,7 @@ object YtMusicApi {
 
             // 2. Check twoColumnBrowseResultsRenderer (musicPlaylistShelfRenderer or musicShelfRenderer)
             if (sectionContents == null) {
-                val twoColSec = json.optJSONObject("contents")
+                val twoColSec = masterTrackJson.optJSONObject("contents")
                     ?.optJSONObject("twoColumnBrowseResultsRenderer")
                     ?.optJSONObject("secondaryContents")
                     ?.optJSONObject("sectionListRenderer")
