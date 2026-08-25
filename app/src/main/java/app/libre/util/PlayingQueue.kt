@@ -74,9 +74,13 @@ object PlayingQueue {
      */
     fun add(vararg streamItem: StreamItem, skipExisting: Boolean = false) = synchronized(queue) {
         for (stream in streamItem) {
-            if ((skipExisting && contains(stream)) || stream.title.isNullOrBlank()) continue
+            val targetId = stream.url?.toID()
+            if (stream.title.isNullOrBlank()) continue
+            if (skipExisting && contains(stream)) continue
 
-            queue.remove(stream)
+            if (!targetId.isNullOrBlank()) {
+                queue.removeAll { it.url?.toID() == targetId }
+            }
             queue.add(stream)
         }
     }
@@ -196,7 +200,7 @@ object PlayingQueue {
     ) {
         synchronized(queue) {
             if (!isMainList) {
-                add(*streams.toTypedArray())
+                add(*streams.toTypedArray(), skipExisting = true)
                 return
             }
             val currentStream = currentStreamItem ?: this.currentStream
@@ -207,8 +211,8 @@ object PlayingQueue {
                 queue.removeAll { it.url?.toID() == currentStream.url?.toID() }
                 reAddStream = false
             }
-            // add all new stream items to the queue
-            add(*streams.toTypedArray())
+            // add all new stream items to the queue skipping any already present
+            add(*streams.toTypedArray(), skipExisting = true)
 
             if (currentStream != null && reAddStream) {
                 // re-add the stream to the end of the queue

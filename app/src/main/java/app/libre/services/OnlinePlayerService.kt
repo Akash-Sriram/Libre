@@ -191,7 +191,7 @@ open class OnlinePlayerService : AbstractPlayerService() {
 
                 streams?.toStreamItem(videoId)?.let {
                     PlayingQueue.updateCurrent(it)
-                    if (!PlayingQueue.hasNext()) {
+                    if (!PlayingQueue.hasNext() && PlayingQueue.size() <= 1) {
                         PlayingQueue.updateQueue(it, playlistId, channelId, streams!!.relatedStreams)
                     }
                 }
@@ -264,7 +264,7 @@ open class OnlinePlayerService : AbstractPlayerService() {
 
             streams?.toStreamItem(videoId)?.let {
                 PlayingQueue.updateCurrent(it)
-                if (!PlayingQueue.hasNext()) {
+                if (!PlayingQueue.hasNext() && PlayingQueue.size() <= 1) {
                     PlayingQueue.updateQueue(it, playlistId, channelId, streams!!.relatedStreams)
                 }
             }

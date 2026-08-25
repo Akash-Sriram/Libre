@@ -414,7 +414,6 @@ class PlaylistFragment : DynamicLayoutManagerFragment(R.layout.fragment_playlist
             requireContext(),
             playerData = PlayerData(
                 streamItem.url!!.toID(),
-                playlistId = playlistId,
                 keepQueue = true
             )
         )
