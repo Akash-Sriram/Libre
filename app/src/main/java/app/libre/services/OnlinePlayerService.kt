@@ -100,11 +100,12 @@ open class OnlinePlayerService : AbstractPlayerService() {
                 }
 
                 Player.STATE_IDLE -> {
-                    onDestroy()
+                    if (!isTransitioning) onDestroy()
                 }
 
                 Player.STATE_BUFFERING -> {}
                 Player.STATE_READY -> {
+                    isTransitioning = false
                     prefetchNextTrack()
                 }
             }

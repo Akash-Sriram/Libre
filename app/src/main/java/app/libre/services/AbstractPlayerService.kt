@@ -55,7 +55,7 @@ abstract class AbstractPlayerService : MediaLibraryService(), MediaLibrarySessio
     lateinit var videoId: String
 
     var isTransitioning = false
-        private set
+        protected set
 
     val handler = Handler(Looper.getMainLooper())
 
@@ -218,6 +218,8 @@ abstract class AbstractPlayerService : MediaLibraryService(), MediaLibrarySessio
      */
     @CallSuper
     open fun navigateVideo(videoId: String) {
+        isTransitioning = true
+
         updatePlaylistMetadata {
             setExtras(Bundle().apply {
                 putString(IntentData.videoId, videoId)
