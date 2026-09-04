@@ -35,7 +35,7 @@ paging = "3.5.0"
 collection = "1.6.0"
 swiperefreshlayout = "1.2.0"
 splashscreen = "1.2.0"
-protobuf = "4.35.1"
+protobuf = "4.36.1"
 protobufPlugin = "0.10.0"
 
 [libraries]
