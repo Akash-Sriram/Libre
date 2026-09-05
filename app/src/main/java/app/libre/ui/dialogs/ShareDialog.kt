@@ -49,16 +49,19 @@ class ShareDialog : DialogFragment() {
         val isYouTubeVideo = shareObjectType == ShareObjectType.VIDEO && !app.libre.helpers.JioSaavnHelper.isJioSaavn(id, false)
         if (isYouTubeVideo) {
             binding.shareHostGroup.isVisible = true
-            val savedHost = PreferenceHelper.getString("share_link_host", "music")
-            if (savedHost == "youtube") {
-                binding.radioYoutube.isChecked = true
-            } else {
+            val cleanYtId = id.toID()
+            val isYtmSource = shareData.source == "ytm" ||
+                id.contains("music.youtube.com") ||
+                id.contains("/album/") ||
+                cleanYtId.startsWith("OLAK") ||
+                cleanYtId.startsWith("MPRE")
+            if (isYtmSource) {
                 binding.radioYtMusic.isChecked = true
+            } else {
+                binding.radioYoutube.isChecked = true
             }
 
-            binding.shareHostGroup.setOnCheckedChangeListener { _, checkedId ->
-                val newHost = if (checkedId == R.id.radio_youtube) "youtube" else "music"
-                PreferenceHelper.putString("share_link_host", newHost)
+            binding.shareHostGroup.setOnCheckedChangeListener { _, _ ->
                 binding.linkPreview.text = generateLinkText(binding)
             }
         } else {

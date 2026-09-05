@@ -62,12 +62,16 @@ class SearchResultFragment : DynamicLayoutManagerFragment(R.layout.fragment_sear
             val sourceId = binding.sourceChipGroup.checkedChipId
             binding.apply {
                 when (sourceId) {
-                    R.id.chip_source_yt -> {
+                    R.id.chip_source_ytm -> {
                         chipTypeSongs.isVisible = true
                         chipTypeAlbums.isVisible = true
-                        chipTypeVideos.isVisible = true
-                        chipTypeChannels.isVisible = true
                         chipTypePlaylists.isVisible = true
+                        chipTypeVideos.isVisible = true
+                        chipTypeVideos.text = "Music Videos"
+                        chipTypeChannels.isVisible = false
+                        if (typeChipGroup.checkedChipId !in listOf(R.id.chip_type_songs, R.id.chip_type_albums, R.id.chip_type_playlists, R.id.chip_type_videos)) {
+                            chipTypeSongs.isChecked = true
+                        }
                     }
                     R.id.chip_source_jiosaavn -> {
                         chipTypeSongs.isVisible = true
@@ -75,16 +79,20 @@ class SearchResultFragment : DynamicLayoutManagerFragment(R.layout.fragment_sear
                         chipTypePlaylists.isVisible = true
                         chipTypeVideos.isVisible = false
                         chipTypeChannels.isVisible = false
-                        if (typeChipGroup.checkedChipId in listOf(R.id.chip_type_videos, R.id.chip_type_channels)) {
-                            chipTypeAll.isChecked = true
+                        if (typeChipGroup.checkedChipId !in listOf(R.id.chip_type_songs, R.id.chip_type_albums, R.id.chip_type_playlists)) {
+                            chipTypeSongs.isChecked = true
                         }
                     }
-                    else -> { // All Sources
-                        chipTypeSongs.isVisible = true
+                    else -> { // YouTube (Default)
                         chipTypeVideos.isVisible = true
-                        chipTypeAlbums.isVisible = true
-                        chipTypePlaylists.isVisible = true
+                        chipTypeVideos.text = "Videos"
                         chipTypeChannels.isVisible = true
+                        chipTypePlaylists.isVisible = true
+                        chipTypeSongs.isVisible = false
+                        chipTypeAlbums.isVisible = false
+                        if (typeChipGroup.checkedChipId !in listOf(R.id.chip_type_videos, R.id.chip_type_channels, R.id.chip_type_playlists)) {
+                            chipTypeVideos.isChecked = true
+                        }
                     }
                 }
             }
@@ -96,14 +104,13 @@ class SearchResultFragment : DynamicLayoutManagerFragment(R.layout.fragment_sear
             val typeId = binding.typeChipGroup.checkedChipId
 
             val filterString = when (sourceId) {
-                R.id.chip_source_yt -> {
+                R.id.chip_source_ytm -> {
                     when (typeId) {
-                        R.id.chip_type_songs -> "music_songs"
                         R.id.chip_type_albums -> "music_albums"
-                        R.id.chip_type_videos -> "videos"
-                        R.id.chip_type_channels -> "channels"
-                        R.id.chip_type_playlists -> "playlists"
-                        else -> "all"
+                        R.id.chip_type_playlists -> "music_playlists"
+                        R.id.chip_type_videos -> "music_videos"
+                        R.id.chip_type_songs -> "music_songs"
+                        else -> "music_songs"
                     }
                 }
                 R.id.chip_source_jiosaavn -> {
@@ -114,20 +121,20 @@ class SearchResultFragment : DynamicLayoutManagerFragment(R.layout.fragment_sear
                         else -> "jiosaavn"
                     }
                 }
-                else -> { // All Sources
+                else -> { // YouTube
                     when (typeId) {
-                        R.id.chip_type_songs -> "combined_songs"
-                        R.id.chip_type_videos -> "videos"
-                        R.id.chip_type_albums -> "combined_albums"
-                        R.id.chip_type_playlists -> "combined_playlists"
                         R.id.chip_type_channels -> "channels"
-                        else -> "combined_all"
+                        R.id.chip_type_playlists -> "playlists"
+                        R.id.chip_type_videos -> "videos"
+                        else -> "videos"
                     }
                 }
             }
 
             viewModel.setFilter(filterString)
         }
+
+        updateTypeChipVisibility()
 
         binding.sourceChipGroup.setOnCheckedStateChangeListener { _, _ ->
             if (!isUpdatingChips) {

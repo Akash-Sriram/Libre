@@ -43,6 +43,7 @@ data class ContentItem(
         views = views,
         isShort = isShort == true,
         albumName = albumName,
-        albumId = albumId
+        albumId = albumId,
+        source = source
     )
 }

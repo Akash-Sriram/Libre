@@ -239,15 +239,6 @@
         app:layout_constraintStart_toEndOf="@id/main_container"
         app:layout_constraintTop_toTopOf="parent">
 
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/related_rec_view"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="10dp"
-            android:layout_marginTop="10dp"
-            android:layout_marginEnd="10dp"
-            android:layout_marginBottom="10dp"
-            android:nestedScrollingEnabled="false" />
     </RelativeLayout>
 
     <app.libre.ui.views.CustomExoPlayerView

@@ -189,8 +189,11 @@ class AudioPlayerFragment : BasePlayerFragment(R.layout.fragment_audio_player) {
         binding.openVideo.setOnClickListener {
             val currentItem = PlayingQueue.getCurrent() ?: return@setOnClickListener
             val currentId = currentItem.url?.toID() ?: return@setOnClickListener
+            if (JioSaavnHelper.isJioSaavn(currentId, isOffline)) return@setOnClickListener
             switchToVideoMode(currentId)
         }
+
+        updateVideoModeButtonState()
 
         childFragmentManager.setFragmentResultListener(
             ChaptersBottomSheet.SEEK_TO_POSITION_REQUEST_KEY,
@@ -251,7 +254,17 @@ class AudioPlayerFragment : BasePlayerFragment(R.layout.fragment_audio_player) {
         updateChapterIndex()
     }
 
+    private fun updateVideoModeButtonState() {
+        val currentId = PlayingQueue.getCurrent()?.url?.toID()
+        val isJioSaavn = JioSaavnHelper.isJioSaavn(currentId, isOffline)
+        _binding?.openVideo?.apply {
+            isEnabled = !isJioSaavn
+            alpha = if (isJioSaavn) 0.38f else 1.0f
+        }
+    }
+
     fun switchToVideoMode(videoId: String) {
+        if (JioSaavnHelper.isJioSaavn(videoId, isOffline)) return
         val currentPos = playerController?.currentPosition ?: 0L
         playerController?.sendCustomCommand(
             AbstractPlayerService.runPlayerActionCommand,
@@ -261,6 +274,10 @@ class AudioPlayerFragment : BasePlayerFragment(R.layout.fragment_audio_player) {
         )
 
         killFragment(false)
+
+        baseActivity.setPlayerContainerProgress(0f)
+        baseActivity.maximizePlayerContainerLayout()
+        commonPlayerViewModel.updateExpansionState(app.libre.ui.models.PlayerExpansionState.Expanded)
 
         NavigationHelper.openVideoPlayerFragment(
             context = requireContext(),
@@ -277,15 +294,17 @@ class AudioPlayerFragment : BasePlayerFragment(R.layout.fragment_audio_player) {
     private fun killFragment(stopPlayer: Boolean) {
         viewModel.isMiniPlayerVisible.value = false
 
-        if (stopPlayer) playerController?.sendCustomCommand(
-            AbstractPlayerService.stopServiceCommand,
-            Bundle.EMPTY
-        )
+        if (stopPlayer) {
+            playerController?.sendCustomCommand(
+                AbstractPlayerService.stopServiceCommand,
+                Bundle.EMPTY
+            )
+            _binding?.playerMotionLayout?.transitionToEnd()
+        }
         playerController?.release()
         playerController = null
 
         viewModel.isFullscreen.value = false
-        _binding?.playerMotionLayout?.transitionToEnd()
 
         // Guard against fragment being detached before the swipe animation callback fires.
         if (!isAdded || isRemoving || isStateSaved) return
@@ -439,6 +458,12 @@ class AudioPlayerFragment : BasePlayerFragment(R.layout.fragment_audio_player) {
             if (isJioSaavn) {
                 autoSwitchChecked = true  // JioSaavn always stays in audio
             } else if (currentId != null) {
+                if (!PlayerHelper.autoMusicAudioMode) {
+                    autoSwitchChecked = true
+                    switchToVideoMode(currentId)
+                    return
+                }
+
                 // --- Fast path: check in-memory cache first (populated on previous plays or scan) ---
                 val cached = MusicCategoryCache.get(requireContext(), currentId)
                 if (cached != null) {
@@ -456,8 +481,8 @@ class AudioPlayerFragment : BasePlayerFragment(R.layout.fragment_audio_player) {
                     }
                     if (streams != null) {
                         autoSwitchChecked = true
-                        val isMusic = streams.category == Streams.CATEGORY_MUSIC
-                        val hasVideo = streams.videoStreams.isNotEmpty()
+                        val isMusic = streams.category.equals(Streams.CATEGORY_MUSIC, ignoreCase = true)
+                        val hasVideo = streams.hasVideo || streams.videoStreams.isNotEmpty()
                         // Store for instant routing on all future plays
                         val stayInAudio = isMusic || !hasVideo
                         MusicCategoryCache.put(requireContext(), currentId, stayInAudio)
@@ -471,6 +496,7 @@ class AudioPlayerFragment : BasePlayerFragment(R.layout.fragment_audio_player) {
             }
         }
 
+        updateVideoModeButtonState()
         initializeSeekBar()
     }
 

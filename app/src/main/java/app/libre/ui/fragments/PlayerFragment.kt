@@ -475,8 +475,11 @@ class PlayerFragment : BasePlayerFragment(R.layout.fragment_player), CustomPlaye
     @SuppressLint("ClickableViewAccessibility")
     private fun initializeTransitionLayout() {
         baseActivity.setPlayerContainerProgress(0f)
-        var transitionStartId = 0
-        var transitionEndId = 0
+        baseActivity.maximizePlayerContainerLayout()
+        commonPlayerViewModel.updateExpansionState(app.libre.ui.models.PlayerExpansionState.Expanded)
+
+        var transitionStartId = R.id.start
+        var transitionEndId = R.id.end
 
         binding.player.clipToOutline = true
         binding.player.outlineProvider = object : android.view.ViewOutlineProvider() {
@@ -516,6 +519,7 @@ class PlayerFragment : BasePlayerFragment(R.layout.fragment_player), CustomPlaye
                     binding.player.useController = true
                     commonPlayerViewModel.setSheetExpand(true)
                     baseActivity.setPlayerContainerProgress(0f)
+                    baseActivity.maximizePlayerContainerLayout()
                     changeOrientationMode()
                     updateBackCallbackPriority()
 
@@ -545,9 +549,10 @@ class PlayerFragment : BasePlayerFragment(R.layout.fragment_player), CustomPlaye
                 }
             }
 
-        binding.playerMotionLayout.progress = 1F
+        binding.playerMotionLayout.progress = 0f
         binding.playerMotionLayout.transitionToStart()
         updateBackCallbackPriority()
+        updateMaxSheetHeight()
 
         val activity = requireActivity()
         if (PlayerHelper.pipEnabled) {
@@ -592,7 +597,8 @@ class PlayerFragment : BasePlayerFragment(R.layout.fragment_player), CustomPlaye
                     IntentData.shareData,
                     ShareData(
                         currentVideo = streams.title,
-                        currentPosition = playerController.currentPosition / 1000
+                        currentPosition = playerController.currentPosition / 1000,
+                        source = if (app.libre.helpers.JioSaavnHelper.isJioSaavn(videoId)) "jiosaavn" else "youtube"
                     )
                 )
             }
@@ -606,15 +612,6 @@ class PlayerFragment : BasePlayerFragment(R.layout.fragment_player), CustomPlaye
             switchToAudioMode()
         }
 
-        binding.relatedRecView.layoutManager = LinearLayoutManager(
-            context,
-            if (resources.configuration.orientation == Configuration.ORIENTATION_PORTRAIT) {
-                LinearLayoutManager.HORIZONTAL
-            } else {
-                LinearLayoutManager.VERTICAL
-            },
-            false
-        )
 
         binding.relPlayerSave.setOnClickListener {
             if (!::streams.isInitialized) return@setOnClickListener
@@ -976,7 +973,6 @@ class PlayerFragment : BasePlayerFragment(R.layout.fragment_player), CustomPlaye
     private fun toggleVideoInfoVisibility(show: Boolean) {
         binding.descriptionLayout.collapseDescription()
         binding.descriptionLayout.isInvisible = !show
-        binding.relatedRecView.isInvisible = !show
         binding.playerChannel.isInvisible = !show
         playerBackgroundBinding.videoTransitionProgress.isVisible = !show
     }
@@ -1046,10 +1042,6 @@ class PlayerFragment : BasePlayerFragment(R.layout.fragment_player), CustomPlaye
         // auto-load comments directly below video info
         commentsViewModel.videoIdLiveData.updateIfChanged(videoId)
 
-        lifecycleScope.launch {
-            showRelatedStreams()
-        }
-
         binding.playerSubscribe.isGone = true
 
         // seekbar preview setup
@@ -1070,23 +1062,6 @@ class PlayerFragment : BasePlayerFragment(R.layout.fragment_player), CustomPlaye
 
         if (binding.playerMotionLayout.progress == 0f && streams.isShort) {
             setFullscreen()
-        }
-
-
-    }
-
-    private suspend fun showRelatedStreams() {
-        val relatedStreams = if (isOffline) {
-            emptyList()
-        } else {
-            streams.relatedStreams.filter { !it.title.isNullOrBlank() }
-        }
-
-        val relatedLayoutManager = binding.relatedRecView.layoutManager as LinearLayoutManager
-        binding.relatedRecView.adapter = VideoCardsAdapter(
-            columnWidthDp = if (relatedLayoutManager.orientation == LinearLayoutManager.HORIZONTAL) 250f else null
-        ).also { adapter ->
-            adapter.submitList(relatedStreams)
         }
     }
 

@@ -36,7 +36,7 @@ class SearchResultViewModel(savedStateHandle: SavedStateHandle) : ViewModel() {
         } ?: args.query
     }
 
-    private val filterMutableData = MutableStateFlow("combined_all")
+    private val filterMutableData = MutableStateFlow("videos")
 
     val searchSuggestion = MutableLiveData<Pair<String, Boolean>?>()
 

@@ -359,6 +359,7 @@ class NewPipeMediaServiceRepository : MediaServiceRepository {
             // currently, isShortFormContent always seems to return false
             isShort = resp.isShortFormContent || (resp.videoStreams + resp.videoOnlyStreams)
                 .firstOrNull()?.let { it.height > it.width } ?: false,
+            hasVideo = resp.videoStreams.isNotEmpty() || resp.videoOnlyStreams.isNotEmpty(),
             serverAbrStreamingUrl = resp.serverAbrStreamingUrl,
             videoPlaybackUstreamerConfig = resp.ustreamerConfig,
         )
@@ -377,93 +378,12 @@ class NewPipeMediaServiceRepository : MediaServiceRepository {
             } catch (e: Exception) {
                 emptyList()
             }
-            if (ytmResults.isNotEmpty()) {
-                return SearchResult(
-                    items = ytmResults,
-                    nextpage = null,
-                    suggestion = null,
-                    corrected = false
-                )
-            }
-        }
-
-        if (filter.startsWith("combined_") || filter == "combined_all") {
-            return kotlinx.coroutines.coroutineScope {
-                val jioFilter = when (filter) {
-                    "combined_albums" -> "jiosaavn_albums"
-                    "combined_playlists" -> "jiosaavn_playlists"
-                    else -> "jiosaavn"
-                }
-                val ytFilter = when (filter) {
-                    "combined_songs" -> "music_songs"
-                    "combined_albums" -> "music_albums"
-                    "combined_playlists" -> "music_playlists"
-                    "combined_videos" -> "all"
-                    else -> "all"
-                }
-
-                val jioJob = async {
-                    try {
-                        JioSaavnMediaServiceRepository().getSearchResults(searchQuery, jioFilter).items
-                    } catch (e: Exception) {
-                        emptyList()
-                    }
-                }
-                val isMusic = ytFilter.startsWith("music_")
-                val ytJob = async {
-                    try {
-                        if (isMusic) {
-                            val ytmList = YtMusicApi.search(searchQuery, ytFilter)
-                            if (ytmList.isNotEmpty()) return@async ytmList
-                        }
-                        val queryHandler = NewPipeExtractorInstance.extractor.searchQHFactory.fromQuery(
-                            searchQuery,
-                            listOf(ytFilter),
-                            null
-                        )
-                        val searchInfo = SearchInfo.getInfo(NewPipeExtractorInstance.extractor, queryHandler)
-                        searchInfo.relatedItems.mapNotNull { it.toContentItem(if (isMusic) "ytm" else "youtube") }
-                    } catch (e: Exception) {
-                        emptyList()
-                    }
-                }
-
-                val jioItems = jioJob.await()
-                val ytItems = ytJob.await()
-
-                // Smart relevance ranking: boost items whose title starts with or equals the query
-                val cleanQuery = searchQuery.trim().lowercase()
-                val rankItem = { item: ContentItem ->
-                    val title = (item.title ?: item.name).orEmpty().trim().lowercase()
-                    when {
-                        title == cleanQuery -> 0
-                        title.startsWith(cleanQuery) -> 1
-                        title.contains(cleanQuery) -> 2
-                        else -> 3
-                    }
-                }
-
-                val sortedJio = jioItems.sortedBy { rankItem(it) }
-                val sortedYt = ytItems.sortedBy { rankItem(it) }
-
-                // Interleave JioSaavn and YouTube items for an intuitive blended feed
-                val combinedItems = mutableListOf<ContentItem>()
-                val maxLen = maxOf(sortedJio.size, sortedYt.size)
-                for (i in 0 until maxLen) {
-                    if (i < sortedJio.size) combinedItems.add(sortedJio[i])
-                    if (i < sortedYt.size) combinedItems.add(sortedYt[i])
-                }
-
-                // Final pass to ensure top exact matches are first
-                combinedItems.sortBy { rankItem(it) }
-
-                SearchResult(
-                    items = combinedItems,
-                    nextpage = "2",
-                    suggestion = null,
-                    corrected = false
-                )
-            }
+            return SearchResult(
+                items = ytmResults,
+                nextpage = null,
+                suggestion = null,
+                corrected = false
+            )
         }
 
         val queryHandler = NewPipeExtractorInstance.extractor.searchQHFactory.fromQuery(
@@ -473,9 +393,8 @@ class NewPipeMediaServiceRepository : MediaServiceRepository {
         )
         val searchInfo = SearchInfo.getInfo(NewPipeExtractorInstance.extractor, queryHandler)
 
-        val isYtm = filter.startsWith("music_")
         return SearchResult(
-            items = searchInfo.relatedItems.mapNotNull { it.toContentItem(if (isYtm) "ytm" else "youtube") },
+            items = searchInfo.relatedItems.mapNotNull { it.toContentItem("youtube") },
             nextpage = searchInfo.nextPage?.toNextPageString(),
             suggestion = searchInfo.searchSuggestion,
             corrected = searchInfo.isCorrectedSearch
@@ -491,61 +410,11 @@ class NewPipeMediaServiceRepository : MediaServiceRepository {
             return JioSaavnMediaServiceRepository().getSearchResultsNextPage(searchQuery, filter, nextPage)
         }
 
-        if (filter.startsWith("combined_") || filter == "combined_all") {
-            val pageNum = nextPage.toIntOrNull() ?: 2
-            return kotlinx.coroutines.coroutineScope {
-                val jioFilter = when (filter) {
-                    "combined_albums" -> "jiosaavn_albums"
-                    "combined_playlists" -> "jiosaavn_playlists"
-                    else -> "jiosaavn"
-                }
-                val ytFilter = when (filter) {
-                    "combined_songs" -> "music_songs"
-                    "combined_albums" -> "music_albums"
-                    "combined_playlists" -> "music_playlists"
-                    "combined_videos" -> "all"
-                    else -> "all"
-                }
-
-                val jioJob = async {
-                    try {
-                        JioSaavnMediaServiceRepository().getSearchResultsNextPage(searchQuery, jioFilter, pageNum.toString()).items
-                    } catch (e: Exception) {
-                        emptyList()
-                    }
-                }
-                val isMusic = ytFilter.startsWith("music_")
-                val ytJob = async {
-                    try {
-                        val queryHandler = NewPipeExtractorInstance.extractor.searchQHFactory.fromQuery(
-                            searchQuery,
-                            listOf(ytFilter),
-                            null
-                        )
-                        val searchInfo = SearchInfo.getInfo(NewPipeExtractorInstance.extractor, queryHandler)
-                        searchInfo.relatedItems.mapNotNull { it.toContentItem(if (isMusic) "ytm" else "youtube") }
-                    } catch (e: Exception) {
-                        emptyList()
-                    }
-                }
-
-                val jioItems = jioJob.await()
-                val ytItems = ytJob.await()
-
-                val combinedItems = mutableListOf<ContentItem>()
-                val maxLen = maxOf(jioItems.size, ytItems.size)
-                for (i in 0 until maxLen) {
-                    if (i < jioItems.size) combinedItems.add(jioItems[i])
-                    if (i < ytItems.size) combinedItems.add(ytItems[i])
-                }
-
-                SearchResult(
-                    items = combinedItems,
-                    nextpage = if (combinedItems.isNotEmpty()) (pageNum + 1).toString() else null,
-                    suggestion = null,
-                    corrected = false
-                )
-            }
+        if (filter.startsWith("music_")) {
+            return SearchResult(
+                items = emptyList(),
+                nextpage = null
+            )
         }
 
         val queryHandler = NewPipeExtractorInstance.extractor.searchQHFactory.fromQuery(
@@ -559,9 +428,8 @@ class NewPipeMediaServiceRepository : MediaServiceRepository {
             nextPage.toPage()
         )
 
-        val isYtm = filter.startsWith("music_")
         return SearchResult(
-            items = searchInfo.items.mapNotNull { it.toContentItem(if (isYtm) "ytm" else "youtube") },
+            items = searchInfo.items.mapNotNull { it.toContentItem("youtube") },
             nextpage = searchInfo.nextPage?.toNextPageString()
         )
     }

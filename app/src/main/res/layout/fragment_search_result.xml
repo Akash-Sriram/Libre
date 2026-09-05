@@ -52,7 +52,7 @@
             android:orientation="vertical"
             android:paddingBottom="4dp">
 
-            <!-- Tier 1: Source Selector (All Sources | YouTube Music | JioSaavn) -->
+            <!-- Tier 1: Source Selector (YouTube | YouTube Music | JioSaavn) -->
             <HorizontalScrollView
                 android:id="@+id/source_filter_bar"
                 android:layout_width="match_parent"
@@ -64,20 +64,20 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:paddingHorizontal="12dp"
-                    app:checkedChip="@id/chip_source_all"
+                    app:checkedChip="@id/chip_source_yt"
                     app:selectionRequired="true"
                     app:singleLine="true"
                     app:singleSelection="true">
 
                     <com.google.android.material.chip.Chip
-                        android:id="@+id/chip_source_all"
-                        style="@style/Chip"
-                        android:text="All Sources" />
-
-                    <com.google.android.material.chip.Chip
                         android:id="@+id/chip_source_yt"
                         style="@style/Chip"
                         android:text="YouTube" />
+
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/chip_source_ytm"
+                        style="@style/Chip"
+                        android:text="YouTube Music" />
 
                     <com.google.android.material.chip.Chip
                         android:id="@+id/chip_source_jiosaavn"
@@ -87,7 +87,7 @@
                 </com.google.android.material.chip.ChipGroup>
             </HorizontalScrollView>
 
-            <!-- Tier 2: Media Type Selector (All Types | Songs | Videos | Albums | Playlists | Channels) -->
+            <!-- Tier 2: Media Type Selector (Videos | Songs | Albums | Playlists | Channels) -->
             <HorizontalScrollView
                 android:id="@+id/type_filter_bar"
                 android:layout_width="match_parent"
@@ -100,25 +100,20 @@
                     android:layout_height="wrap_content"
                     android:paddingHorizontal="8dp"
                     app:chipSpacingHorizontal="4dp"
-                    app:checkedChip="@id/chip_type_all"
+                    app:checkedChip="@id/chip_type_videos"
                     app:selectionRequired="true"
                     app:singleLine="true"
                     app:singleSelection="true">
 
                     <com.google.android.material.chip.Chip
-                        android:id="@+id/chip_type_all"
+                        android:id="@+id/chip_type_videos"
                         style="@style/Chip"
-                        android:text="All" />
+                        android:text="Videos" />
 
                     <com.google.android.material.chip.Chip
                         android:id="@+id/chip_type_songs"
                         style="@style/Chip"
                         android:text="Songs" />
-
-                    <com.google.android.material.chip.Chip
-                        android:id="@+id/chip_type_videos"
-                        style="@style/Chip"
-                        android:text="Videos" />
 
                     <com.google.android.material.chip.Chip
                         android:id="@+id/chip_type_albums"

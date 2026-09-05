@@ -92,9 +92,22 @@ class VideoOptionsBottomSheet : ExpandedBottomSheet(R.layout.sheet_video_options
 
         // 2. Source badge
         val isJioSaavn = app.libre.helpers.JioSaavnHelper.isJioSaavn(videoId)
-        binding.sheetSourceBadge.text = if (isJioSaavn) "JioSaavn" else "YouTube"
-        val badgeColor = if (isJioSaavn) android.graphics.Color.parseColor("#00B368") else android.graphics.Color.parseColor("#E53935")
-        val badgeBg = if (isJioSaavn) android.graphics.Color.parseColor("#2200B368") else android.graphics.Color.parseColor("#22E53935")
+        val isYtm = streamItem.source == "ytm" || (!isJioSaavn && (streamItem.url?.contains("music.youtube.com") == true || streamItem.url?.contains("/album/") == true || videoId.startsWith("OLAK") || videoId.startsWith("MPRE")))
+        binding.sheetSourceBadge.text = when {
+            isJioSaavn -> "JioSaavn"
+            isYtm -> "YouTube Music"
+            else -> "YouTube"
+        }
+        val badgeColor = when {
+            isJioSaavn -> android.graphics.Color.parseColor("#00B368")
+            isYtm -> android.graphics.Color.parseColor("#FF0000")
+            else -> android.graphics.Color.parseColor("#E53935")
+        }
+        val badgeBg = when {
+            isJioSaavn -> android.graphics.Color.parseColor("#2200B368")
+            isYtm -> android.graphics.Color.parseColor("#22FF0000")
+            else -> android.graphics.Color.parseColor("#22E53935")
+        }
         binding.sheetSourceBadge.setTextColor(badgeColor)
         binding.sheetSourceBadge.backgroundTintList = android.content.res.ColorStateList.valueOf(badgeBg)
 
@@ -185,7 +198,13 @@ class VideoOptionsBottomSheet : ExpandedBottomSheet(R.layout.sheet_video_options
             val bundle = Bundle().apply {
                 putString(IntentData.id, videoId)
                 putSerializable(IntentData.shareObjectType, app.libre.enums.ShareObjectType.VIDEO)
-                putParcelable(IntentData.shareData, app.libre.obj.ShareData(currentVideo = streamItem.title))
+                putParcelable(
+                    IntentData.shareData,
+                    app.libre.obj.ShareData(
+                        currentVideo = streamItem.title,
+                        source = if (isJioSaavn) "jiosaavn" else if (isYtm) "ytm" else "youtube"
+                    )
+                )
             }
             ShareDialog().apply {
                 arguments = bundle
@@ -194,13 +213,19 @@ class VideoOptionsBottomSheet : ExpandedBottomSheet(R.layout.sheet_video_options
 
         binding.actionCopyLink.setOnClickListener {
             dismiss()
-            val shareHost = app.libre.helpers.PreferenceHelper.getString("share_link_host", "music")
-            val url = if (videoId.startsWith("jsa_")) {
-                "https://www.jiosaavn.com/song/$videoId"
-            } else if (shareHost == "music") {
-                "https://music.youtube.com/watch?v=$videoId"
-            } else {
-                "https://youtu.be/$videoId"
+            val url = when {
+                videoId.startsWith("jsa_") || isJioSaavn -> {
+                    val cleanId = videoId.removePrefix("jsa_song_").removePrefix("jsa_album_").removePrefix("jsa_playlist_")
+                    val parts = cleanId.split("_")
+                    val token = parts.getOrNull(1) ?: parts[0]
+                    "https://www.jiosaavn.com/song/$token"
+                }
+                isYtm -> {
+                    "https://music.youtube.com/watch?v=$videoId"
+                }
+                else -> {
+                    "https://youtu.be/$videoId"
+                }
             }
             app.libre.helpers.ClipboardHelper.save(context = requireContext(), text = url, notify = true)
         }

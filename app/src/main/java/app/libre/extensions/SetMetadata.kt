@@ -14,7 +14,11 @@ import app.libre.constants.IntentData
 @OptIn(UnstableApi::class)
 fun MediaItem.Builder.setMetadata(streams: Streams, videoId: String) = apply {
     // Avoid reaching the max parcelable size of 1MB for binder transactions.
-    val clearedStreams = streams.copy(audioStreams = emptyList(), videoStreams = emptyList())
+    val clearedStreams = streams.copy(
+        audioStreams = emptyList(),
+        videoStreams = emptyList(),
+        hasVideo = streams.hasVideo || streams.videoStreams.isNotEmpty()
+    )
     val extras = Bundle().apply {
         putString(MediaMetadataCompat.METADATA_KEY_TITLE, streams.title)
         putString(MediaMetadataCompat.METADATA_KEY_ARTIST, streams.artist ?: streams.uploader)

@@ -50,6 +50,7 @@ data class Streams(
     val uploaderSubscriberCount: Long = 0,
     val previewFrames: List<PreviewFrames> = emptyList(),
     var isShort: Boolean = false,
+    val hasVideo: Boolean = false,
     val serverAbrStreamingUrl: String? = null,
     val videoPlaybackUstreamerConfig: String? = null
 ): Parcelable {

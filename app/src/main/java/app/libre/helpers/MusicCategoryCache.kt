@@ -12,7 +12,7 @@ import kotlinx.coroutines.launch
 import java.util.concurrent.ConcurrentHashMap
 
 // Extension property for DataStore
-private val Context.musicCategoryDataStore by preferencesDataStore(name = "music_category_cache")
+private val Context.musicCategoryDataStore by preferencesDataStore(name = "music_category_cache_v2")
 
 /**
  * Lightweight persistent cache mapping videoId → isMusicCategory.

@@ -115,10 +115,9 @@ object NavigationHelper {
         }
         if (attachedToRunningAudioPlayer) return
 
-        // Audio player is the default for all YouTube content.
-        // Only open the video player when explicitly forced (e.g. user tapped the video button
-        // in the audio player, or forceVideo was set on the method call).
-        val goToVideoPlayer = playerData.forceVideo || forceVideo
+        // Audio player is the default for music content when autoMusicAudioMode is enabled.
+        // If autoMusicAudioMode is disabled, or forceVideo is set, open video player directly.
+        val goToVideoPlayer = !isJioSaavn && (!PlayerHelper.autoMusicAudioMode || playerData.forceVideo || forceVideo)
         val isLocalPlaylist = playerData.playlistId?.let { app.libre.api.PlaylistsHelper.getPlaylistType(it) == app.libre.enums.PlaylistType.LOCAL } ?: false
         if (!goToVideoPlayer) {
             BackgroundHelper.playOnBackground(context, playerData)
@@ -204,6 +203,15 @@ object NavigationHelper {
         playerData: PlayerData,
         alreadyStarted: Boolean = false,
     ) {
+        if (JioSaavnHelper.isJioSaavn(playerData.videoId, playerData.isOffline)) {
+            openAudioPlayerFragment(
+                context = context,
+                offlinePlayer = playerData.isOffline,
+                minimizeByDefault = false,
+                noAutoVideoSwitch = true
+            )
+            return
+        }
         val activity = ContextHelper.unwrapActivity<BaseActivity>(context)
 
         val bundle = Bundle().apply {

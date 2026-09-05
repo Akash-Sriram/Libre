@@ -205,12 +205,6 @@
             android:clipToPadding="false"
             android:paddingBottom="16dp" />
 
-        <!-- Optional Related / Playlist Videos -->
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/related_rec_view"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:visibility="gone" />
 
         <!-- Hidden legacy toggle button stub -->
         <com.google.android.material.button.MaterialButton
