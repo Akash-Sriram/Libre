@@ -87,20 +87,8 @@ class MainSettings : BasePreferenceFragment() {
                             app.libre.api.JsonHelper.json.encodeToStream(file, outputStream)
                         }
 
-                        // Prune manual backups directly via folder contents to keep last 5
-                        val files = folder.listFiles()
-                            .filter { it.name?.startsWith("libretube-backup-") == true }
-                        if (files.size > 5) {
-                            val sortedDesc = files.sortedByDescending { it.name }
-                            val toDelete = sortedDesc.drop(5)
-                            for (f in toDelete) {
-                                try {
-                                    f.delete()
-                                } catch (e: Exception) {
-                                    // Ignore
-                                }
-                            }
-                        }
+                        // Unified pruning for all LibreTube backup variations
+                        BackupHelper.pruneBackupFolder(folder, maxKeep = 5)
 
                         requireContext().toastFromMainDispatcher(R.string.backup_created_success_folder)
                     } else {
@@ -164,6 +152,41 @@ class MainSettings : BasePreferenceFragment() {
             UpdateHelper.checkForUpdate(requireContext())
             true
         }
+
+        // Crash Logs & Diagnostics
+        findPreference<Preference>("crash_logs")?.setOnPreferenceClickListener {
+            val reports = app.libre.crash.CrashManager.getAllReports()
+            if (reports.isEmpty()) {
+                com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
+                    .setTitle(R.string.crash_logs)
+                    .setMessage(R.string.no_crash_logs)
+                    .setPositiveButton(R.string.okay, null)
+                    .show()
+            } else {
+                val combinedText = reports.joinToString("\n\n---\n\n") { it.toFormattedMarkdown() }
+                com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
+                    .setTitle("${getString(R.string.crash_logs)} (${reports.size})")
+                    .setMessage(reports.first().toFormattedMarkdown())
+                    .setNeutralButton(R.string.clear_crash_logs) { _, _ ->
+                        app.libre.crash.CrashManager.clearAllReports()
+                        updateCrashLogsSummary()
+                        android.widget.Toast.makeText(requireContext(), "Crash logs cleared", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                    .setNegativeButton(R.string.share) { _, _ ->
+                        val sendIntent = Intent().apply {
+                            action = Intent.ACTION_SEND
+                            putExtra(Intent.EXTRA_TEXT, combinedText)
+                            type = "text/plain"
+                        }
+                        startActivity(Intent.createChooser(sendIntent, getString(R.string.share)))
+                    }
+                    .setPositiveButton(R.string.copy) { _, _ ->
+                        app.libre.helpers.ClipboardHelper.save(requireContext(), text = combinedText, notify = true)
+                    }
+                    .show()
+            }
+            true
+        }
     }
 
     override fun onResume() {
@@ -171,6 +194,17 @@ class MainSettings : BasePreferenceFragment() {
         updateBackupFolderSummary()
         updateOfflineFolderSummary()
         updateWifiSyncStatus()
+        updateCrashLogsSummary()
+    }
+
+    private fun updateCrashLogsSummary() {
+        val crashLogsPref = findPreference<Preference>("crash_logs") ?: return
+        val count = app.libre.crash.CrashManager.getAllReports().size
+        crashLogsPref.summary = if (count == 0) {
+            getString(R.string.no_crash_logs)
+        } else {
+            "$count crash report(s) recorded"
+        }
     }
 
     private fun updateWifiSyncStatus() {

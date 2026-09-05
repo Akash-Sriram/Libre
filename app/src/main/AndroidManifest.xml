@@ -106,7 +106,13 @@
 
         </activity>
 
-
+        <activity
+            android:name=".ui.activities.CrashActivity"
+            android:enabled="true"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:process=":crash"
+            android:screenOrientation="locked" />
 
         <activity
             android:name=".ui.activities.MainActivity"

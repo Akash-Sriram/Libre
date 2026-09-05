@@ -52,6 +52,12 @@
 
     <PreferenceCategory app:title="@string/settings_category_system">
         <Preference
+            android:icon="@drawable/ic_error"
+            app:key="crash_logs"
+            app:title="@string/crash_logs"
+            app:summary="@string/crash_logs_summary" />
+
+        <Preference
             android:icon="@drawable/ic_update"
             app:key="update"
             app:title="@string/update_summary" />

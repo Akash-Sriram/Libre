@@ -58,6 +58,7 @@ class LibreTubeApp : Application(), androidx.work.Configuration.Provider {
         /**
          * Handler for uncaught exceptions
          */
+        app.libre.crash.CrashManager.init(this)
         val defaultExceptionHandler = Thread.getDefaultUncaughtExceptionHandler()
         val exceptionHandler = ExceptionHandler(defaultExceptionHandler)
         Thread.setDefaultUncaughtExceptionHandler(exceptionHandler)

@@ -119,6 +119,31 @@ object BackupHelper {
         backupFile
     }
 
+    fun isLibreTubeBackupFile(name: String?): Boolean {
+        if (name == null) return false
+        val lower = name.lowercase()
+        return lower.startsWith("libretube") && lower.contains("backup") && lower.endsWith(".json")
+    }
+
+    fun pruneBackupFolder(folder: DocumentFile, maxKeep: Int = 5) {
+        val files = folder.listFiles().filter { isLibreTubeBackupFile(it.name) }
+        if (files.size > maxKeep) {
+            val sortedDesc = files.sortedWith(
+                compareByDescending<DocumentFile> { it.lastModified() }
+                    .thenByDescending { it.name.orEmpty() }
+            )
+            val toDelete = sortedDesc.drop(maxKeep)
+            for (f in toDelete) {
+                try {
+                    val deleted = f.delete()
+                    Log.d(TAG(), "Backup pruning: deleting ${f.name} -> result: $deleted")
+                } catch (e: Exception) {
+                    Log.e(TAG(), "Backup pruning: failed to delete ${f.name}", e)
+                }
+            }
+        }
+    }
+
     /**
      * Run daily automatic backup, maintaining only the last 5 backups
      */
@@ -131,7 +156,7 @@ object BackupHelper {
         try {
             val backupFile = getCompleteBackupFile()
             val timestamp = TextUtils.getFileSafeTimeStampNow()
-            val backupFileName = "libretube-auto-backup-${timestamp}.json"
+            val backupFileName = "libretube-backup-${timestamp}.json"
 
             val folder = getBackupFolder(context)
             if (folder != null && folder.exists() && folder.canWrite()) {
@@ -142,21 +167,8 @@ object BackupHelper {
                         JsonHelper.json.encodeToStream(backupFile, outputStream)
                     }
 
-                    // Prune directly by checking the folder contents
-                    val files = folder.listFiles()
-                        .filter { it.name?.startsWith("libretube-auto-backup-") == true }
-                    if (files.size > 5) {
-                        val sortedDesc = files.sortedByDescending { it.name }
-                        val toDelete = sortedDesc.drop(5)
-                        for (f in toDelete) {
-                            try {
-                                val deleted = f.delete()
-                                Log.d(TAG(), "Auto-backup SAF pruning: deleting ${f.name} -> result: $deleted")
-                            } catch (e: Exception) {
-                                Log.e(TAG(), "Auto-backup SAF pruning: failed to delete ${f.name}", e)
-                            }
-                        }
-                    }
+                    // Unified pruning for all LibreTube backup variations
+                    pruneBackupFolder(folder, maxKeep = 5)
                 }
             } else {
                 // Fallback to internal storage
@@ -170,13 +182,16 @@ object BackupHelper {
                 }
 
                 var backupFiles = autoBackupDir.listFiles { _, name ->
-                    name.startsWith("libretube-auto-backup-")
+                    isLibreTubeBackupFile(name)
                 }?.toList() ?: emptyList()
                 if (backupFiles.none { it.absolutePath == file.absolutePath }) {
                     backupFiles = backupFiles + file
                 }
                 if (backupFiles.size > 5) {
-                    val sortedDesc = backupFiles.sortedByDescending { it.name }
+                    val sortedDesc = backupFiles.sortedWith(
+                        compareByDescending<File> { it.lastModified() }
+                            .thenByDescending { it.name }
+                    )
                     val toDelete = sortedDesc.drop(5)
                     for (f in toDelete) {
                         val deleted = f.delete()
