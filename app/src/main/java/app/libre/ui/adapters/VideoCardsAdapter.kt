@@ -109,7 +109,7 @@ class VideoCardsAdapter(private val columnWidthDp: Float? = null) :
                 }
             }
             root.setOnClickListener {
-                NavigationHelper.navigateVideo(root.context, PlayerData(videoId))
+                NavigationHelper.navigateVideo(root.context, PlayerData(videoId, source = video.source))
             }
 
             root.setOnLongClickListener {

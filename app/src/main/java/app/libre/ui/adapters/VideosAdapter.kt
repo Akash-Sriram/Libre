@@ -86,7 +86,7 @@ class VideosAdapter(
             ImageHelper.loadImage(video.thumbnail, thumbnail)
 
             root.setOnClickListener {
-                NavigationHelper.navigateVideo(root.context, PlayerData(videoId))
+                NavigationHelper.navigateVideo(root.context, PlayerData(videoId, source = video.source))
             }
 
             val openOptions: () -> Unit = {

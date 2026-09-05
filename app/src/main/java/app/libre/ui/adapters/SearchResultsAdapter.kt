@@ -138,7 +138,7 @@ class SearchResultsAdapter(
             channelName.text = metaText
 
             root.setOnClickListener {
-                NavigationHelper.navigateVideo(root.context, PlayerData(item.url, timestamp = timeStamp))
+                NavigationHelper.navigateVideo(root.context, PlayerData(item.url, timestamp = timeStamp, source = item.source))
             }
 
             val videoId = item.url.toID()
@@ -196,7 +196,7 @@ class SearchResultsAdapter(
             ImageHelper.loadImage(item.uploaderAvatar, channelImage, true)
 
             root.setOnClickListener {
-                NavigationHelper.navigateVideo(root.context, PlayerData(item.url, timestamp = timeStamp))
+                NavigationHelper.navigateVideo(root.context, PlayerData(item.url, timestamp = timeStamp, source = item.source))
             }
 
             val videoId = item.url.toID()

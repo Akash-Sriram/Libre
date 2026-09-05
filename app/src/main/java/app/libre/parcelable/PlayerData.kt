@@ -13,4 +13,5 @@ data class PlayerData(
     val shuffle: Boolean = false,
     val isOffline: Boolean = false,
     val forceVideo: Boolean = false,
+    val source: String? = null
 ) : Parcelable

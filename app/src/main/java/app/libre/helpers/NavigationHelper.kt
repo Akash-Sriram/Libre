@@ -115,11 +115,24 @@ object NavigationHelper {
         }
         if (attachedToRunningAudioPlayer) return
 
-        // Audio player is the default for music content when autoMusicAudioMode is enabled.
-        // If autoMusicAudioMode is disabled, or forceVideo is set, open video player directly.
-        val goToVideoPlayer = !isJioSaavn && (!PlayerHelper.autoMusicAudioMode || playerData.forceVideo || forceVideo)
+        val cleanYtId = playerData.videoId?.toID().orEmpty()
+        val isYtm = playerData.source == "ytm" ||
+            playerData.videoId?.contains("music.youtube.com") == true ||
+            playerData.videoId?.contains("/album/") == true ||
+            cleanYtId.startsWith("OLAK") ||
+            cleanYtId.startsWith("MPRE")
+
+        val isAudioSource = isJioSaavn || isYtm || finalAudioOnlyPlayerRequested
+        val cachedIsMusic = playerData.videoId?.let { MusicCategoryCache.get(context, it.toID()) }
+
+        // Route to AudioPlayer immediately for YouTube Music, JioSaavn, explicit audio requests, or known cached music.
+        // Standard YouTube video searches go directly to the Video Player with 0ms redirection overhead.
+        val goToAudioPlayer = !playerData.forceVideo && !forceVideo && (
+            isAudioSource ||
+            (PlayerHelper.autoMusicAudioMode && cachedIsMusic == true)
+        )
         val isLocalPlaylist = playerData.playlistId?.let { app.libre.api.PlaylistsHelper.getPlaylistType(it) == app.libre.enums.PlaylistType.LOCAL } ?: false
-        if (!goToVideoPlayer) {
+        if (goToAudioPlayer) {
             BackgroundHelper.playOnBackground(context, playerData)
             // Always expand the audio player by default (never minimize on open)
             openAudioPlayerFragment(
