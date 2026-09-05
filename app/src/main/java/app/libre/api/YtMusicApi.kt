@@ -555,6 +555,21 @@ object YtMusicApi {
                         ?.optJSONArray("thumbnails")
                     val trackThumbUrl = trackThumbs?.optJSONObject(trackThumbs.length() - 1)?.optString("url")
 
+                    val fixedCols = renderer.optJSONArray("fixedColumns")
+                    val durRun = fixedCols?.optJSONObject(0)
+                        ?.optJSONObject("musicResponsiveListItemFixedColumnRenderer")
+                        ?.optJSONObject("text")
+                        ?.optJSONArray("runs")
+                        ?.optJSONObject(0)?.optString("text")
+                    val durSec = if (!durRun.isNullOrBlank() && durRun.contains(":")) {
+                        val parts = durRun.split(":")
+                        if (parts.size == 2) {
+                            (parts[0].toLongOrNull() ?: 0L) * 60 + (parts[1].toLongOrNull() ?: 0L)
+                        } else if (parts.size == 3) {
+                            (parts[0].toLongOrNull() ?: 0L) * 3600 + (parts[1].toLongOrNull() ?: 0L) * 60 + (parts[2].toLongOrNull() ?: 0L)
+                        } else 0L
+                    } else 0L
+
                     tracks.add(
                         app.libre.api.obj.StreamItem(
                             url = "https://www.youtube.com/watch?v=$videoId",
@@ -563,7 +578,9 @@ object YtMusicApi {
                             uploaderUrl = "",
                             thumbnail = thumbUrl?.takeIf { it.isNotBlank() } ?: trackThumbUrl.orEmpty(),
                             albumName = albumTitle,
-                            type = app.libre.api.obj.StreamItem.TYPE_STREAM
+                            duration = durSec,
+                            type = app.libre.api.obj.StreamItem.TYPE_STREAM,
+                            source = "ytm"
                         )
                     )
                 }
@@ -635,7 +652,7 @@ object YtMusicApi {
                     })
                 })
                 put("query", q)
-                put("params", "EgWKAQIYAWoOEAQQAxAJEAUQChAQEBU=") // Albums filter
+                put("params", "EgWKAQIYAWoMEA4QChADEAQQCRAF") // Albums filter
             }
 
             val request = Request.Builder()
@@ -709,10 +726,10 @@ object YtMusicApi {
     ): List<app.libre.api.obj.ContentItem> = withContext(Dispatchers.IO) {
         try {
             val params = when (filter) {
-                "music_songs" -> "EgWKAQIIAWoOEAQQAxAJEAUQChAQEBU="
-                "music_videos" -> "EgWKAQIYAWoMEAMQBBAJEA4QChAF"
-                "music_albums" -> "EgWKAQIYAWoOEAQQAxAJEAUQChAQEBU="
-                "music_playlists" -> "EgWKAQIQAWoMEAMQBBAJEA4QChAF"
+                "music_songs" -> "EgWKAQIIAWoMEA4QChADEAQQCRAF"
+                "music_videos" -> "EgWKAQIQAWoMEA4QChADEAQQCRAF"
+                "music_albums" -> "EgWKAQIYAWoMEA4QChADEAQQCRAF"
+                "music_playlists" -> "Eg-KAQwIABAAGAAgACgBMABqChAEEAMQCRAFEAo="
                 else -> null
             }
 
@@ -1004,7 +1021,7 @@ object YtMusicApi {
                     })
                 })
                 put("query", query)
-                put("params", "EgWKAQIYAWoOEAQQAxAJEAUQChAQEBU=") // Albums filter
+                put("params", "EgWKAQIYAWoMEA4QChADEAQQCRAF") // Albums filter
             }
 
             val albumRequest = Request.Builder()
@@ -1091,6 +1108,21 @@ object YtMusicApi {
                                         val cleanSearch = cleanTitle.filter { it.isLetterOrDigit() }.lowercase()
                                         val cleanTrack = tTitle.filter { it.isLetterOrDigit() }.lowercase()
                                         if (tVid.isNotEmpty() && (cleanSearch in cleanTrack || cleanTrack in cleanSearch)) {
+                                            val tFixed = trackRenderer.optJSONArray("fixedColumns")
+                                            val durRun = tFixed?.optJSONObject(0)
+                                                ?.optJSONObject("musicResponsiveListItemFixedColumnRenderer")
+                                                ?.optJSONObject("text")
+                                                ?.optJSONArray("runs")
+                                                ?.optJSONObject(0)?.optString("text")
+                                            val durSec = if (!durRun.isNullOrBlank() && durRun.contains(":")) {
+                                                val parts = durRun.split(":")
+                                                if (parts.size == 2) {
+                                                    (parts[0].toLongOrNull() ?: 0L) * 60 + (parts[1].toLongOrNull() ?: 0L)
+                                                } else if (parts.size == 3) {
+                                                    (parts[0].toLongOrNull() ?: 0L) * 3600 + (parts[1].toLongOrNull() ?: 0L) * 60 + (parts[2].toLongOrNull() ?: 0L)
+                                                } else 0L
+                                            } else 0L
+
                                             val item = app.libre.api.obj.StreamItem(
                                                 url = "https://www.youtube.com/watch?v=$tVid",
                                                 title = tTitle,
@@ -1099,7 +1131,9 @@ object YtMusicApi {
                                                 thumbnail = aCover,
                                                 albumName = aTitle,
                                                 albumId = targetBrowse,
-                                                type = app.libre.api.obj.StreamItem.TYPE_STREAM
+                                                duration = durSec,
+                                                type = app.libre.api.obj.StreamItem.TYPE_STREAM,
+                                                source = "ytm"
                                             )
                                             studioMasterCache[cacheKey] = item
                                             return@withContext item
@@ -1123,7 +1157,7 @@ object YtMusicApi {
                     })
                 })
                 put("query", query)
-                put("params", "EgWKAQIIAWoOEAQQAxAJEAUQChAQEBU=") // Songs filter
+                put("params", "EgWKAQIIAWoMEA4QChADEAQQCRAF") // Songs filter
             }
 
             val request = Request.Builder()
@@ -1209,7 +1243,8 @@ object YtMusicApi {
                             thumbnail = bestThumb,
                             albumName = songAlbum,
                             duration = durSec,
-                            type = app.libre.api.obj.StreamItem.TYPE_STREAM
+                            type = app.libre.api.obj.StreamItem.TYPE_STREAM,
+                            source = "ytm"
                         )
                         studioMasterCache[cacheKey] = result
                         return@withContext result
