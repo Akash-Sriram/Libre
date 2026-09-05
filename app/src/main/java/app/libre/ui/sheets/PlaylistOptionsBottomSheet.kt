@@ -31,7 +31,7 @@ import app.libre.ui.base.BaseActivity
 import app.libre.ui.dialogs.CleanDuplicatesDialog
 import app.libre.ui.dialogs.DeletePlaylistDialog
 import app.libre.ui.dialogs.RenamePlaylistDialog
-import app.libre.ui.dialogs.ShareDialog
+import app.libre.helpers.ShareHelper
 import app.libre.util.PlayingQueue
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -240,13 +240,12 @@ class PlaylistOptionsBottomSheet : ExpandedBottomSheet(R.layout.sheet_playlist_o
         // Share Playlist
         binding.actionShare.setOnClickListener {
             dismiss()
-            val shareDialog = ShareDialog()
-            shareDialog.arguments = Bundle().apply {
-                putString(IntentData.id, playlistId)
-                putSerializable(IntentData.shareObjectType, ShareObjectType.PLAYLIST)
-                putParcelable(IntentData.shareData, ShareData(currentPlaylist = playlistName))
-            }
-            shareDialog.show(mFragmentManager, ShareDialog::class.java.name)
+            ShareHelper.share(
+                context = requireContext(),
+                id = playlistId,
+                title = playlistName,
+                shareObjectType = ShareObjectType.PLAYLIST
+            )
         }
 
         // Clone Playlist

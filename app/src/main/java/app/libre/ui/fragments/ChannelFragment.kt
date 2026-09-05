@@ -25,7 +25,6 @@ import app.libre.helpers.ImageHelper
 import app.libre.helpers.NavigationHelper
 import app.libre.ui.adapters.VideosAdapter
 import app.libre.ui.base.DynamicLayoutManagerFragment
-import app.libre.ui.dialogs.ShareDialog
 import app.libre.ui.sheets.ChannelOptionsBottomSheet
 import com.google.android.material.tabs.TabLayoutMediator
 import kotlinx.coroutines.Dispatchers

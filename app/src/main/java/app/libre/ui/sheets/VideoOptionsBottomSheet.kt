@@ -19,8 +19,8 @@ import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import app.libre.helpers.ShareHelper
 import app.libre.ui.dialogs.AddToPlaylistDialog
-import app.libre.ui.dialogs.ShareDialog
 import app.libre.util.PlayingQueue
 
 /**
@@ -195,39 +195,23 @@ class VideoOptionsBottomSheet : ExpandedBottomSheet(R.layout.sheet_video_options
 
         binding.actionShare.setOnClickListener {
             dismiss()
-            val bundle = Bundle().apply {
-                putString(IntentData.id, videoId)
-                putSerializable(IntentData.shareObjectType, app.libre.enums.ShareObjectType.VIDEO)
-                putParcelable(
-                    IntentData.shareData,
-                    app.libre.obj.ShareData(
-                        currentVideo = streamItem.title,
-                        source = if (isJioSaavn) "jiosaavn" else if (isYtm) "ytm" else "youtube"
-                    )
-                )
-            }
-            ShareDialog().apply {
-                arguments = bundle
-            }.show(parentFragmentManager, ShareDialog::class.java.name)
+            val source = if (isJioSaavn) "jiosaavn" else if (isYtm) "ytm" else "youtube"
+            ShareHelper.share(
+                context = requireContext(),
+                id = videoId,
+                title = streamItem.title,
+                source = source
+            )
         }
 
         binding.actionCopyLink.setOnClickListener {
             dismiss()
-            val url = when {
-                videoId.startsWith("jsa_") || isJioSaavn -> {
-                    val cleanId = videoId.removePrefix("jsa_song_").removePrefix("jsa_album_").removePrefix("jsa_playlist_")
-                    val parts = cleanId.split("_")
-                    val token = parts.getOrNull(1) ?: parts[0]
-                    "https://www.jiosaavn.com/song/$token"
-                }
-                isYtm -> {
-                    "https://music.youtube.com/watch?v=$videoId"
-                }
-                else -> {
-                    "https://youtu.be/$videoId"
-                }
-            }
-            app.libre.helpers.ClipboardHelper.save(context = requireContext(), text = url, notify = true)
+            val source = if (isJioSaavn) "jiosaavn" else if (isYtm) "ytm" else "youtube"
+            ShareHelper.copyLink(
+                context = requireContext(),
+                id = videoId,
+                source = source
+            )
         }
 
         binding.actionChannel.setOnClickListener {

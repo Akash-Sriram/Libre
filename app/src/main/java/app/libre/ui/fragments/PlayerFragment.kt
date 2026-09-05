@@ -86,8 +86,8 @@ import app.libre.ui.adapters.CommentsPagingAdapter
 import app.libre.ui.adapters.VideoCardsAdapter
 import app.libre.ui.base.BaseActivity
 import app.libre.ui.base.BasePlayerFragment
+import app.libre.helpers.ShareHelper
 import app.libre.ui.dialogs.AddToPlaylistDialog
-import app.libre.ui.dialogs.ShareDialog
 import app.libre.ui.extensions.animateDown
 import app.libre.ui.extensions.getSystemInsets
 import app.libre.ui.interfaces.CustomPlayerCallback
@@ -590,21 +590,13 @@ class PlayerFragment : BasePlayerFragment(R.layout.fragment_player), CustomPlaye
         // share button
         binding.relPlayerShare.setOnClickListener {
             if (!this::streams.isInitialized) return@setOnClickListener
-            val bundle = Bundle().apply {
-                putString(IntentData.id, videoId)
-                putSerializable(IntentData.shareObjectType, ShareObjectType.VIDEO)
-                putParcelable(
-                    IntentData.shareData,
-                    ShareData(
-                        currentVideo = streams.title,
-                        currentPosition = playerController.currentPosition / 1000,
-                        source = if (app.libre.helpers.JioSaavnHelper.isJioSaavn(videoId)) "jiosaavn" else "youtube"
-                    )
-                )
-            }
-            val newShareDialog = ShareDialog()
-            newShareDialog.arguments = bundle
-            newShareDialog.show(childFragmentManager, ShareDialog::class.java.name)
+            val source = if (app.libre.helpers.JioSaavnHelper.isJioSaavn(videoId)) "jiosaavn" else "youtube"
+            ShareHelper.share(
+                context = requireContext(),
+                id = videoId,
+                title = streams.title,
+                source = source
+            )
         }
 
         binding.relPlayerBackground.setOnClickListener {

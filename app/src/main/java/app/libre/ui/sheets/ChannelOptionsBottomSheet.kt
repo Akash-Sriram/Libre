@@ -12,7 +12,7 @@ import app.libre.helpers.BackgroundHelper
 import app.libre.helpers.NavigationHelper
 import app.libre.obj.ShareData
 import app.libre.parcelable.PlayerData
-import app.libre.ui.dialogs.ShareDialog
+import app.libre.helpers.ShareHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -45,14 +45,12 @@ class ChannelOptionsBottomSheet : BaseBottomSheet() {
         setSimpleItems(optionsList.map { getString(it) }) { which ->
             when (optionsList[which]) {
                 R.string.share -> {
-                    val bundle = Bundle().apply {
-                        putString(IntentData.id, channelId)
-                        putSerializable(IntentData.shareObjectType, ShareObjectType.CHANNEL)
-                        putParcelable(IntentData.shareData, ShareData(currentChannel = channelName))
-                    }
-                    val newShareDialog = ShareDialog()
-                    newShareDialog.arguments = bundle
-                    newShareDialog.show(parentFragmentManager, null)
+                    ShareHelper.share(
+                        context = requireContext(),
+                        id = channelId,
+                        title = channelName,
+                        shareObjectType = ShareObjectType.CHANNEL
+                    )
                 }
 
                 R.string.play_latest_videos -> {
