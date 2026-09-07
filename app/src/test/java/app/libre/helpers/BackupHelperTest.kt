@@ -21,4 +21,12 @@ class BackupHelperTest {
         assertFalse(BackupHelper.isLibreTubeBackupFile("backup.json"))
         assertFalse(BackupHelper.isLibreTubeBackupFile(null))
     }
+
+    @Test
+    fun testGenerateBackupFileNameFormat() {
+        val fileName = BackupHelper.generateBackupFileName()
+        assertTrue(fileName.startsWith("libretube-backup-"))
+        assertTrue(fileName.endsWith(".json"))
+        assertTrue(BackupHelper.isLibreTubeBackupFile(fileName))
+    }
 }

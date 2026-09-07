@@ -119,6 +119,11 @@ object BackupHelper {
         backupFile
     }
 
+    fun generateBackupFileName(): String {
+        val timestamp = TextUtils.getFileSafeTimeStampNow()
+        return "libretube-backup-${timestamp}.json"
+    }
+
     fun isLibreTubeBackupFile(name: String?): Boolean {
         if (name == null) return false
         val lower = name.lowercase()
@@ -155,8 +160,7 @@ object BackupHelper {
         }
         try {
             val backupFile = getCompleteBackupFile()
-            val timestamp = TextUtils.getFileSafeTimeStampNow()
-            val backupFileName = "libretube-backup-${timestamp}.json"
+            val backupFileName = generateBackupFileName()
 
             val folder = getBackupFolder(context)
             if (folder != null && folder.exists() && folder.canWrite()) {

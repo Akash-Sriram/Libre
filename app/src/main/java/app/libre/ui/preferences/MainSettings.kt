@@ -79,8 +79,7 @@ class MainSettings : BasePreferenceFragment() {
             lifecycleScope.launch(Dispatchers.IO) {
                 try {
                     val file = BackupHelper.getCompleteBackupFile()
-                    val timestamp = TextUtils.getFileSafeTimeStampNow()
-                    val backupFileName = "libretube-backup-${timestamp}.json"
+                    val backupFileName = BackupHelper.generateBackupFileName()
                     val documentFile = folder.createFile("application/json", backupFileName)
                     if (documentFile != null) {
                         requireContext().contentResolver.openOutputStream(documentFile.uri)?.use { outputStream ->
