@@ -465,10 +465,12 @@ class MainActivity : AbstractPlayerHostActivity() {
                 )
                 searchView.isIconified = false
                 menu.findItem(R.id.action_settings)?.isVisible = false
-                searchView.post {
-                    searchView.requestFocus()
-                    val imm = getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as? android.view.inputmethod.InputMethodManager
-                    imm?.showSoftInput(searchAutoComplete, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
+                if (navController.currentDestination?.id != R.id.searchResultFragment) {
+                    searchView.post {
+                        searchView.requestFocus()
+                        val imm = getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as? android.view.inputmethod.InputMethodManager
+                        imm?.showSoftInput(searchAutoComplete, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
+                    }
                 }
                 return true
             }
@@ -503,7 +505,7 @@ class MainActivity : AbstractPlayerHostActivity() {
 
                 item.isVisible = currentSearchType == SearchType.PLAYLIST
                 val currentDest = navController.currentDestination?.id
-                if (currentDest == R.id.searchFragment || currentDest == R.id.searchResultFragment) {
+                if (currentDest == R.id.searchFragment) {
                     navController.popBackStack(R.id.searchFragment, true)
                 }
                 val isLibraryScreen = navController.currentDestination?.id == R.id.libraryFragment

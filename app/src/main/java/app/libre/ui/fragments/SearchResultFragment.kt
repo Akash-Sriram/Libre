@@ -195,6 +195,12 @@ class SearchResultFragment : DynamicLayoutManagerFragment(R.layout.fragment_sear
 
     }
 
+    override fun onResume() {
+        super.onResume()
+        mainActivity.setQuerySilent(args.query)
+        mainActivity.clearSearchViewFocus()
+    }
+
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
         // manually restore the recyclerview state due to https://github.com/material-components/material-components-android/issues/3473
