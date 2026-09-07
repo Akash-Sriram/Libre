@@ -582,7 +582,9 @@ class AudioPlayerFragment : BasePlayerFragment(R.layout.fragment_audio_player) {
             binding.timeBar.valueTo
         )
 
-        updateActiveLyricsLine(playerController?.currentPosition ?: 0L)
+        val currentPos = playerController?.currentPosition ?: 0L
+        updateActiveLyricsLine(currentPos)
+        updateChapterIndex(currentPos)
 
         handler.postDelayed(this::updateSeekBar, 200)
     }
@@ -678,16 +680,17 @@ class AudioPlayerFragment : BasePlayerFragment(R.layout.fragment_audio_player) {
         }.show(targetFm, VideoOptionsBottomSheet::class.java.name)
     }
 
-    private fun updateChapterIndex() {
-        if (_binding == null) return
-        handler.postDelayed(this::updateChapterIndex, 100)
-
-        val currentIndex =
-            PlayerHelper.getCurrentChapterIndex(
-                playerController?.currentPosition ?: return,
-                chaptersModel.chapters
+    private fun updateChapterIndex(positionMs: Long = playerController?.currentPosition ?: 0L) {
+        val chapters = chaptersModel.chapters
+        if (chapters.isNotEmpty()) {
+            val currentIndex = PlayerHelper.getCurrentChapterIndex(
+                positionMs,
+                chapters
             )
-        chaptersModel.currentChapterIndex.updateIfChanged(currentIndex ?: return)
+            if (currentIndex != null) {
+                chaptersModel.currentChapterIndex.updateIfChanged(currentIndex)
+            }
+        }
     }
 
     private fun toggleLyrics() {
@@ -727,46 +730,60 @@ class AudioPlayerFragment : BasePlayerFragment(R.layout.fragment_audio_player) {
             var cleanArtist: String? = null
             var cleanAlbum: String? = null
 
-            // Check persistent cache first
-            val cached = YtMusicApi.LyricsCache.get(requireContext(), videoId)
-            if (cached != null) {
-                syncedLrc = cached["synced"]?.takeIf { it.isNotBlank() }
-                plainText = cached["plain"]?.takeIf { it.isNotBlank() }
-                cleanTitle = cached["title"]?.takeIf { it.isNotBlank() }
-                cleanArtist = cached["artist"]?.takeIf { it.isNotBlank() }
-                cleanAlbum = cached["album"]?.takeIf { it.isNotBlank() }
-            } else {
-                // 1. Try fetching from LRCLIB first to get synced lyrics!
-                val durationSec = playerController?.duration?.div(1000) ?: 0L
-
-                val lrcMap = YtMusicApi.fetchLrcLyrics(videoId, durationSec)
-                if (lrcMap != null) {
-                    syncedLrc = lrcMap["synced"]?.takeIf { it.isNotBlank() }
-                    plainText = lrcMap["plain"]?.takeIf { it.isNotBlank() }
-                    cleanTitle = lrcMap["title"]?.takeIf { it.isNotBlank() }
-                    cleanArtist = lrcMap["artist"]?.takeIf { it.isNotBlank() }
-                    cleanAlbum = lrcMap["album"]?.takeIf { it.isNotBlank() }
+            // 0. Check local companion .lrc or embedded audio tags first (offline instant)
+            val localLyrics = withContext(Dispatchers.IO) {
+                app.libre.helpers.LocalLyricsHelper.findLocalLyrics(videoId)
+            }
+            if (localLyrics != null) {
+                if (localLyrics.contains("[") && localLyrics.contains("]")) {
+                    syncedLrc = localLyrics
+                } else {
+                    plainText = localLyrics
                 }
+            }
 
-                // 2. If LRCLIB failed or returned nothing, check by provider
-                if (syncedLrc == null && plainText == null) {
-                    if (JioSaavnHelper.isJioSaavn(videoId, isOffline)) {
-                        plainText = YtMusicApi.fetchJioSaavnLyrics(videoId.removePrefix("jsa_"))
-                    } else {
-                        plainText = YtMusicApi.fetchLyrics(videoId)
+            // Check persistent cache next if local lyrics were not found
+            if (syncedLrc == null && plainText == null) {
+                val cached = YtMusicApi.LyricsCache.get(requireContext(), videoId)
+                if (cached != null) {
+                    syncedLrc = cached["synced"]?.takeIf { it.isNotBlank() }
+                    plainText = cached["plain"]?.takeIf { it.isNotBlank() }
+                    cleanTitle = cached["title"]?.takeIf { it.isNotBlank() }
+                    cleanArtist = cached["artist"]?.takeIf { it.isNotBlank() }
+                    cleanAlbum = cached["album"]?.takeIf { it.isNotBlank() }
+                } else {
+                    // 1. Try fetching from LRCLIB first to get synced lyrics!
+                    val durationSec = playerController?.duration?.div(1000) ?: 0L
+
+                    val lrcMap = YtMusicApi.fetchLrcLyrics(videoId, durationSec)
+                    if (lrcMap != null) {
+                        syncedLrc = lrcMap["synced"]?.takeIf { it.isNotBlank() }
+                        plainText = lrcMap["plain"]?.takeIf { it.isNotBlank() }
+                        cleanTitle = lrcMap["title"]?.takeIf { it.isNotBlank() }
+                        cleanArtist = lrcMap["artist"]?.takeIf { it.isNotBlank() }
+                        cleanAlbum = lrcMap["album"]?.takeIf { it.isNotBlank() }
                     }
-                }
 
-                // Write back to persistent cache
-                if (syncedLrc != null || plainText != null || !cleanTitle.isNullOrBlank()) {
-                    val mapToCache = mapOf(
-                        "synced" to (syncedLrc ?: ""),
-                        "plain" to (plainText ?: ""),
-                        "title" to (cleanTitle ?: ""),
-                        "artist" to (cleanArtist ?: ""),
-                        "album" to (cleanAlbum ?: "")
-                    )
-                    YtMusicApi.LyricsCache.put(requireContext(), videoId, mapToCache)
+                    // 2. If LRCLIB failed or returned nothing, check by provider
+                    if (syncedLrc == null && plainText == null) {
+                        if (JioSaavnHelper.isJioSaavn(videoId, isOffline)) {
+                            plainText = YtMusicApi.fetchJioSaavnLyrics(videoId.removePrefix("jsa_"))
+                        } else {
+                            plainText = YtMusicApi.fetchLyrics(videoId)
+                        }
+                    }
+
+                    // Write back to persistent cache
+                    if (syncedLrc != null || plainText != null || !cleanTitle.isNullOrBlank()) {
+                        val mapToCache = mapOf(
+                            "synced" to (syncedLrc ?: ""),
+                            "plain" to (plainText ?: ""),
+                            "title" to (cleanTitle ?: ""),
+                            "artist" to (cleanArtist ?: ""),
+                            "album" to (cleanAlbum ?: "")
+                        )
+                        YtMusicApi.LyricsCache.put(requireContext(), videoId, mapToCache)
+                    }
                 }
             }
 
@@ -841,18 +858,29 @@ class AudioPlayerFragment : BasePlayerFragment(R.layout.fragment_audio_player) {
                 }
             }
         } else {
-            val regex = Regex("""\[(\d+):(\d+)(?:\.(\d+))?\](.*)""")
-            lrcText.split("\n").forEach { line ->
-                val match = regex.find(line.trim())
-                if (match != null) {
-                    val min = match.groupValues[1].toLongOrNull() ?: 0L
-                    val sec = match.groupValues[2].toLongOrNull() ?: 0L
-                    val msStr = match.groupValues[3]
-                    var ms = msStr.toLongOrNull() ?: 0L
-                    if (msStr.length == 2) ms *= 10 // Convert .34 to 340ms
-                    val timeMs = (min * 60 + sec) * 1000 + ms
-                    val text = match.groupValues[4].trim()
-                    lines.add(SyncedLine(timeMs, text))
+            // Parse global offset if present, e.g. [offset:500] or [offset:-300]
+            val offsetRegex = Regex("""\[offset:\s*([+-]?\d+)\]""", RegexOption.IGNORE_CASE)
+            val offsetMs = offsetRegex.find(lrcText)?.groupValues?.get(1)?.toLongOrNull() ?: 0L
+
+            val timeTagRegex = Regex("""\[(\d+):(\d+)(?:\.(\d+))?\]""")
+            lrcText.split("\n").forEach { rawLine ->
+                val line = rawLine.trim()
+                if (line.isEmpty() || line.startsWith("[ti:") || line.startsWith("[ar:") || line.startsWith("[al:") || line.startsWith("[by:") || line.startsWith("[offset:")) {
+                    return@forEach
+                }
+
+                val matches = timeTagRegex.findAll(line).toList()
+                if (matches.isNotEmpty()) {
+                    val text = line.replace(timeTagRegex, "").trim()
+                    matches.forEach { match ->
+                        val min = match.groupValues[1].toLongOrNull() ?: 0L
+                        val sec = match.groupValues[2].toLongOrNull() ?: 0L
+                        val msStr = match.groupValues[3]
+                        var ms = msStr.toLongOrNull() ?: 0L
+                        if (msStr.length == 2) ms *= 10 // Convert .34 to 340ms
+                        val timeMs = ((min * 60 + sec) * 1000 + ms + offsetMs).coerceAtLeast(0L)
+                        lines.add(SyncedLine(timeMs, text))
+                    }
                 }
             }
         }

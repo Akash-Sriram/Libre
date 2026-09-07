@@ -21,7 +21,7 @@ import app.libre.db.obj.SearchHistoryItem
         LocalPlaylistItem::class,
         LocalAudioMetadataCache::class
     ],
-    version = 32,
+    version = 33,
     exportSchema = false
 )
 @TypeConverters(Converters::class)

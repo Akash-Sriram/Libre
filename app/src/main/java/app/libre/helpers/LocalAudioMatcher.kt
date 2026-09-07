@@ -33,6 +33,9 @@ object LocalAudioMatcher {
     /** videoId -> embedded album art bytes (lazy-extracted on first use) */
     private val embeddedArtCache = ConcurrentHashMap<String, ByteArray?>()
 
+    val indexedTrackCount: Int get() = localAudioMap.size
+    val isScanning: Boolean get() = isIndexing
+
     private var isIndexing = false
 
     /**
@@ -42,14 +45,17 @@ object LocalAudioMatcher {
     private var dbRestoreReady = CompletableDeferred<Unit>()
 
     /**
-     * Entry point called on app start.
+     * Entry point called on app start or manual rescan.
      *
      * Phase 1 (fast): Load previously scanned paths from DB → signals [dbRestoreReady].
      * Phase 2 (slow): Scan filesystem for new files not yet in DB.
      * Phase 3 (online): Background-prefetch metadata for newly discovered songs.
      */
-    fun startAutoScan(context: Context) {
-        if (isIndexing) return
+    fun startAutoScan(context: Context, onComplete: ((count: Int) -> Unit)? = null) {
+        if (isIndexing) {
+            onComplete?.invoke(localAudioMap.size)
+            return
+        }
         isIndexing = true
         // Reset the deferred for this launch
         dbRestoreReady = CompletableDeferred()
@@ -116,9 +122,15 @@ object LocalAudioMatcher {
 
                 val total = localAudioMap.size
                 Log.i(TAG, "Scan complete. Total: $total tracks (${restoredIds.size} from DB, ${newlyFound.size} newly discovered).")
+                withContext(Dispatchers.Main) {
+                    onComplete?.invoke(total)
+                }
             } catch (e: Exception) {
                 Log.e(TAG, "Error during local audio scan", e)
                 dbRestoreReady.complete(Unit) // always complete so callers don't hang
+                withContext(Dispatchers.Main) {
+                    onComplete?.invoke(localAudioMap.size)
+                }
             } finally {
                 isIndexing = false
             }

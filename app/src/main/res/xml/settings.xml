@@ -10,6 +10,12 @@
             app:summary="@string/offline_songs_folder_summary_not_set" />
 
         <Preference
+            android:icon="@drawable/ic_refresh"
+            app:key="rescan_offline_songs"
+            app:title="Rescan Offline Audio"
+            app:summary="Scan folder and MediaStore for newly synced PC tracks" />
+
+        <Preference
             android:icon="@drawable/ic_device"
             app:key="wifi_sync_status"
             app:title="Wi-Fi Sync Server"

@@ -47,7 +47,6 @@ android {
         versionName = getVersionName()
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         resValue("string", "app_name", "Libre")
-        resourceConfigurations.add("en")
     }
 
     ksp {
@@ -127,6 +126,7 @@ android {
     // language preference for Android 13 and above
     androidResources {
         generateLocaleConfig = true
+        localeFilters += listOf("en")
     }
 
     namespace = "app.libre"

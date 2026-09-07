@@ -67,6 +67,9 @@ class ChaptersBottomSheet : ExpandablePlayerSheet(R.layout.bottom_sheet) {
             if (_binding == null) return@observe
 
             adapter.updateSelectedPosition(currentIndex)
+            if (currentIndex in 0 until adapter.itemCount) {
+                binding.optionsRecycler.smoothScrollToPosition(currentIndex)
+            }
         }
 
         binding.bottomSheetTitle.text = context?.getString(R.string.chapters)

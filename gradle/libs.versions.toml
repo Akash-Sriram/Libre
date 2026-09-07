@@ -23,7 +23,6 @@ coil = "3.6.1"
 room = "2.8.4"
 kotlinxSerialization = "1.11.0"
 kotlinxDatetime = "0.8.0"
-media = "1.8.0"
 media3 = "1.9.2"
 activity = "1.13.0"
 fragment = "1.8.9"
@@ -57,7 +56,6 @@ androidx-preference = { group = "androidx.preference", name = "preference-ktx", 
 androidx-test-junit = { group = "androidx.test.ext", name = "junit", version.ref = "extJunit" }
 androidx-test-espressoCore = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espresso" }
 androidx-work-runtime = { group = "androidx.work", name="work-runtime-ktx", version.ref="workRuntime" }
-androidx-media = { group = "androidx.media", name = "media", version.ref = "media" }
 androidx-media3-exoplayer = { group = "androidx.media3", name="media3-exoplayer", version.ref="media3" }
 androidx-media3-exoplayer-hls = { group = "androidx.media3", name="media3-exoplayer-hls", version.ref="media3" }
 androidx-media3-exoplayer-dash = { group = "androidx.media3", name="media3-exoplayer-dash", version.ref="media3" }

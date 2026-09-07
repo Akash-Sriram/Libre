@@ -43,14 +43,6 @@ class LibreTubeApp : Application(), androidx.work.Configuration.Provider {
 
 
         /**
-         * Initialize the auto backup worker in the background after UI startup
-         */
-        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
-            kotlinx.coroutines.delay(5000L)
-            app.libre.helpers.BackupHelper.enqueueAutoBackupWork(applicationContext)
-        }
-
-        /**
          * Asynchronously load the music category DataStore into memory for instant access
          */
         app.libre.helpers.MusicCategoryCache.initializeAsync(applicationContext)
@@ -68,9 +60,11 @@ class LibreTubeApp : Application(), androidx.work.Configuration.Provider {
 
         NewPipeExtractorInstance.init()
 
-        // Schedule periodic background sync for album metadata (runs once a day, deferred to not block startup)
+        // Deferred background initialization after UI startup
         CoroutineScope(Dispatchers.IO).launch {
-            delay(8000L)
+            delay(5000L)
+            app.libre.helpers.BackupHelper.enqueueAutoBackupWork(applicationContext)
+
             try {
                 val albumWorkRequest = androidx.work.PeriodicWorkRequestBuilder<app.libre.workers.AlbumMetadataWorker>(
                     1, java.util.concurrent.TimeUnit.DAYS

@@ -19,22 +19,9 @@ enum class ContentFilter {
         }
 
     companion object {
-        private val enabledFiltersSet: MutableSet<String> get() {
-            val entryNames = try {
-                PreferenceHelper
-                    .getStringSet(SELECTED_FEED_FILTERS, entries.mapTo(mutableSetOf()) { it.name })
-            } catch (e: ClassCastException) {
-                // TODO: Remove the conversion code below.
-                // Assume the old preference is present and convert it.
-                val string = PreferenceHelper.getString(SELECTED_FEED_FILTERS, "")
-                PreferenceHelper.remove(SELECTED_FEED_FILTERS)
-                val set = string.split(',')
-                    .mapTo(mutableSetOf()) { entries[it.toInt()].name }
-                PreferenceHelper.putStringSet(SELECTED_FEED_FILTERS, set)
-                set
-            }
-
-            return entryNames.toMutableSet()
-        }
+        private val enabledFiltersSet: MutableSet<String>
+            get() = PreferenceHelper
+                .getStringSet(SELECTED_FEED_FILTERS, entries.mapTo(mutableSetOf()) { it.name })
+                .toMutableSet()
     }
 }

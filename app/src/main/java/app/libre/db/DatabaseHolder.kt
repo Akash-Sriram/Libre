@@ -160,6 +160,18 @@ object DatabaseHolder {
         }
     }
 
+    private val MIGRATION_31_32 = object : Migration(31, 32) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            // Version 32 sync migration
+        }
+    }
+
+    private val MIGRATION_32_33 = object : Migration(32, 33) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_localAudioMetadataCache_localFilePath` ON `localAudioMetadataCache` (`localFilePath`)")
+        }
+    }
+
     val Database by lazy {
         Room.databaseBuilder(LibreTubeApp.instance, AppDatabase::class.java, DATABASE_NAME)
             .addMigrations(
@@ -177,7 +189,9 @@ object DatabaseHolder {
                 MIGRATION_27_28,
                 MIGRATION_28_29,
                 MIGRATION_29_30,
-                MIGRATION_30_31
+                MIGRATION_30_31,
+                MIGRATION_31_32,
+                MIGRATION_32_33
             )
             .fallbackToDestructiveMigration(false)
             .build()

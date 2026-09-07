@@ -12,6 +12,7 @@ import androidx.core.view.isVisible
 import app.libre.R
 import app.libre.databinding.SleepTimerSheetBinding
 import app.libre.ui.tools.SleepTimer
+import app.libre.helpers.PreferenceHelper
 import com.google.android.material.chip.Chip
 
 class SleepTimerSheet : ExpandedBottomSheet(R.layout.sleep_timer_sheet) {
@@ -22,6 +23,11 @@ class SleepTimerSheet : ExpandedBottomSheet(R.layout.sleep_timer_sheet) {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         _binding = SleepTimerSheetBinding.bind(view)
         super.onViewCreated(view, savedInstanceState)
+
+        val lastDuration = PreferenceHelper.getLong(PREF_LAST_SLEEP_TIMER, 30L)
+        if (binding.timeInput.text.isNullOrEmpty()) {
+            binding.timeInput.setText(lastDuration.toString())
+        }
 
         setupQuickSelectChips()
         updateTimeLeftText()
@@ -34,6 +40,7 @@ class SleepTimerSheet : ExpandedBottomSheet(R.layout.sleep_timer_sheet) {
                 return@setOnClickListener
             }
 
+            PreferenceHelper.putLong(PREF_LAST_SLEEP_TIMER, time)
             SleepTimer.start(requireContext(), time)
             updateTimeLeftText()
         }
@@ -67,6 +74,7 @@ class SleepTimerSheet : ExpandedBottomSheet(R.layout.sleep_timer_sheet) {
                         setText(duration.toString())
                         clearFocus()
 
+                        PreferenceHelper.putLong(PREF_LAST_SLEEP_TIMER, duration.toLong())
                         SleepTimer.start(requireContext(), duration.toLong())
                         updateTimeLeftText()
                     }
@@ -100,5 +108,9 @@ class SleepTimerSheet : ExpandedBottomSheet(R.layout.sleep_timer_sheet) {
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
+    }
+
+    companion object {
+        private const val PREF_LAST_SLEEP_TIMER = "last_sleep_timer_minutes"
     }
 }

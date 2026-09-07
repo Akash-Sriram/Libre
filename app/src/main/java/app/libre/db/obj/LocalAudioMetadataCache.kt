@@ -1,6 +1,7 @@
 package app.libre.db.obj
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
 /**
@@ -8,7 +9,12 @@ import androidx.room.PrimaryKey
  * - [localFilePath] persists the matched file path so a filesystem re-scan is not needed on every launch.
  * - Metadata fields (title, uploader, thumbnailUrl, duration) are populated online and used offline.
  */
-@Entity(tableName = "localAudioMetadataCache")
+@Entity(
+    tableName = "localAudioMetadataCache",
+    indices = [
+        Index(value = ["localFilePath"])
+    ]
+)
 data class LocalAudioMetadataCache(
     @PrimaryKey val videoId: String,
     /** Absolute path to the matched local audio file. Non-null once the file scan has run. */

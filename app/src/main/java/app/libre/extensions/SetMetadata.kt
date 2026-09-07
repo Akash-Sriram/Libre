@@ -26,12 +26,15 @@ fun MediaItem.Builder.setMetadata(streams: Streams, videoId: String) = apply {
         putString(IntentData.streams, JsonHelper.json.encodeToString(clearedStreams))
         putString(IntentData.chapters, JsonHelper.json.encodeToString(streams.chapters))
     }
+    val localArtUri = app.libre.helpers.LocalAudioMatcher.getEmbeddedArtUri(app.libre.LibreTubeApp.instance, videoId)
+    val artworkUri = localArtUri?.toUri() ?: streams.thumbnailUrl.toUri()
+
     setMediaMetadata(
         MediaMetadata.Builder()
             .setTitle(streams.title)
             .setArtist(streams.artist ?: streams.uploader)
             .setDurationMs(streams.duration.times(1000))
-            .setArtworkUri(streams.thumbnailUrl.toUri())
+            .setArtworkUri(artworkUri)
             .setComposer(streams.uploaderUrl.orEmpty().toID())
             .setExtras(extras)
             // send a unique timestamp to notify that the metadata changed, even if playing the same video twice

@@ -3,6 +3,7 @@ package app.libre.ui.preferences
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.lifecycle.lifecycleScope
 import androidx.preference.Preference
@@ -55,8 +56,9 @@ class MainSettings : BasePreferenceFragment() {
             Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
         )
         PreferenceHelper.putString(PreferenceKeys.OFFLINE_SONGS_FOLDER_URI, uri.toString())
-        updateOfflineFolderSummary()
-        LocalAudioMatcher.startAutoScan(requireContext())
+        LocalAudioMatcher.startAutoScan(requireContext()) {
+            updateOfflineFolderSummary()
+        }
     }
 
     private val getBackupFile =
@@ -112,6 +114,16 @@ class MainSettings : BasePreferenceFragment() {
             val uriStr = PreferenceHelper.getString(PreferenceKeys.OFFLINE_SONGS_FOLDER_URI, "")
             val uri = if (uriStr.isNotEmpty()) Uri.parse(uriStr) else null
             selectOfflineFolder.launch(uri)
+            true
+        }
+
+        // Rescan Offline Audio
+        findPreference<Preference>("rescan_offline_songs")?.setOnPreferenceClickListener {
+            Toast.makeText(requireContext(), "Scanning offline audio...", Toast.LENGTH_SHORT).show()
+            LocalAudioMatcher.startAutoScan(requireContext()) { count ->
+                updateOfflineFolderSummary()
+                Toast.makeText(requireContext(), "Scan complete: $count tracks indexed", Toast.LENGTH_SHORT).show()
+            }
             true
         }
 
@@ -245,11 +257,17 @@ class MainSettings : BasePreferenceFragment() {
     private fun updateOfflineFolderSummary() {
         val offlineFolderPreference = findPreference<Preference>("offline_songs_pref") ?: return
         val uriString = PreferenceHelper.getString(PreferenceKeys.OFFLINE_SONGS_FOLDER_URI, "")
+        val count = LocalAudioMatcher.indexedTrackCount
+        val countSuffix = if (count > 0) " • $count local tracks indexed" else ""
         if (uriString.isNotEmpty()) {
             val displayPath = getDisplayPath(uriString)
-            offlineFolderPreference.summary = getString(R.string.offline_songs_folder_summary_set, displayPath)
+            offlineFolderPreference.summary = getString(R.string.offline_songs_folder_summary_set, displayPath) + countSuffix
         } else {
-            offlineFolderPreference.summary = getString(R.string.offline_songs_folder_summary_not_set)
+            offlineFolderPreference.summary = if (count > 0) {
+                "Internal Storage/Music • $count local tracks indexed"
+            } else {
+                getString(R.string.offline_songs_folder_summary_not_set)
+            }
         }
     }
 }

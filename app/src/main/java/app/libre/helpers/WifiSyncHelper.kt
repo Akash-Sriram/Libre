@@ -11,7 +11,6 @@ import app.libre.db.DatabaseHolder.Database
 import app.libre.extensions.TAG
 import app.libre.obj.BackupFile
 import app.libre.obj.PipedImportPlaylist
-import app.libre.ui.dialogs.ShareDialog
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -147,7 +146,7 @@ object WifiSyncHelper {
                     val token = parts.getOrNull(1) ?: parts[0]
                     "https://www.jiosaavn.com/song/track/$token"
                 } else {
-                    "${ShareDialog.YOUTUBE_FRONTEND_URL}/watch?v=${item.videoId}"
+                    "${ShareHelper.YOUTUBE_FRONTEND_URL}/watch?v=${item.videoId}"
                 }
             }
             PipedImportPlaylist(playlist.name, "playlist", "private", videos)
