@@ -626,7 +626,7 @@
     <string name="duplicate_warning_message">Some tracks already exist in this playlist under another source. Would you like to skip duplicates?</string>
     <string name="skip_duplicates">Skip Duplicates</string>
     <string name="add_all">Add All</string>
-    <string name="restart">Restart App</string>
+    <string name="restart">Restart</string>
     <string name="copy">Copy</string>
     <string name="stack_trace">Stack Trace</string>
     <string name="crash_logs">Crash Logs &amp; Diagnostics</string>

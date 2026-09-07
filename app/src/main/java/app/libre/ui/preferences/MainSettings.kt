@@ -119,10 +119,14 @@ class MainSettings : BasePreferenceFragment() {
 
         // Rescan Offline Audio
         findPreference<Preference>("rescan_offline_songs")?.setOnPreferenceClickListener {
-            Toast.makeText(requireContext(), "Scanning offline audio...", Toast.LENGTH_SHORT).show()
-            LocalAudioMatcher.startAutoScan(requireContext()) { count ->
+            val ctx = context ?: return@setOnPreferenceClickListener true
+            Toast.makeText(ctx, "Scanning offline audio...", Toast.LENGTH_SHORT).show()
+            LocalAudioMatcher.startAutoScan(ctx) { count ->
+                if (!isAdded) return@startAutoScan
                 updateOfflineFolderSummary()
-                Toast.makeText(requireContext(), "Scan complete: $count tracks indexed", Toast.LENGTH_SHORT).show()
+                context?.let { safeCtx ->
+                    Toast.makeText(safeCtx, "Scan complete: $count tracks indexed", Toast.LENGTH_SHORT).show()
+                }
             }
             true
         }
@@ -247,6 +251,7 @@ class MainSettings : BasePreferenceFragment() {
     }
 
     private fun updateBackupFolderSummary() {
+        if (!isAdded) return
         val backupFolderPreference = findPreference<Preference>("backup_folder") ?: return
         val uriString = PreferenceHelper.getString(PreferenceKeys.BACKUP_FOLDER_URI, "")
         if (uriString.isNotEmpty()) {
@@ -258,6 +263,7 @@ class MainSettings : BasePreferenceFragment() {
     }
 
     private fun updateOfflineFolderSummary() {
+        if (!isAdded) return
         val offlineFolderPreference = findPreference<Preference>("offline_songs_pref") ?: return
         val uriString = PreferenceHelper.getString(PreferenceKeys.OFFLINE_SONGS_FOLDER_URI, "")
         val count = LocalAudioMatcher.indexedTrackCount
