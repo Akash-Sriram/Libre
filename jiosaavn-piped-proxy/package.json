@@ -10,5 +10,8 @@
   "dependencies": {
     "express": "^4.19.2",
     "node-fetch": "^2.7.0"
+  },
+  "overrides": {
+    "qs": "^6.16.0"
   }
 }
