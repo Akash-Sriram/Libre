@@ -473,8 +473,7 @@ class MainActivity : AbstractPlayerHostActivity() {
                 if (navController.currentDestination?.id != R.id.searchResultFragment) {
                     searchView.post {
                         searchView.requestFocus()
-                        val imm = getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as? android.view.inputmethod.InputMethodManager
-                        imm?.showSoftInput(searchAutoComplete, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
+                        androidx.core.view.WindowCompat.getInsetsController(window, searchAutoComplete).show(androidx.core.view.WindowInsetsCompat.Type.ime())
                     }
                 }
                 return true

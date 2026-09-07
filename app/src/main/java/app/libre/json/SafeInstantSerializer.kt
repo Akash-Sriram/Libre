@@ -2,7 +2,7 @@ package app.libre.json
 
 import android.util.Log
 import app.libre.extensions.TAG
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.atStartOfDayIn

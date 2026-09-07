@@ -3,5 +3,4 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/switchWidget"
     android:layout_width="wrap_content"
-    android:layout_height="wrap_content"
-    tools:targetApi="n" />
+    android:layout_height="wrap_content" />

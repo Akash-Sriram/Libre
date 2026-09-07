@@ -4,7 +4,7 @@ import android.os.Parcelable
 import app.libre.enums.FileType
 import app.libre.extensions.toLocalDate
 import app.libre.json.SafeInstantSerializer
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 import kotlinx.parcelize.IgnoredOnParcel
 import kotlinx.parcelize.Parcelize
 import kotlinx.serialization.SerialName

@@ -217,20 +217,7 @@ object PlayerHelper {
     }
     @OptIn(UnstableApi::class)
     private fun createRendererFactory(context: Context): DefaultRenderersFactory {
-        val renderersFactory = object : DefaultRenderersFactory(context) {
-            override fun buildTextRenderers(
-                context: Context,
-                output: TextOutput,
-                outputLooper: Looper,
-                extensionRendererMode: Int,
-                out: ArrayList<Renderer>
-            ) {
-                super.buildTextRenderers(context, output, outputLooper, extensionRendererMode, out)
-                @Suppress("DEPRECATION")
-                (out.last() as? TextRenderer)?.experimentalSetLegacyDecodingEnabled(true)
-            }
-        }
-        return renderersFactory
+        return DefaultRenderersFactory(context)
     }
     private var simpleCache: androidx.media3.datasource.cache.SimpleCache? = null
 

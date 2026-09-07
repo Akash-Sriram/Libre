@@ -1,7 +1,6 @@
 package app.libre.extensions
 
 import android.os.Bundle
-import android.support.v4.media.MediaMetadataCompat
 import androidx.annotation.OptIn
 import androidx.core.net.toUri
 import androidx.media3.common.MediaItem
@@ -20,8 +19,8 @@ fun MediaItem.Builder.setMetadata(streams: Streams, videoId: String) = apply {
         hasVideo = streams.hasVideo || streams.videoStreams.isNotEmpty()
     )
     val extras = Bundle().apply {
-        putString(MediaMetadataCompat.METADATA_KEY_TITLE, streams.title)
-        putString(MediaMetadataCompat.METADATA_KEY_ARTIST, streams.artist ?: streams.uploader)
+        putString("android.media.metadata.TITLE", streams.title)
+        putString("android.media.metadata.ARTIST", streams.artist ?: streams.uploader)
         putString(IntentData.videoId, videoId)
         // JSON-encode as work-around for https://github.com/androidx/media/issues/564
         putString(IntentData.streams, JsonHelper.json.encodeToString(clearedStreams))

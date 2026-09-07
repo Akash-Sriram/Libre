@@ -24,22 +24,16 @@ object NetworkHelper {
      * @param context Context of the application
      * @return whether the network is metered or not
      */
-    @Suppress("DEPRECATION")
     fun isNetworkMetered(context: Context): Boolean {
-        val connectivityManager = context.getSystemService<ConnectivityManager>()!!
-        val activeNetworkInfo = connectivityManager.activeNetworkInfo
-
-        // In case we are using nothing but a VPN, it should default to not metered
-        if (activeNetworkInfo == null) {
-            // activeNetworkInfo might return null instead of the VPN, so better check it explicitly
-            val vpnInfo = connectivityManager.getNetworkInfo(ConnectivityManager.TYPE_VPN)
-            if (vpnInfo?.isConnected == true) {
-                return false
-            }
-        } else if (activeNetworkInfo.type == ConnectivityManager.TYPE_VPN) {
+        val connectivityManager = context.getSystemService<ConnectivityManager>() ?: return false
+        val activeNetwork = connectivityManager.activeNetwork
+        val caps = connectivityManager.getNetworkCapabilities(activeNetwork)
+        
+        // In case we are using a VPN, it should default to not metered
+        if (caps?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) == true) {
             return false
         }
-
+        
         return connectivityManager.isActiveNetworkMetered
     }
 }

@@ -6,7 +6,6 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaItem.LocalConfiguration
 import androidx.media3.common.MediaLibraryInfo
 import androidx.media3.common.Timeline
-import androidx.media3.common.util.Assertions
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.common.util.Util
 import androidx.media3.datasource.TransferListener
@@ -53,7 +52,7 @@ class SabrMediaSource(
         override fun setCmcdConfigurationFactory(cmcdConfigurationFactory: CmcdConfiguration.Factory): Factory =
             this.apply {
                 this.cmcdConfigurationFactory =
-                    Assertions.checkNotNull<CmcdConfiguration.Factory?>(cmcdConfigurationFactory)
+                    requireNotNull(cmcdConfigurationFactory)
             }
 
         override fun setDrmSessionManagerProvider(
@@ -71,7 +70,7 @@ class SabrMediaSource(
          * @throws NullPointerException if [MediaItem.localConfiguration] is `null`.
          */
         override fun createMediaSource(mediaItem: MediaItem): SabrMediaSource {
-            Assertions.checkNotNull<LocalConfiguration>(mediaItem.localConfiguration)
+            requireNotNull<LocalConfiguration>(mediaItem.localConfiguration)
             val cmcdConfiguration = cmcdConfigurationFactory?.createCmcdConfiguration(mediaItem)
             val sabrClient = SabrClient(manifest)
 
@@ -102,7 +101,7 @@ class SabrMediaSource(
     override fun canUpdateMediaItem(mediaItem: MediaItem): Boolean {
         val existingMediaItem = getMediaItem()
         val existingConfiguration =
-            Assertions.checkNotNull<LocalConfiguration>(existingMediaItem.localConfiguration)
+            requireNotNull<LocalConfiguration>(existingMediaItem.localConfiguration)
         val newConfiguration = mediaItem.localConfiguration
         return newConfiguration != null && newConfiguration.uri == existingConfiguration.uri
                 && newConfiguration.streamKeys == existingConfiguration.streamKeys
@@ -190,7 +189,7 @@ class SabrMediaSource(
         override fun getPeriodCount(): Int = 1
 
         override fun getPeriod(periodIndex: Int, period: Period, setIds: Boolean): Period {
-            Assertions.checkIndex(periodIndex, 0, periodCount)
+            if (periodIndex !in 0 until periodCount) throw IndexOutOfBoundsException()
             val uid: Any? = if (setIds) (0 + periodIndex) else null
             return period.set(
                 null,
@@ -208,7 +207,7 @@ class SabrMediaSource(
             window: Window,
             defaultPositionProjectionUs: Long,
         ): Window {
-            Assertions.checkIndex(windowIndex, 0, 1)
+            if (windowIndex != 0) throw IndexOutOfBoundsException()
             val windowDefaultStartPositionUs = getAdjustedWindowDefaultStartPositionUs()
             return window.set(
                 Window.SINGLE_WINDOW_UID,
@@ -235,7 +234,7 @@ class SabrMediaSource(
             this.windowDefaultStartPositionUs
 
         override fun getUidOfPeriod(periodIndex: Int): Any {
-            Assertions.checkIndex(periodIndex, 0, periodCount)
+            if (periodIndex !in 0 until periodCount) throw IndexOutOfBoundsException()
             return 0 + periodIndex
         }
     }

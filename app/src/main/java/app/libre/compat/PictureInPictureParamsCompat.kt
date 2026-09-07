@@ -4,7 +4,6 @@ import android.app.PictureInPictureParams
 import android.graphics.Rect
 import android.os.Build
 import android.util.Rational
-import androidx.annotation.RequiresApi
 import androidx.core.app.RemoteActionCompat
 import androidx.media3.common.VideoSize
 
@@ -19,7 +18,6 @@ class PictureInPictureParamsCompat private constructor(
     private val aspectRatio: Rational?,
     private val expandedAspectRatio: Rational?
 ) {
-    @RequiresApi(Build.VERSION_CODES.O)
     fun toPictureInPictureParams(): PictureInPictureParams {
         val pipParams = PictureInPictureParams.Builder()
             .setSourceRectHint(sourceRectHint)

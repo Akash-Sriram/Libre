@@ -147,7 +147,6 @@ dependencies {
     implementation(libs.androidx.documentfile)
     implementation(libs.androidx.work.runtime)
     implementation(libs.androidx.collection)
-    implementation(libs.androidx.media)
     implementation(libs.androidx.swiperefreshlayout)
 
     /* Android Lifecycle */
@@ -190,7 +189,7 @@ dependencies {
 
     /* Baseline profile generation */
     implementation(libs.androidx.profileinstaller)
-    baselineProfile(project(":baselineprofile"))
+    baselineProfile(project(path = ":baselineprofile"))
 
     /* AndroidX Paging */
     implementation(libs.androidx.paging)
@@ -212,7 +211,7 @@ protobuf {
     }
     generateProtoTasks {
         all().forEach { task ->
-            task.plugins {
+            task.builtins {
                 id("java") {
                     option("lite")
                 }
