@@ -37,6 +37,10 @@ class SearchResultViewModel(savedStateHandle: SavedStateHandle) : ViewModel() {
     }
 
     private val filterMutableData = MutableStateFlow("videos")
+    val currentFilter: String get() = filterMutableData.value
+
+    var selectedSourceChipId: Int = app.libre.R.id.chip_source_yt
+    var selectedTypeChipId: Int = app.libre.R.id.chip_type_videos
 
     val searchSuggestion = MutableLiveData<Pair<String, Boolean>?>()
 

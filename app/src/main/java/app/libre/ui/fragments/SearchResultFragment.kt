@@ -51,7 +51,9 @@ class SearchResultFragment : DynamicLayoutManagerFragment(R.layout.fragment_sear
         mainActivity.clearSearchViewFocus()
 
         val timeStamp = args.query.toHttpUrlOrNull()?.queryParameter("t")?.toTimeInSeconds()
-        val searchResultsAdapter = SearchResultsAdapter(timeStamp ?: 0)
+        val searchResultsAdapter = SearchResultsAdapter(timeStamp ?: 0).apply {
+            stateRestorationPolicy = RecyclerView.Adapter.StateRestorationPolicy.PREVENT_WHEN_EMPTY
+        }
         binding.searchRecycler.adapter = searchResultsAdapter
 
         var isUpdatingChips = false
@@ -103,6 +105,9 @@ class SearchResultFragment : DynamicLayoutManagerFragment(R.layout.fragment_sear
             val sourceId = binding.sourceChipGroup.checkedChipId
             val typeId = binding.typeChipGroup.checkedChipId
 
+            viewModel.selectedSourceChipId = sourceId
+            viewModel.selectedTypeChipId = typeId
+
             val filterString = when (sourceId) {
                 R.id.chip_source_ytm -> {
                     when (typeId) {
@@ -134,7 +139,12 @@ class SearchResultFragment : DynamicLayoutManagerFragment(R.layout.fragment_sear
             viewModel.setFilter(filterString)
         }
 
+        // Restore saved chip state from ViewModel without triggering redundant filter reloads
+        isUpdatingChips = true
+        binding.sourceChipGroup.check(viewModel.selectedSourceChipId)
         updateTypeChipVisibility()
+        binding.typeChipGroup.check(viewModel.selectedTypeChipId)
+        isUpdatingChips = false
 
         binding.sourceChipGroup.setOnCheckedStateChangeListener { _, _ ->
             if (!isUpdatingChips) {
