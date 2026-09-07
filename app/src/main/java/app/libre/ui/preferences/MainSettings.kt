@@ -139,6 +139,9 @@ class MainSettings : BasePreferenceFragment() {
         findPreference<SwitchPreferenceCompat>("enable_auto_backup")?.setOnPreferenceChangeListener { _, newValue ->
             val enabled = newValue as? Boolean ?: true
             if (enabled) {
+                // Instantly create an initial backup right away
+                triggerBackup()
+                // Schedule periodic daily 2:00 AM maintenance
                 BackupHelper.enqueueAutoBackupWork(requireContext())
             }
             true
