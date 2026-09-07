@@ -50,6 +50,10 @@ class SearchResultFragment : DynamicLayoutManagerFragment(R.layout.fragment_sear
         mainActivity.setQuerySilent(args.query)
         mainActivity.clearSearchViewFocus()
 
+        setOnBackPressed {
+            mainActivity.exitSearch()
+        }
+
         val timeStamp = args.query.toHttpUrlOrNull()?.queryParameter("t")?.toTimeInSeconds()
         val searchResultsAdapter = SearchResultsAdapter(timeStamp ?: 0).apply {
             stateRestorationPolicy = RecyclerView.Adapter.StateRestorationPolicy.PREVENT_WHEN_EMPTY

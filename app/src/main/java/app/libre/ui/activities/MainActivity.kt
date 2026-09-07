@@ -79,6 +79,7 @@ class MainActivity : AbstractPlayerHostActivity() {
     private var destinationChangedListener: NavController.OnDestinationChangedListener? = null
     private var savedSearchQuery: String? = null
     private var shouldOpenSuggestions = true
+    private var isProgrammaticCollapse = false
     private var currentSearchType: SearchType = SearchType.ONLINE
     private val searchViewModel: SearchViewModel by viewModels()
     private val playlistViewModel: PlaylistViewModel by viewModels()
@@ -160,9 +161,11 @@ class MainActivity : AbstractPlayerHostActivity() {
             if (isPlayerExpanded()) return@setOnClickListener
             clearSearchViewFocus()
             if (this::searchItem.isInitialized && searchItem.isActionViewExpanded) {
+                isProgrammaticCollapse = true
                 shouldOpenSuggestions = false
                 searchItem.collapseActionView()
                 shouldOpenSuggestions = true
+                isProgrammaticCollapse = false
             }
             val currentDest = navController.currentDestination?.id
             if (currentDest == R.id.searchResultFragment || currentDest == R.id.searchFragment) {
@@ -358,9 +361,11 @@ class MainActivity : AbstractPlayerHostActivity() {
             } else {
                 searchItem.isVisible = currentSearchType == SearchType.PLAYLIST
                 if (searchItem.isActionViewExpanded) {
+                    isProgrammaticCollapse = true
                     shouldOpenSuggestions = false
                     searchItem.collapseActionView()
                     shouldOpenSuggestions = true
+                    isProgrammaticCollapse = false
                 }
             }
 
@@ -504,9 +509,11 @@ class MainActivity : AbstractPlayerHostActivity() {
                 }
 
                 item.isVisible = currentSearchType == SearchType.PLAYLIST
-                val currentDest = navController.currentDestination?.id
-                if (currentDest == R.id.searchFragment) {
-                    navController.popBackStack(R.id.searchFragment, true)
+                if (!isProgrammaticCollapse) {
+                    val currentDest = navController.currentDestination?.id
+                    if (currentDest == R.id.searchFragment || currentDest == R.id.searchResultFragment) {
+                        navController.popBackStack(R.id.searchFragment, true)
+                    }
                 }
                 val isLibraryScreen = navController.currentDestination?.id == R.id.libraryFragment
                 menu.findItem(R.id.action_settings)?.isVisible = isLibraryScreen
@@ -524,7 +531,9 @@ class MainActivity : AbstractPlayerHostActivity() {
         // Fix state restoration bug: forcefully collapse the action view if not in search
         android.os.Handler(android.os.Looper.getMainLooper()).post {
             if (!isSearchInProgress() && searchItem.isActionViewExpanded) {
+                isProgrammaticCollapse = true
                 searchItem.collapseActionView()
+                isProgrammaticCollapse = false
             }
         }
 
@@ -754,13 +763,7 @@ class MainActivity : AbstractPlayerHostActivity() {
                 // 5. If on search results or search suggestions -> exit search cleanly back to previous tab
                 val currentDestId = navController.currentDestination?.id
                 if (currentDestId == R.id.searchResultFragment || currentDestId == R.id.searchFragment) {
-                    clearSearchViewFocus()
-                    if (this@MainActivity::searchItem.isInitialized && searchItem.isActionViewExpanded) {
-                        shouldOpenSuggestions = false
-                        searchItem.collapseActionView()
-                        shouldOpenSuggestions = true
-                    }
-                    navController.popBackStack(R.id.searchFragment, true)
+                    exitSearch()
                     return
                 }
 
@@ -813,6 +816,21 @@ class MainActivity : AbstractPlayerHostActivity() {
         val imm = getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as? android.view.inputmethod.InputMethodManager
         imm?.hideSoftInputFromWindow(searchView.windowToken, 0)
         return true
+    }
+
+    /**
+     * Cleanly exit search, collapsing action view without triggering redundant popbacks
+     */
+    fun exitSearch() {
+        clearSearchViewFocus()
+        if (this::searchItem.isInitialized && searchItem.isActionViewExpanded) {
+            isProgrammaticCollapse = true
+            shouldOpenSuggestions = false
+            searchItem.collapseActionView()
+            shouldOpenSuggestions = true
+            isProgrammaticCollapse = false
+        }
+        navController.popBackStack(R.id.searchFragment, true)
     }
 
     override fun onDestroy() {
