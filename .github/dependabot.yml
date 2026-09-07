@@ -11,3 +11,6 @@ updates:
     directory: "/jiosaavn-piped-proxy"
     schedule:
       interval: "weekly"
+    ignore:
+      - dependency-name: "node-fetch"
+        update-types: ["version-update:semver-major"]
