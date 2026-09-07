@@ -5,7 +5,7 @@ import androidx.annotation.OptIn
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.upstream.DefaultBandwidthMeter
-import app.libre.LibreTubeApp
+import app.libre.LibreApp
 import app.libre.api.poToken.PoTokenGenerator
 import app.libre.player.manifest.Representation
 import app.libre.player.manifest.SabrManifest
@@ -266,7 +266,7 @@ class SabrClient private constructor(
     var lastActionMs: Long? = null
 
 
-    private val bandwidthEstimator = DefaultBandwidthMeter.getSingletonInstance(LibreTubeApp.instance)
+    private val bandwidthEstimator = DefaultBandwidthMeter.getSingletonInstance(LibreApp.instance)
 
     @OptIn(UnstableApi::class)
     fun selectFormat(representation: Representation) {

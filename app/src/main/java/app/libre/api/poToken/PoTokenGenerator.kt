@@ -5,7 +5,7 @@ import android.os.Looper
 import android.util.Log
 import android.webkit.CookieManager
 import app.libre.BuildConfig
-import app.libre.LibreTubeApp
+import app.libre.LibreApp
 import kotlinx.coroutines.runBlocking
 import org.schabi.newpipe.extractor.NewPipe
 import org.schabi.newpipe.extractor.services.youtube.InnertubeClientRequestInfo
@@ -65,7 +65,7 @@ class PoTokenGenerator : PoTokenProvider {
 
                         // create a new webPoTokenGenerator
                         webPoTokenGenerator = PoTokenWebView
-                            .newPoTokenGenerator(LibreTubeApp.instance)
+                            .newPoTokenGenerator(LibreApp.instance)
                     }
                 }
 

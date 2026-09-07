@@ -401,7 +401,7 @@
     <string name="alternative_pip_controls">Alternative PiP controls</string>
     <string name="alternative_pip_controls_summary">Show audio only and skip controls in PiP instead of forward and rewind</string>
     <string name="audio_only_mode">Audio only mode</string>
-    <string name="audio_only_mode_summary">Turn LibreTube into a music player</string>
+    <string name="audio_only_mode_summary">Turn Libre into a music player</string>
     <string name="auto_music_audio_mode">Auto audio for music videos</string>
     <string name="auto_music_audio_mode_summary">Automatically open music category videos (YouTube Music) in the audio player</string>
 
@@ -444,7 +444,7 @@
     <string name="sort_title_za">Title (Z to A)</string>
     <string name="sort_album_az">Album (A to Z)</string>
     <string name="sort_album_za">Album (Z to A)</string>
-    <string name="welcome">Welcome to LibreTube</string>
+    <string name="welcome">Welcome to Libre</string>
     <string name="choose_instance">Please choose an instance first!</string>
     <string name="choose_instance_long">Please choose a Piped instance to use from below. The Piped instance will act as the middleman between you and YouTube. These instances are located at different physical locations - indicated by their country flag(s). Instances physically closer to you are likely faster than instances that are not. You can change the instance you use in the settings at any time.</string>
     <string name="mark_as_unwatched">Mark as unwatched</string>
@@ -498,7 +498,7 @@
     <string name="export_subscriptions_to">Export subscriptions to</string>
     <string name="import_playlists_from">Import playlists from</string>
     <string name="export_playlists_to">Export playlists to</string>
-    <string name="import_format_piped" translatable="false">LibreTube (JSON)</string>
+    <string name="import_format_piped" translatable="false">Libre (JSON)</string>
     <string name="import_format_youtube_csv" translatable="false">YouTube (CSV)</string>
     <string name="import_format_list_of_urls">List of URLs or video IDs</string>
     <string name="show_search_suggestions">Show search suggestions</string>
@@ -544,7 +544,7 @@
     <string name="change">Change</string>
     <string name="gestures">Gestures</string>
     <string name="external_download_provider">External download provider</string>
-    <string name="external_download_provider_summary">Enter the package name of the app you want to use for downloading videos. Leave blank to use LibreTube\'s inbuilt downloader.</string>
+    <string name="external_download_provider_summary">Enter the package name of the app you want to use for downloading videos. Leave blank to use Libre\'s inbuilt downloader.</string>
     <string name="local_stream_extraction">Local stream extraction</string>
     <string name="local_stream_extraction_summary">Directly fetch video playback information from YouTube without using Piped.</string>
     <string name="local_ryd">Local Return Youtube Dislike extractor</string>

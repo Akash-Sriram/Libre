@@ -121,17 +121,21 @@ object BackupHelper {
 
     fun generateBackupFileName(): String {
         val timestamp = TextUtils.getFileSafeTimeStampNow()
-        return "libretube-backup-${timestamp}.json"
+        return "libre-backup-${timestamp}.json"
     }
 
-    fun isLibreTubeBackupFile(name: String?): Boolean {
+    fun isBackupFile(name: String?): Boolean {
         if (name == null) return false
         val lower = name.lowercase()
-        return lower.startsWith("libretube") && lower.contains("backup") && lower.endsWith(".json")
+        val isRecognizedPrefix = lower.startsWith("libre") || lower.startsWith("libretube")
+        return isRecognizedPrefix && lower.contains("backup") && lower.endsWith(".json")
     }
 
+    @Deprecated("Use isBackupFile instead", ReplaceWith("isBackupFile(name)"))
+    fun isLibreTubeBackupFile(name: String?): Boolean = isBackupFile(name)
+
     fun pruneBackupFolder(folder: DocumentFile, maxKeep: Int = 5) {
-        val files = folder.listFiles().filter { isLibreTubeBackupFile(it.name) }
+        val files = folder.listFiles().filter { isBackupFile(it.name) }
         if (files.size > maxKeep) {
             val sortedDesc = files.sortedWith(
                 compareByDescending<DocumentFile> { it.lastModified() }
@@ -186,7 +190,7 @@ object BackupHelper {
                 }
 
                 var backupFiles = autoBackupDir.listFiles { _, name ->
-                    isLibreTubeBackupFile(name)
+                    isBackupFile(name)
                 }?.toList() ?: emptyList()
                 if (backupFiles.none { it.absolutePath == file.absolutePath }) {
                     backupFiles = backupFiles + file

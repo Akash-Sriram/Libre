@@ -13,7 +13,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-class LibreTubeApp : Application(), androidx.work.Configuration.Provider {
+class LibreApp : Application(), androidx.work.Configuration.Provider {
 
     override val workManagerConfiguration: androidx.work.Configuration
         get() = androidx.work.Configuration.Builder()
@@ -129,7 +129,7 @@ class LibreTubeApp : Application(), androidx.work.Configuration.Provider {
     }
 
     companion object {
-        lateinit var instance: LibreTubeApp
+        lateinit var instance: LibreApp
 
         const val DOWNLOAD_CHANNEL_NAME = "download_service"
         const val PLAYLIST_DOWNLOAD_ENQUEUE_CHANNEL_NAME = "playlist_download_enqueue"
@@ -137,3 +137,9 @@ class LibreTubeApp : Application(), androidx.work.Configuration.Provider {
         const val PUSH_CHANNEL_NAME = "notification_worker"
     }
 }
+
+/**
+ * Backward compatibility typealias for legacy code references
+ */
+typealias LibreTubeApp = LibreApp
+

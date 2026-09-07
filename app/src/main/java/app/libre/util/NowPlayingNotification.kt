@@ -9,7 +9,7 @@ import androidx.media3.session.CommandButton
 import androidx.media3.session.DefaultMediaNotificationProvider
 import androidx.media3.session.MediaNotification
 import androidx.media3.session.MediaSession
-import app.libre.LibreTubeApp.Companion.PLAYER_CHANNEL_NAME
+import app.libre.LibreApp.Companion.PLAYER_CHANNEL_NAME
 import app.libre.R
 import app.libre.enums.NotificationId
 import app.libre.enums.PlayerEvent

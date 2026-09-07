@@ -3,9 +3,10 @@ package app.libre.db
 import androidx.room.Room
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
-import app.libre.LibreTubeApp
+import app.libre.LibreApp
 
 object DatabaseHolder {
+    // Retained intentionally for backward-compatibility to ensure existing device data and playlists persist seamlessly
     private const val DATABASE_NAME = "LibreTubeDatabase"
 
     private val MIGRATION_11_12 = object : Migration(11, 12) {
@@ -173,7 +174,7 @@ object DatabaseHolder {
     }
 
     val Database by lazy {
-        Room.databaseBuilder(LibreTubeApp.instance, AppDatabase::class.java, DATABASE_NAME)
+        Room.databaseBuilder(LibreApp.instance, AppDatabase::class.java, DATABASE_NAME)
             .addMigrations(
                 MIGRATION_11_12,
                 MIGRATION_12_13,

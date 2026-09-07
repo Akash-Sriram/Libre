@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.github.libretube.player;
+package app.libre.player;
 
 import static androidx.media3.common.util.Util.castNonNull;
 import static java.lang.Math.max;
@@ -23,7 +23,7 @@ import android.util.Pair;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.util.UnstableApi;
-import com.github.libretube.player.manifest.BaseUrl;
+import app.libre.player.manifest.BaseUrl;
 import com.google.common.collect.Iterables;
 import java.util.ArrayList;
 import java.util.Collections;

@@ -26,7 +26,7 @@ fun MediaItem.Builder.setMetadata(streams: Streams, videoId: String) = apply {
         putString(IntentData.streams, JsonHelper.json.encodeToString(clearedStreams))
         putString(IntentData.chapters, JsonHelper.json.encodeToString(streams.chapters))
     }
-    val localArtUri = app.libre.helpers.LocalAudioMatcher.getEmbeddedArtUri(app.libre.LibreTubeApp.instance, videoId)
+    val localArtUri = app.libre.helpers.LocalAudioMatcher.getEmbeddedArtUri(app.libre.LibreApp.instance, videoId)
     val artworkUri = localArtUri?.toUri() ?: streams.thumbnailUrl.toUri()
 
     setMediaMetadata(

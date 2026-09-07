@@ -33,7 +33,6 @@ import androidx.media3.exoplayer.text.TextOutput
 import androidx.media3.exoplayer.text.TextRenderer
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import androidx.media3.ui.CaptionStyleCompat
-import app.libre.LibreTubeApp
 import app.libre.R
 import app.libre.api.obj.ChapterSegment
 import app.libre.api.obj.Streams

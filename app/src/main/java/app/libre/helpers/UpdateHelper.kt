@@ -210,7 +210,7 @@ object UpdateHelper {
 
         val notificationId = 1001
         val notificationManager = androidx.core.app.NotificationManagerCompat.from(context)
-        val channelId = app.libre.LibreTubeApp.DOWNLOAD_CHANNEL_NAME
+        val channelId = app.libre.LibreApp.DOWNLOAD_CHANNEL_NAME
 
         val notificationBuilder = androidx.core.app.NotificationCompat.Builder(context, channelId)
             .setContentTitle("Downloading Update")

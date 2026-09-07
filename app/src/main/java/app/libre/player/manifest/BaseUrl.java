@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.github.libretube.player.manifest;
+package app.libre.player.manifest;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
