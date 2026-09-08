@@ -16,7 +16,7 @@ data class BackupFile(
     val version: Int = 1,
 
     //
-    // only compatible with LibreTube itself, database objects
+    // only compatible with Libre itself, database objects
     //
     var searchHistory: List<SearchHistoryItem>? = null,
     var playlistBookmarks: List<PlaylistBookmark>? = null,

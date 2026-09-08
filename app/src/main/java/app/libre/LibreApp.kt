@@ -137,9 +137,3 @@ class LibreApp : Application(), androidx.work.Configuration.Provider {
         const val PUSH_CHANNEL_NAME = "notification_worker"
     }
 }
-
-/**
- * Backward compatibility typealias for legacy code references
- */
-typealias LibreTubeApp = LibreApp
-

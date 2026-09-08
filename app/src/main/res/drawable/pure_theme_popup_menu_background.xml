@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
      Copy of the default Material 3 implementation, but it uses a different background color instead
-     in order to fix the background on LibreTube's "pure" app color themes.
+     in order to fix the background on Libre's "pure" app color themes.
 
      The default implementation uses ?colorSurface, which does not work for us because it is exactly
      the same color as the background and thus lacks contrast.

@@ -272,7 +272,7 @@
 
     // Colors without comments seem to be not used
     <color name="monochrome_theme_light_primary">#616161</color>
-    // LibreTube Logo, Hyperlinks and on-off switch (on status: filling) (also influence on the
+    // Libre Logo, Hyperlinks and on-off switch (on status: filling) (also influence on the
     navbar colour)
     <color name="monochrome_theme_light_onPrimary">#FFFFFF</color>
     // on-off switch (on status: circle)
@@ -311,7 +311,7 @@
     <color name="monochrome_theme_light_inverseSurface">#606060</color>
     <color name="monochrome_theme_light_inversePrimary">#C1C1C1</color>
     <color name="monochrome_theme_dark_primary">#959595</color>
-    // LibreTube Logo, Hyperlinks and on-off switch (on status: filling) (also influence on the
+    // Libre Logo, Hyperlinks and on-off switch (on status: filling) (also influence on the
     navbar colour)
     <color name="monochrome_theme_dark_onPrimary">#161616</color>
     // on-off switch (on status: circle)

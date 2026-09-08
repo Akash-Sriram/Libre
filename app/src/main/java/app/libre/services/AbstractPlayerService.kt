@@ -337,7 +337,7 @@ abstract class AbstractPlayerService : MediaLibraryService(), MediaLibrarySessio
         this.trackSelector = trackSelector
 
         val player = PlayerHelper.createPlayer(this, trackSelector)
-        // prevent android from putting LibreTube to sleep when locked
+        // prevent android from putting Libre to sleep when locked
         player.setWakeMode(if (isOfflinePlayer) C.WAKE_MODE_LOCAL else C.WAKE_MODE_NETWORK)
         player.addListener(playerListener)
         this.exoPlayer = player

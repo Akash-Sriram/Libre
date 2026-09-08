@@ -1,13 +1,38 @@
 package app.libre.db
 
+import android.content.Context
+import android.util.Log
 import androidx.room.Room
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import app.libre.LibreApp
+import java.io.File
 
 object DatabaseHolder {
-    // Retained intentionally for backward-compatibility to ensure existing device data and playlists persist seamlessly
-    private const val DATABASE_NAME = "LibreTubeDatabase"
+    private const val TAG = "DatabaseHolder"
+    private const val OLD_DATABASE_NAME = "LibreTubeDatabase"
+    private const val DATABASE_NAME = "LibreDatabase"
+
+    private fun migrateDatabaseFileIfNeeded(context: Context) {
+        val oldFile = context.getDatabasePath(OLD_DATABASE_NAME)
+        val newFile = context.getDatabasePath(DATABASE_NAME)
+        if (oldFile.exists() && !newFile.exists()) {
+            runCatching {
+                Log.i(TAG, "Migrating database file from $OLD_DATABASE_NAME to $DATABASE_NAME")
+                oldFile.copyTo(newFile)
+                val oldShm = File("${oldFile.path}-shm")
+                val oldWal = File("${oldFile.path}-wal")
+                if (oldShm.exists()) oldShm.copyTo(File("${newFile.path}-shm"), overwrite = true)
+                if (oldWal.exists()) oldWal.copyTo(File("${newFile.path}-wal"), overwrite = true)
+                oldFile.delete()
+                if (oldShm.exists()) oldShm.delete()
+                if (oldWal.exists()) oldWal.delete()
+                Log.i(TAG, "Database file migration completed successfully")
+            }.onFailure { e ->
+                Log.e(TAG, "Failed to migrate database file from $OLD_DATABASE_NAME to $DATABASE_NAME", e)
+            }
+        }
+    }
 
     private val MIGRATION_11_12 = object : Migration(11, 12) {
         override fun migrate(db: SupportSQLiteDatabase) {
@@ -174,6 +199,7 @@ object DatabaseHolder {
     }
 
     val Database by lazy {
+        migrateDatabaseFileIfNeeded(LibreApp.instance)
         Room.databaseBuilder(LibreApp.instance, AppDatabase::class.java, DATABASE_NAME)
             .addMigrations(
                 MIGRATION_11_12,
