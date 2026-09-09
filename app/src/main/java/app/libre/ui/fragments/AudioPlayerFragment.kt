@@ -764,15 +764,21 @@ class AudioPlayerFragment : BasePlayerFragment(R.layout.fragment_audio_player) {
                         cleanAlbum = lrcMap["album"]?.takeIf { it.isNotBlank() }
                     }
 
-                    // 2. If LRCLIB failed or returned nothing, query Apple Music TTML & KuGou fallback
+                    // 2. If LRCLIB failed or returned nothing, query Apple Music TTML, Binimum, KuGou & Subtitles
                     if (syncedLrc == null && plainText == null) {
                         val trackTitle = currentVideo.title.orEmpty()
                         val trackArtist = currentVideo.uploaderName.orEmpty()
+                        val streams: Streams? = playerController?.mediaMetadata?.extras?.getString(IntentData.streams)?.let {
+                            runCatching { JsonHelper.json.decodeFromString<Streams>(it) }.getOrNull()
+                        }
+                        val subtitleUrl = streams?.subtitles?.firstOrNull { !it.url.isNullOrBlank() }?.url
+
                         val fallbackMap = app.libre.lyrics.LyricsFallbackHelper.fetchFallbackLyrics(
                             title = trackTitle,
                             artist = trackArtist,
                             durationSeconds = durationSec,
-                            album = currentVideo.albumName
+                            album = currentVideo.albumName,
+                            subtitleUrl = subtitleUrl
                         )
                         if (fallbackMap != null) {
                             syncedLrc = fallbackMap["synced"]?.takeIf { it.isNotBlank() }

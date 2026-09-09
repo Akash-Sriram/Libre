@@ -92,6 +92,8 @@ open class OnlinePlayerService : AbstractPlayerService() {
         }
     }
 
+    private var isRecoveringFromError = false
+
     private val playerListener = object : Player.Listener {
         override fun onPlaybackStateChanged(playbackState: Int) {
             when (playbackState) {
@@ -106,9 +108,53 @@ open class OnlinePlayerService : AbstractPlayerService() {
                 Player.STATE_BUFFERING -> {}
                 Player.STATE_READY -> {
                     isTransitioning = false
+                    isRecoveringFromError = false
                     prefetchNextTrack()
                 }
             }
+        }
+
+        override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+            val errorMsg = error.localizedMessage.orEmpty()
+            Log.w("OnlinePlayerService", "Playback error encountered: $errorMsg (code=${error.errorCodeName})")
+
+            val isHttpError = error.errorCode == androidx.media3.common.PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS
+                    || errorMsg.contains("403")
+                    || errorMsg.contains("Response code: 403")
+                    || error.cause?.message?.contains("403") == true
+
+            if (isHttpError && !isRecoveringFromError && videoId.length == 11) {
+                isRecoveringFromError = true
+                Log.i("OnlinePlayerService", "HTTP 403 / IO error detected for $videoId. Attempting auto-recovery with StreamFallbackResolver...")
+
+                val currentPos = exoPlayer?.currentPosition ?: 0L
+                scope.launch {
+                    try {
+                        app.libre.player.StreamFallbackResolver.invalidateCache(videoId)
+                        val fallback = app.libre.player.StreamFallbackResolver.resolveStream(videoId)
+                        if (fallback != null) {
+                            streams = fallback
+                            withContext(Dispatchers.Main) {
+                                Log.i("OnlinePlayerService", "Re-applying stream source from fallback resolution at pos $currentPos ms")
+                                setStreamSource()
+                                exoPlayer?.seekTo(currentPos)
+                                exoPlayer?.prepare()
+                                exoPlayer?.play()
+                            }
+                            return@launch
+                        }
+                    } catch (e: Exception) {
+                        Log.e("OnlinePlayerService", "Error during fallback stream recovery: ${e.message}")
+                    }
+                    withContext(Dispatchers.Main) {
+                        isRecoveringFromError = false
+                        toastFromMainThread(errorMsg)
+                    }
+                }
+                return
+            }
+
+            super.onPlayerError(error)
         }
     }
 

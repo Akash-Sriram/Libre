@@ -289,10 +289,20 @@ class NewPipeMediaServiceRepository : MediaServiceRepository {
         if (videoId.length != 11) {
             return@withContext JioSaavnMediaServiceRepository().getStreams(videoId)
         }
-        val respAsync = async {
-            StreamInfo.getInfo("$YOUTUBE_FRONTEND_URL/watch?v=$videoId")
+        val resp = try {
+            val respAsync = async {
+                StreamInfo.getInfo("$YOUTUBE_FRONTEND_URL/watch?v=$videoId")
+            }
+            respAsync.await()
+        } catch (e: Exception) {
+            android.util.Log.w("NewPipeMediaServiceRepo", "NewPipe StreamInfo extraction failed for $videoId: ${e.message}. Attempting StreamFallbackResolver...")
+            val fallbackStreams = app.libre.player.StreamFallbackResolver.resolveStream(videoId)
+            if (fallbackStreams != null) {
+                android.util.Log.i("NewPipeMediaServiceRepo", "Successfully resolved streams via StreamFallbackResolver for $videoId")
+                return@withContext fallbackStreams
+            }
+            throw e
         }
-        val resp = respAsync.await()
         val dislikes = -1L
 
         Streams(
