@@ -6,6 +6,9 @@
     <string name="library">Library</string>
     <string name="yes">Yes</string>
     <string name="search_hint">Search</string>
+    <string name="identify_music">Identify Music</string>
+    <string name="identifying_music">Listening for music…</string>
+    <string name="play_local_file">Play Offline File</string>
     <string name="videos">Videos</string>
     <string name="subscribe">Subscribe</string>
     <string name="unsubscribe">Unsubscribe</string>
@@ -633,4 +636,18 @@
     <string name="crash_logs_summary">View, copy, and manage crash diagnostic logs</string>
     <string name="clear_crash_logs">Clear Crash Logs</string>
     <string name="no_crash_logs">No crash logs recorded</string>
+    <string name="recognition_notification_channel">Music Recognition</string>
+    <string name="recognition_notification_listening">Listening for music around or on this device…</string>
+    <string name="recognition_notification_processing">Analyzing audio fingerprint with Shazam…</string>
+    <string name="recognition_notification_no_match">No match found. Try again closer to audio.</string>
+    <string name="recognition_notification_failed">Music recognition failed.</string>
+    <string name="play_track">Play Track</string>
+    <string name="try_again">Try Again</string>
+    <string name="close">Close</string>
+    <string name="recognition_no_match">No match found</string>
+    <string name="recognition_error">Could not identify song</string>
+    <string name="recognition_listening">Listening…</string>
+    <string name="recognition_processing">Analyzing…</string>
+    <string name="recognition_track_identified">Track Identified!</string>
+    <string name="grant_overlay_permission">Enable \'Display over other apps\'</string>
 </resources>

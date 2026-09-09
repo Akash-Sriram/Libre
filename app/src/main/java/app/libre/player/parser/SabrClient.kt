@@ -17,12 +17,15 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import misc.Common.FormatId
 import okhttp3.MediaType.Companion.toMediaType
+import app.libre.helpers.DisplayHelper
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import video_streaming.BufferedRangeOuterClass.BufferedRange
 import video_streaming.ClientAbrStateOuterClass.ClientAbrState
 import video_streaming.FormatInitializationMetadataOuterClass.FormatInitializationMetadata
+import video_streaming.MediaCapabilitiesOuterClass.MediaCapabilities
+import video_streaming.MediaCapabilitiesOuterClass.MediaCapabilities.VideoFormatCapability
 import video_streaming.MediaHeaderOuterClass.MediaHeader
 import video_streaming.NextRequestPolicyOuterClass.NextRequestPolicy
 import video_streaming.PlaybackCookieOuterClass.PlaybackCookie
@@ -361,6 +364,21 @@ class SabrClient private constructor(
         val clientState = ClientAbrState.newBuilder()
             // we pretend we're slightly in the previous (n-1) segment, so we get n-th segment, instead of the (n+1)-th one
             .setPlayerTimeMs(playbackRequest.segmentStartTimeMs.minus(500).coerceAtLeast(0))
+            // only set for mobile clients
+            .setMediaCapabilities(
+                MediaCapabilities.newBuilder()
+                    .setHdrModeBitmask(if (DisplayHelper.supportsHdr(LibreApp.instance)) 3 else 0)
+                    .addAllVideoFormatCapabilities(
+                        VideoFormatCapability.VideoCodec.entries.map {
+                            VideoFormatCapability.newBuilder()
+                                .setVideoCodec(it.ordinal)
+                                .setIs10BitSupported(true)
+                                .setEfficient(true)
+                                .build()
+                        }
+                    )
+                    .build()
+            )
             .setEnabledTrackTypesBitfield(if (videoFormat == null) 1 else 0)
             .setPlaybackRate(playbackRequest.playbackSpeed)
             .setElapsedWallTimeMs(lastRequestMs?.let { now -  it } ?: 0 )

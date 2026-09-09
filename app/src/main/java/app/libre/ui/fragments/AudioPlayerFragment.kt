@@ -444,7 +444,7 @@ class AudioPlayerFragment : BasePlayerFragment(R.layout.fragment_audio_player) {
         val localArtUri = if (currentId != null) app.libre.helpers.LocalAudioMatcher.getEmbeddedArtUri(requireContext(), currentId)?.toUri() else null
         val isAlbumPlaylist = currentQueueItem?.albumName?.isNotBlank() == true && (currentQueueItem.albumId?.startsWith("OLAK") == true || currentQueueItem.albumId?.startsWith("MPRE") == true || currentQueueItem.albumId?.startsWith("jsa_album_") == true)
         val preferredArtwork = localArtUri 
-            ?: (if (isAlbumPlaylist) currentQueueItem?.thumbnail?.takeIf { it.isNotBlank() }?.toUri() else null)
+            ?: (if (isAlbumPlaylist) currentQueueItem.thumbnail?.takeIf { it.isNotBlank() }?.toUri() else null)
             ?: metadata.artworkUri
             ?: currentQueueItem?.thumbnail?.takeIf { it.isNotBlank() }?.toUri()
         preferredArtwork?.let { updateThumbnailAsync(it) }
@@ -764,7 +764,23 @@ class AudioPlayerFragment : BasePlayerFragment(R.layout.fragment_audio_player) {
                         cleanAlbum = lrcMap["album"]?.takeIf { it.isNotBlank() }
                     }
 
-                    // 2. If LRCLIB failed or returned nothing, check by provider
+                    // 2. If LRCLIB failed or returned nothing, query Apple Music TTML & KuGou fallback
+                    if (syncedLrc == null && plainText == null) {
+                        val trackTitle = currentVideo.title.orEmpty()
+                        val trackArtist = currentVideo.uploaderName.orEmpty()
+                        val fallbackMap = app.libre.lyrics.LyricsFallbackHelper.fetchFallbackLyrics(
+                            title = trackTitle,
+                            artist = trackArtist,
+                            durationSeconds = durationSec,
+                            album = currentVideo.albumName
+                        )
+                        if (fallbackMap != null) {
+                            syncedLrc = fallbackMap["synced"]?.takeIf { it.isNotBlank() }
+                            plainText = fallbackMap["plain"]?.takeIf { it.isNotBlank() }
+                        }
+                    }
+
+                    // 3. If still no lyrics, check provider plain text (YouTube/JioSaavn)
                     if (syncedLrc == null && plainText == null) {
                         if (JioSaavnHelper.isJioSaavn(videoId, isOffline)) {
                             plainText = YtMusicApi.fetchJioSaavnLyrics(videoId.removePrefix("jsa_"))

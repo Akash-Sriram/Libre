@@ -933,6 +933,22 @@ object YtMusicApi {
                             ?.optJSONArray("thumbnails")
                         val bestThumb = thumbs?.optJSONObject(thumbs.length() - 1)?.optString("url").orEmpty()
 
+                        // Extract musicVideoType to prioritize official studio masters over videos
+                        val musicVideoType = playWatch?.optJSONObject("watchEndpointMusicSupportedConfigs")
+                            ?.optJSONObject("watchEndpointMusicConfig")
+                            ?.optString("musicVideoType")
+                            ?: col0Watch?.optJSONObject("watchEndpointMusicSupportedConfigs")
+                            ?.optJSONObject("watchEndpointMusicConfig")
+                            ?.optString("musicVideoType")
+                            ?: navWatch?.optJSONObject("watchEndpointMusicSupportedConfigs")
+                            ?.optJSONObject("watchEndpointMusicConfig")
+                            ?.optString("musicVideoType")
+
+                        // In "music_songs" search, discard messy music videos/skits (OMV/UGC) if not ATV studio master
+                        if (filter == "music_songs" && musicVideoType != null && musicVideoType != "MUSIC_VIDEO_TYPE_ATV") {
+                            continue
+                        }
+
                         val isExplicitPlaylistOrAlbum = filter == "music_albums" || filter == "music_playlists"
                         val isPlaylistOrAlbum = isExplicitPlaylistOrAlbum || 
                             (videoId.isNullOrBlank() && !playlistId.isNullOrBlank()) ||

@@ -7,16 +7,17 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.BaseDataSource
 import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DataSpec
+import android.util.Log
+import app.libre.player.parser.CompositeBuffer
 import app.libre.player.parser.PlaybackRequest
 import app.libre.player.parser.SabrClient
 import java.io.IOException
-import java.nio.ByteBuffer
 
 @UnstableApi
 class SabrDataSource(
     private val sabrClient: SabrClient,
 ) : BaseDataSource(true) {
-    private var data: ByteBuffer? = null
+    private var data: CompositeBuffer? = null
 
     class Factory(
         private val sabrClient: SabrClient
@@ -29,9 +30,17 @@ class SabrDataSource(
 
         transferInitializing(dataSpec)
         transferStarted(dataSpec)
-        val segment = runCatching { sabrClient.getNextSegment(playbackRequest!!) }
-            .getOrNull() ?: throw IOException()
-        data = ByteBuffer.wrap(segment.data())
+        val segment = try {
+            sabrClient.getNextSegment(playbackRequest!!)!!
+        } catch (e: Exception) {
+            Log.e(
+                SabrClient::class.java.name,
+                "open: failed to get segment ${playbackRequest!!.segment} for ${playbackRequest.format.itag}: $e"
+            )
+            throw IOException()
+        }
+
+        data = CompositeBuffer(segment.data)
         return data!!.remaining().toLong()
     }
 
@@ -63,7 +72,7 @@ class SabrDataSource(
         }
 
         val bytesToRead = minOf(length, data!!.remaining())
-        data = data!!.get(buffer, offset, bytesToRead)
+        data!!.read(buffer, offset, bytesToRead)
 
         // this is not the actual amount of bytes transferred, since the SABR stream has some overhead,
         // e.g. for format metadata

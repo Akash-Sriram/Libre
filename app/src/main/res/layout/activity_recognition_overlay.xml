@@ -1,0 +1,213 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Floating recognition overlay — mirrors the in-app TrackRecognitionBottomSheet style exactly.
+    Transparent window background; card sits at bottom with zero elevation (no shadow artifacts).
+-->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/overlay_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@android:color/transparent">
+
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/overlay_card"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        app:cardCornerRadius="28dp"
+        app:cardElevation="0dp"
+        app:cardBackgroundColor="?attr/colorSurface"
+        app:strokeWidth="0dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="24dp">
+
+            <!-- Drag handle -->
+            <View
+                android:layout_width="32dp"
+                android:layout_height="4dp"
+                android:layout_gravity="center_horizontal"
+                android:layout_marginBottom="16dp"
+                android:background="@drawable/recognition_drag_handle"
+                android:importantForAccessibility="no" />
+
+            <!-- Header: title + close -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:layout_marginBottom="8dp">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/identify_music"
+                    android:textAppearance="?attr/textAppearanceHeadlineSmall"
+                    android:textStyle="bold" />
+
+                <ImageButton
+                    android:id="@+id/btn_close_overlay"
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:src="@drawable/ic_close"
+                    android:contentDescription="@string/close"
+                    app:tint="?attr/colorOnSurfaceVariant" />
+            </LinearLayout>
+
+            <!-- Mic / album art + progress ring (matches in-app sheet exactly) -->
+            <FrameLayout
+                android:layout_width="100dp"
+                android:layout_height="100dp"
+                android:layout_gravity="center_horizontal"
+                android:layout_marginTop="16dp"
+                android:layout_marginBottom="16dp">
+
+                <!-- Outer ripple ring -->
+                <View
+                    android:id="@+id/ripple_ring_outer"
+                    android:layout_width="100dp"
+                    android:layout_height="100dp"
+                    android:layout_gravity="center"
+                    android:alpha="0"
+                    android:background="@drawable/recognition_ripple_circle"
+                    tools:alpha="0.3" />
+
+                <!-- Inner ripple ring -->
+                <View
+                    android:id="@+id/ripple_ring_inner"
+                    android:layout_width="100dp"
+                    android:layout_height="100dp"
+                    android:layout_gravity="center"
+                    android:alpha="0"
+                    android:background="@drawable/recognition_ripple_circle"
+                    tools:alpha="0.5" />
+
+                <!-- Circular progress — same as in-app sheet -->
+                <com.google.android.material.progressindicator.CircularProgressIndicator
+                    android:id="@+id/recognition_progress"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:layout_gravity="center"
+                    android:indeterminate="true"
+                    app:indicatorSize="96dp"
+                    app:trackThickness="4dp" />
+
+                <!-- Mic icon / album art — same as in-app sheet -->
+                <ImageView
+                    android:id="@+id/recognition_cover"
+                    android:layout_width="84dp"
+                    android:layout_height="84dp"
+                    android:layout_gravity="center"
+                    android:scaleType="centerCrop"
+                    android:src="@drawable/ic_mic"
+                    android:importantForAccessibility="no"
+                    app:shapeAppearanceOverlay="?attr/shapeAppearanceCornerMedium" />
+
+            </FrameLayout>
+
+            <!-- Status text -->
+            <TextView
+                android:id="@+id/recognition_status_text"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:text="@string/identifying_music"
+                android:textAppearance="?attr/textAppearanceBodyLarge" />
+
+            <!-- Song title -->
+            <TextView
+                android:id="@+id/recognition_title"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:gravity="center"
+                android:textAppearance="?attr/textAppearanceTitleMedium"
+                android:textStyle="bold"
+                android:visibility="gone"
+                tools:text="Blinding Lights"
+                tools:visibility="visible" />
+
+            <!-- Artist • Album -->
+            <TextView
+                android:id="@+id/recognition_artist"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:gravity="center"
+                android:textAppearance="?attr/textAppearanceBodyMedium"
+                android:textColor="?attr/colorOnSurfaceVariant"
+                android:visibility="gone"
+                tools:text="The Weeknd • After Hours"
+                tools:visibility="visible" />
+
+            <!-- Action buttons -->
+            <LinearLayout
+                android:id="@+id/recognition_actions_layout"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:orientation="vertical"
+                android:visibility="gone"
+                tools:visibility="visible">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_play_local"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/play_local_file"
+                    android:visibility="gone"
+                    app:icon="@drawable/ic_play"
+                    tools:visibility="visible" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_play_stream"
+                    style="@style/Widget.Material3.Button.TonalButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="@string/play_track"
+                    app:icon="@drawable/ic_play" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_search_track"
+                    style="@style/Widget.Material3.Button.TextButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="@string/search_hint"
+                    app:icon="@drawable/ic_search" />
+
+            </LinearLayout>
+
+            <!-- Retry -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_try_again"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="@string/try_again"
+                android:visibility="gone" />
+
+            <!-- Hidden compat -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_grant_overlay"
+                style="@style/Widget.Material3.Button.TonalButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="@string/grant_overlay_permission"
+                android:visibility="gone" />
+
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+
+</FrameLayout>

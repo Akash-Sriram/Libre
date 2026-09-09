@@ -117,6 +117,36 @@ class MainActivity : AbstractPlayerHostActivity() {
         }
     }
 
+    private val requestRecordAudio = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            openTrackRecognitionSheet()
+        } else {
+            com.google.android.material.snackbar.Snackbar.make(
+                binding.root,
+                "Microphone permission is required to identify music",
+                com.google.android.material.snackbar.Snackbar.LENGTH_LONG
+            ).show()
+        }
+    }
+
+    fun openTrackRecognitionSheet(
+        title: String? = null,
+        artist: String? = null,
+        cover: String? = null,
+        album: String? = null,
+        localPath: String? = null
+    ) {
+        app.libre.ui.sheets.TrackRecognitionBottomSheet.newInstance(
+            title = title,
+            artist = artist,
+            cover = cover,
+            album = album,
+            localPath = localPath
+        ).show(supportFragmentManager, app.libre.ui.sheets.TrackRecognitionBottomSheet.TAG)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         super.onCreate(savedInstanceState)
@@ -210,6 +240,9 @@ class MainActivity : AbstractPlayerHostActivity() {
                 missingPermissions.add(android.Manifest.permission.READ_EXTERNAL_STORAGE)
             }
         }
+        if (androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.RECORD_AUDIO) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            missingPermissions.add(android.Manifest.permission.RECORD_AUDIO)
+        }
 
         if (missingPermissions.isNotEmpty()) {
             requestInitialPermissions.launch(missingPermissions.toTypedArray())
@@ -270,7 +303,21 @@ class MainActivity : AbstractPlayerHostActivity() {
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        return super.onOptionsItemSelected(item)
+        return when (item.itemId) {
+            R.id.action_recognize_music -> {
+                if (androidx.core.content.ContextCompat.checkSelfPermission(
+                        this,
+                        android.Manifest.permission.RECORD_AUDIO
+                    ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                ) {
+                    openTrackRecognitionSheet()
+                } else {
+                    requestRecordAudio.launch(android.Manifest.permission.RECORD_AUDIO)
+                }
+                true
+            }
+            else -> super.onOptionsItemSelected(item)
+        }
     }
 
     fun transitionToolbarColor(toColor: Int, durationMs: Long = 250L) {
@@ -392,6 +439,7 @@ class MainActivity : AbstractPlayerHostActivity() {
             }
 
             menu.findItem(R.id.action_settings)?.isVisible = isLibraryScreen
+            menu.findItem(R.id.action_recognize_music)?.isVisible = isLibraryScreen
         }
         destinationChangedListener = listener
         navController.addOnDestinationChangedListener(listener)
@@ -470,6 +518,7 @@ class MainActivity : AbstractPlayerHostActivity() {
                 )
                 searchView.isIconified = false
                 menu.findItem(R.id.action_settings)?.isVisible = false
+                menu.findItem(R.id.action_recognize_music)?.isVisible = false
                 if (navController.currentDestination?.id != R.id.searchResultFragment) {
                     searchView.post {
                         searchView.requestFocus()
@@ -516,6 +565,7 @@ class MainActivity : AbstractPlayerHostActivity() {
                 }
                 val isLibraryScreen = navController.currentDestination?.id == R.id.libraryFragment
                 menu.findItem(R.id.action_settings)?.isVisible = isLibraryScreen
+                menu.findItem(R.id.action_recognize_music)?.isVisible = isLibraryScreen
                 return true
             }
         })
@@ -590,6 +640,63 @@ class MainActivity : AbstractPlayerHostActivity() {
         }
 
 
+
+        if (intent?.getBooleanExtra(EXTRA_AUTOPLAY_RECOGNITION, false) == true) {
+            val recTitle = intent?.getStringExtra(app.libre.recognition.RecognitionForegroundService.EXTRA_RECOGNITION_RESULT_TITLE)
+            val recArtist = intent?.getStringExtra(app.libre.recognition.RecognitionForegroundService.EXTRA_RECOGNITION_RESULT_ARTIST)
+            val recLocalPath = intent?.getStringExtra(app.libre.recognition.RecognitionForegroundService.EXTRA_RECOGNITION_RESULT_LOCAL_PATH)
+
+            intent?.removeExtra(EXTRA_AUTOPLAY_RECOGNITION)
+
+            if (!recLocalPath.isNullOrBlank()) {
+                app.libre.helpers.NavigationHelper.navigateVideo(
+                    context = this,
+                    playerData = app.libre.parcelable.PlayerData(
+                        videoId = recLocalPath,
+                        isOffline = true
+                    ),
+                    audioOnlyPlayerRequested = true
+                )
+            } else if (!recTitle.isNullOrBlank() && !recArtist.isNullOrBlank()) {
+                lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                    val master = app.libre.api.YtMusicApi.resolveStudioMaster(recTitle, recArtist)
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                        if (master != null) {
+                            app.libre.helpers.NavigationHelper.navigateVideo(
+                                context = this@MainActivity,
+                                playerData = app.libre.parcelable.PlayerData(
+                                    videoId = master.url.orEmpty(),
+                                    isOffline = false,
+                                    source = "ytm"
+                                ),
+                                audioOnlyPlayerRequested = true
+                            )
+                        } else {
+                            setQuery("$recTitle $recArtist", true)
+                        }
+                    }
+                }
+            }
+            return
+        }
+
+        if (intent?.getBooleanExtra(EXTRA_TRIGGER_RECOGNITION, false) == true) {
+            val recTitle = intent?.getStringExtra(app.libre.recognition.RecognitionForegroundService.EXTRA_RECOGNITION_RESULT_TITLE)
+            val recArtist = intent?.getStringExtra(app.libre.recognition.RecognitionForegroundService.EXTRA_RECOGNITION_RESULT_ARTIST)
+            val recCover = intent?.getStringExtra(app.libre.recognition.RecognitionForegroundService.EXTRA_RECOGNITION_RESULT_COVER)
+            val recAlbum = intent?.getStringExtra(app.libre.recognition.RecognitionForegroundService.EXTRA_RECOGNITION_RESULT_ALBUM)
+            val recLocalPath = intent?.getStringExtra(app.libre.recognition.RecognitionForegroundService.EXTRA_RECOGNITION_RESULT_LOCAL_PATH)
+
+            intent?.removeExtra(EXTRA_TRIGGER_RECOGNITION)
+            openTrackRecognitionSheet(
+                title = recTitle,
+                artist = recArtist,
+                cover = recCover,
+                album = recAlbum,
+                localPath = recLocalPath
+            )
+            return
+        }
 
         // Handle navigation from app shortcuts
         intent?.getStringExtra(IntentData.fragmentToOpen)?.let {
@@ -835,5 +942,10 @@ class MainActivity : AbstractPlayerHostActivity() {
     override fun onDestroy() {
         super.onDestroy()
         app.libre.helpers.WifiSyncHelper.stop()
+    }
+
+    companion object {
+        const val EXTRA_TRIGGER_RECOGNITION = "trigger_recognition"
+        const val EXTRA_AUTOPLAY_RECOGNITION = "autoplay_recognition"
     }
 }
