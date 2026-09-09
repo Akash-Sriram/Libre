@@ -1,23 +1,27 @@
 # Libre
 
-A lean, privacy-focused media player designed for a pure, high-performance, music-first experience.
+A music-first, privacy-conscious Android media player combining online streaming, offline playback, and ambient song identification into a fast, minimal experience.
 
-> **Note:** Libre is a hard fork of LibreTube, heavily modified and customized as desired to provide a fast, music-first media player powered natively by **LibreTube's fork of NewPipeExtractor** and dual-source streaming.
+Built as a dedicated music fork of [LibreTube](https://github.com/libre-tube/LibreTube), powered by its extraction engine, and licensed under [GPL-3.0](LICENSE).
 
-## Core Features
+---
 
-- **Dual-Source Streaming:** Stream seamlessly from YouTube (via LibreTube's NewPipeExtractor fork) and JioSaavn.
-- **Offline Media Integration:** Choose a custom local folder to seamlessly index and play your offline music library right alongside your online streams.
-- **Music-First UX:** "Music" category videos auto-route to the background audio player. Search tabs strictly prioritize albums and songs.
-- **Interactive Synced Lyrics:** Premium-scrolled synced lyrics overlay that smoothly flips directly from the thumbnail view, featuring slowed-down gliding animations and fluid ArgbEvaluator alpha/color cross-fades.
-- **Smart Caching Engine:** Features a native ExoPlayer `SimpleCache` integration that auto-caches up to 512MB of played audio segments locally for zero data usage and instant loading on replays.
-- **Two-Tier Lyrics Cache:** Memory (LruCache) and disk JSON caching for fetched lyrics to prevent network pool starvation with audio streaming threads.
-- **Silent Launch Auto-Updater:** Silently checks for updates on launch and displays a native Material Dialog only when an update is available.
-- **Robust Data Management:** 
-  - **Auto-Backups:** Automated, daily background backups with strict auto-pruning to guarantee storage limits (toggleable in Settings).
-  - **Metadata Sanitizer:** Scans local playlists on startup to clean up "off" YouTube metadata (stripping titles, correcting artist lists, and resolving missing album names) directly in the Room SQLite database.
-- **Ergonomic Mini-Player:** A tactile, floating mini-player designed for seamless audio/video transitions.
+## Highlights
 
-## License
+- **Ambient Music Recognition**  
+  Identify songs playing around you or inside other apps (Instagram Reels, YouTube, browser) using a native Shazam fingerprinting engine. Operates as a non-intrusive system overlay via Quick Settings without interrupting active playback.
 
-Libre is Free Software under the GNU General Public License version 3.
+- **Dual-Source Streaming**  
+  Stream music and audio directly from YouTube (powered by LibreTube's extraction core) and JioSaavn with high-bitrate audio selection and studio-master resolution.
+
+- **Offline Library Integration**  
+  Map your local music folder to browse, search, and queue local audio files alongside online streams, complete with embedded artwork extraction.
+
+- **Multi-Source Synced Lyrics**  
+  Real-time timestamped lyrics with smooth auto-scroll and line highlights, drawing from LRCLIB, Apple Music TTML, and KuGou.
+
+- **Smart Audio Engine**  
+  High-performance ExoPlayer streaming with persistent 512 MB LRU audio caching for instant replays and zero repeated bandwidth usage.
+
+- **Material 3 Design**  
+  Clean, adaptive interface that follows system themes (Day/Night & dynamic colors) with a fluid floating mini-player and gestural controls.

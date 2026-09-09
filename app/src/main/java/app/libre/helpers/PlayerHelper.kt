@@ -214,24 +214,8 @@ object PlayerHelper {
         )
         return listOf(rewindAction, playPauseAction, forwardAction)
     }
-    @OptIn(UnstableApi::class)
     private fun createRendererFactory(context: Context): DefaultRenderersFactory {
-        return object : DefaultRenderersFactory(context) {
-            @Suppress("DEPRECATION")
-            override fun buildAudioSink(
-                context: Context,
-                enableFloatOutput: Boolean,
-                enableAudioTrackPlaybackParams: Boolean
-            ): androidx.media3.exoplayer.audio.AudioSink {
-                val normalizationProcessor = app.libre.audio.VolumeNormalizationAudioProcessor()
-                val silenceDetector = app.libre.audio.SilenceDetectorAudioProcessor()
-                return androidx.media3.exoplayer.audio.DefaultAudioSink.Builder(context)
-                    .setEnableFloatOutput(enableFloatOutput)
-                    .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
-                    .setAudioProcessors(arrayOf(normalizationProcessor, silenceDetector))
-                    .build()
-            }
-        }
+        return DefaultRenderersFactory(context)
     }
     private var simpleCache: androidx.media3.datasource.cache.SimpleCache? = null
 
