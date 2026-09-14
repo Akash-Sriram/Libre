@@ -16,6 +16,7 @@ import app.libre.ui.activities.MainActivity
 import app.libre.helpers.NavigationHelper
 import app.libre.parcelable.PlayerData
 import coil3.load
+import coil3.request.allowHardware
 import coil3.request.crossfade
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import kotlinx.coroutines.Dispatchers
@@ -117,6 +118,7 @@ class TrackRecognitionBottomSheet : BottomSheetDialogFragment() {
                 val art = track.coverArtHqUrl ?: track.coverArtUrl
                 if (!art.isNullOrBlank()) {
                     binding.recognitionCover.load(art) {
+                        allowHardware(false)
                         crossfade(true)
                     }
                 }

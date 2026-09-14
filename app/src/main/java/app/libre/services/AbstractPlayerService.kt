@@ -436,6 +436,21 @@ abstract class AbstractPlayerService : MediaLibraryService(), MediaLibrarySessio
         }
     }
 
+    override fun startForegroundService(service: Intent): android.content.ComponentName? {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+            try {
+                return super.startForegroundService(service)
+            } catch (e: android.app.ForegroundServiceStartNotAllowedException) {
+                Log.e(TAG(), "startForegroundService exception ignored", e)
+                return null
+            } catch (e: SecurityException) {
+                Log.e(TAG(), "SecurityException in startForegroundService ignored", e)
+                return null
+            }
+        }
+        return super.startForegroundService(service)
+    }
+
     /**
      * Stop the service when app is removed from the task manager.
      */

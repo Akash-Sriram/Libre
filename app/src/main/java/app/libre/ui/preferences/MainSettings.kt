@@ -182,26 +182,31 @@ class MainSettings : BasePreferenceFragment() {
                     .show()
             } else {
                 val combinedText = reports.joinToString("\n\n---\n\n") { it.toFormattedMarkdown() }
-                com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
+                val dialogView = android.view.LayoutInflater.from(requireContext()).inflate(R.layout.dialog_crash_logs, null)
+                val dialog = com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
                     .setTitle("${getString(R.string.crash_logs)} (${reports.size})")
-                    .setMessage(reports.first().toFormattedMarkdown())
-                    .setNeutralButton(R.string.clear_crash_logs) { _, _ ->
-                        app.libre.crash.CrashManager.clearAllReports()
-                        updateCrashLogsSummary()
-                        android.widget.Toast.makeText(requireContext(), "Crash logs cleared", android.widget.Toast.LENGTH_SHORT).show()
-                    }
-                    .setNegativeButton(R.string.share) { _, _ ->
-                        val sendIntent = Intent().apply {
-                            action = Intent.ACTION_SEND
-                            putExtra(Intent.EXTRA_TEXT, combinedText)
-                            type = "text/plain"
-                        }
-                        startActivity(Intent.createChooser(sendIntent, getString(R.string.share)))
-                    }
-                    .setPositiveButton(R.string.copy) { _, _ ->
-                        app.libre.helpers.ClipboardHelper.save(requireContext(), text = combinedText, notify = true)
-                    }
+                    .setView(dialogView)
                     .show()
+
+                dialogView.findViewById<android.widget.TextView>(R.id.crash_text).text = combinedText
+                
+                dialogView.findViewById<android.widget.Button>(R.id.btn_copy).setOnClickListener {
+                    app.libre.helpers.ClipboardHelper.save(requireContext(), text = combinedText, notify = true)
+                }
+                dialogView.findViewById<android.widget.Button>(R.id.btn_share).setOnClickListener {
+                    val sendIntent = Intent().apply {
+                        action = Intent.ACTION_SEND
+                        putExtra(Intent.EXTRA_TEXT, combinedText)
+                        type = "text/plain"
+                    }
+                    startActivity(Intent.createChooser(sendIntent, getString(R.string.share)))
+                }
+                dialogView.findViewById<android.widget.Button>(R.id.btn_clear).setOnClickListener {
+                    app.libre.crash.CrashManager.clearAllReports()
+                    updateCrashLogsSummary()
+                    android.widget.Toast.makeText(requireContext(), "Crash logs cleared", android.widget.Toast.LENGTH_SHORT).show()
+                    dialog.dismiss()
+                }
             }
             true
         }

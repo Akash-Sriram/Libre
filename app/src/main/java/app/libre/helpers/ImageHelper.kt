@@ -15,6 +15,7 @@ import coil3.load
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import coil3.request.CachePolicy
 import coil3.request.ImageRequest
+import coil3.request.allowHardware
 import coil3.request.crossfade
 import coil3.toBitmap
 import app.libre.BuildConfig
@@ -60,6 +61,7 @@ object ImageHelper {
                     .strongReferencesEnabled(true)
                     .build()
             }
+            .allowHardware(false)
             .apply {
                 diskCachePolicy(CachePolicy.ENABLED)
                 memoryCachePolicy(CachePolicy.ENABLED)
@@ -71,6 +73,8 @@ object ImageHelper {
                 diskCache(diskCache)
             }
             .build()
+
+        coil3.SingletonImageLoader.setSafe { imageLoader }
 
         warmUpCache()
     }
@@ -111,6 +115,7 @@ object ImageHelper {
         target.setImageDrawable(null)
 
         target.load(url) {
+            allowHardware(false)
             listener(
                 onSuccess = { _, _ ->
                     // set the background to white for transparent images
@@ -136,6 +141,7 @@ object ImageHelper {
     suspend fun getImage(context: Context, url: Uri?): Bitmap? {
         val request = ImageRequest.Builder(context)
             .data(url)
+            .allowHardware(false)
             .build()
 
         return imageLoader.execute(request).image?.toBitmap()

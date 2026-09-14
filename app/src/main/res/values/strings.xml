@@ -634,7 +634,7 @@
     <string name="stack_trace">Stack Trace</string>
     <string name="crash_logs">Crash Logs &amp; Diagnostics</string>
     <string name="crash_logs_summary">View, copy, and manage crash diagnostic logs</string>
-    <string name="clear_crash_logs">Clear Crash Logs</string>
+    <string name="clear_crash_logs">Clear</string>
     <string name="no_crash_logs">No crash logs recorded</string>
     <string name="recognition_notification_channel">Music Recognition</string>
     <string name="recognition_notification_listening">Listening for music around or on this device…</string>
