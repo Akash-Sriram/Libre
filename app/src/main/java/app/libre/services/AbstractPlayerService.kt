@@ -284,6 +284,24 @@ abstract class AbstractPlayerService : MediaLibraryService(), MediaLibrarySessio
     var startTimestampSeconds: Long? = null
 
 
+    override fun attachBaseContext(newBase: android.content.Context?) {
+        super.attachBaseContext(object : android.content.ContextWrapper(newBase) {
+            override fun startForegroundService(service: android.content.Intent): android.content.ComponentName? {
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                    try {
+                        return super.startForegroundService(service)
+                    } catch (e: android.app.ForegroundServiceStartNotAllowedException) {
+                        return null
+                    } catch (e: SecurityException) {
+                        return null
+                    }
+                }
+                return super.startForegroundService(service)
+            }
+        })
+    }
+
+
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaLibrarySession? =
         mediaLibrarySession
@@ -434,21 +452,6 @@ abstract class AbstractPlayerService : MediaLibraryService(), MediaLibrarySessio
 
             super.onDestroy()
         }
-    }
-
-    override fun startForegroundService(service: Intent): android.content.ComponentName? {
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
-            try {
-                return super.startForegroundService(service)
-            } catch (e: android.app.ForegroundServiceStartNotAllowedException) {
-                Log.e(TAG(), "startForegroundService exception ignored", e)
-                return null
-            } catch (e: SecurityException) {
-                Log.e(TAG(), "SecurityException in startForegroundService ignored", e)
-                return null
-            }
-        }
-        return super.startForegroundService(service)
     }
 
     /**

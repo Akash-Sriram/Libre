@@ -20,6 +20,23 @@ class LibreApp : Application(), androidx.work.Configuration.Provider {
             .setMinimumLoggingLevel(if (BuildConfig.DEBUG) android.util.Log.INFO else android.util.Log.ERROR)
             .build()
 
+    override fun attachBaseContext(newBase: android.content.Context?) {
+        super.attachBaseContext(object : android.content.ContextWrapper(newBase) {
+            override fun startForegroundService(service: android.content.Intent): android.content.ComponentName? {
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                    try {
+                        return super.startForegroundService(service)
+                    } catch (e: android.app.ForegroundServiceStartNotAllowedException) {
+                        return null
+                    } catch (e: SecurityException) {
+                        return null
+                    }
+                }
+                return super.startForegroundService(service)
+            }
+        })
+    }
+
     override fun onCreate() {
         super.onCreate()
         instance = this
