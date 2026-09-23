@@ -311,6 +311,12 @@ abstract class AbstractPlayerService : MediaLibraryService(), MediaLibrarySessio
 
         notificationProvider = NowPlayingNotification(this)
         setMediaNotificationProvider(notificationProvider!!)
+        setListener(object : androidx.media3.session.MediaSessionService.Listener {
+            override fun onForegroundServiceStartNotAllowedException() {
+                super.onForegroundServiceStartNotAllowedException()
+                Log.w(TAG(), "MediaSessionService: ForegroundServiceStartNotAllowedException handled by Media3")
+            }
+        })
 
         createPlayerAndMediaSession()
     }
@@ -451,6 +457,31 @@ abstract class AbstractPlayerService : MediaLibraryService(), MediaLibrarySessio
             stopSelf()
 
             super.onDestroy()
+        }
+    }
+
+    /**
+     * Android 12+ (API 31+) throws ForegroundServiceStartNotAllowedException if Service.startForeground()
+     * is called while the app is in the background and the service is not already running in the foreground.
+     * We override onUpdateNotification to ensure startInForeground is only requested when safe (playback is
+     * already running in foreground, or the app is actively in the foreground).
+     */
+    override fun onUpdateNotification(session: MediaSession, startInForeground: Boolean) {
+        val shouldStartInForeground = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+            startInForeground && (isPlaybackOngoing || isAppInForeground())
+        } else {
+            startInForeground
+        }
+        super.onUpdateNotification(session, shouldStartInForeground)
+    }
+
+    private fun isAppInForeground(): Boolean {
+        return try {
+            val appProcessInfo = android.app.ActivityManager.RunningAppProcessInfo()
+            android.app.ActivityManager.getMyMemoryState(appProcessInfo)
+            appProcessInfo.importance <= android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_VISIBLE
+        } catch (e: Exception) {
+            false
         }
     }
 
