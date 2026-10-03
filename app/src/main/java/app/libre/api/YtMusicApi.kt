@@ -1209,8 +1209,8 @@ object YtMusicApi {
                     val s = sec.optJSONObject(i) ?: continue
                     val shelf = s.optJSONObject("musicShelfRenderer") ?: continue
                     val contents = shelf.optJSONArray("contents") ?: continue
-                    if (contents.length() > 0) {
-                        val renderer = contents.optJSONObject(0)?.optJSONObject("musicResponsiveListItemRenderer") ?: continue
+                    for (ci in 0 until minOf(contents.length(), 5)) {
+                        val renderer = contents.optJSONObject(ci)?.optJSONObject("musicResponsiveListItemRenderer") ?: continue
                         val flexCols = renderer.optJSONArray("flexColumns") ?: continue
                         val col0 = flexCols.optJSONObject(0)
                             ?.optJSONObject("musicResponsiveListItemFlexColumnRenderer")
@@ -1219,6 +1219,16 @@ object YtMusicApi {
                         val songTitle = col0?.optJSONObject(0)?.optString("text").orEmpty()
                         val songVid = col0?.optJSONObject(0)?.optJSONObject("navigationEndpoint")
                             ?.optJSONObject("watchEndpoint")?.optString("videoId") ?: continue
+
+                        val cleanResultTitle = app.libre.helpers.DuplicateAudioMatcher.cleanString(songTitle)
+                        val isMatch = cleanResultTitle.isNotEmpty() && (
+                            cleanResultTitle == cleanTargetTitle ||
+                            title.split('|', '-').any { seg ->
+                                val cleanSeg = app.libre.helpers.DuplicateAudioMatcher.cleanString(seg)
+                                cleanSeg.isNotEmpty() && cleanSeg == cleanResultTitle
+                            }
+                        )
+                        if (!isMatch) continue
 
                         val col1 = flexCols.optJSONObject(1)
                             ?.optJSONObject("musicResponsiveListItemFlexColumnRenderer")

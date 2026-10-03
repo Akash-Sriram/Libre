@@ -260,53 +260,12 @@ open class OnlinePlayerService : AbstractPlayerService() {
                 }
             } ?: return@launch
 
-            // In Audio Player mode, auto-upgrade music videos to their official Studio Master
-            var actualVideoId = videoId
-            val isFromAlbum = !currentQueueItem?.albumName.isNullOrBlank() || playlistId?.startsWith("OLAK") == true || playlistId?.startsWith("MPRE") == true
-            if (isAudioOnlyPlayer && videoId.length == 11 && !isFromAlbum) {
-                val currentTitle = streams?.title.orEmpty()
-                val currentUploader = streams?.uploader.orEmpty()
-                val isAlreadyStudioMaster = currentUploader.endsWith("- Topic", ignoreCase = true)
-                val titleLower = currentTitle.lowercase()
-                val isExplicitMusicVideo = !isAlreadyStudioMaster && (
-                    titleLower.contains("video song") || titleLower.contains("official video") ||
-                    titleLower.contains("music video") || titleLower.contains("promo") ||
-                    titleLower.contains("full video") || titleLower.contains("4k video") ||
-                    titleLower.contains("lyric video")
-                )
-
-                if (isExplicitMusicVideo) {
-                    val rawArtist = currentUploader.replace(Regex("""\s*-\s*Topic\b""", RegexOption.IGNORE_CASE), "").trim()
-                    val artist = app.libre.helpers.LocalAudioMatcher.normalizeArtistString(rawArtist) ?: rawArtist
-                    val master = withContext(Dispatchers.IO) {
-                        app.libre.api.YtMusicApi.resolveStudioMaster(currentTitle, artist)
-                    }
-                    if (master != null) {
-                        val masterId = master.url.orEmpty().toID()
-                        if (masterId.isNotEmpty() && masterId != videoId) {
-                            val masterStreams = withContext(Dispatchers.IO) {
-                                try {
-                                    MediaServiceRepository.instance.getStreams(masterId)
-                                } catch (e: Exception) { null }
-                            }
-                            if (masterStreams != null) {
-                                actualVideoId = masterId
-                                streams = masterStreams.copy(
-                                    thumbnailUrl = master.thumbnail?.takeIf { it.isNotBlank() } ?: masterStreams.thumbnailUrl
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-
             // Only preserve album artwork if this is an official album playlist
+            val isFromAlbum = !currentQueueItem?.albumName.isNullOrBlank() || playlistId?.startsWith("OLAK") == true || playlistId?.startsWith("MPRE") == true
             val queueThumb = currentQueueItem?.thumbnail
             if (isFromAlbum && !queueThumb.isNullOrBlank() && streams != null && streams!!.thumbnailUrl.isNullOrBlank()) {
                 streams = streams!!.copy(thumbnailUrl = queueThumb)
             }
-
-            videoId = actualVideoId
 
             streams?.toStreamItem(videoId)?.let {
                 PlayingQueue.updateCurrent(it)
