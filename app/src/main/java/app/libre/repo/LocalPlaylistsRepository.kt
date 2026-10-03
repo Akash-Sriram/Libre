@@ -56,24 +56,8 @@ class LocalPlaylistsRepository: PlaylistRepository {
         }.toMutableList()
 
         for (video in videos) {
-            val videoId = video.url?.toID().orEmpty()
-            var targetVideo = video
-            if (videoId.length == 11) {
-                val titleLower = video.title?.lowercase().orEmpty()
-                val isLikelyVideo = titleLower.contains("video") || titleLower.contains("promo") ||
-                        titleLower.contains("official") || titleLower.contains("4k")
-                if (isLikelyVideo) {
-                    val rawArtist = (video.uploaderName ?: "").replace(Regex("""\s*-\s*Topic\b""", RegexOption.IGNORE_CASE), "").trim()
-                    val artist = app.libre.helpers.LocalAudioMatcher.normalizeArtistString(rawArtist) ?: rawArtist
-                    val master = app.libre.api.YtMusicApi.resolveStudioMaster(video.title.orEmpty(), artist)
-                    if (master != null) {
-                        targetVideo = master
-                    }
-                }
-            }
-
-            val localPlaylistItem = targetVideo.toLocalPlaylistItem(playlistId)
-            val candidateCanonical = app.libre.helpers.DuplicateAudioMatcher.resolveCanonicalTrackSync(targetVideo)
+            val localPlaylistItem = video.toLocalPlaylistItem(playlistId)
+            val candidateCanonical = app.libre.helpers.DuplicateAudioMatcher.resolveCanonicalTrackSync(video)
 
             val existingMatch = existingCanonical.firstOrNull {
                 app.libre.helpers.DuplicateAudioMatcher.isDuplicate(it, candidateCanonical)

@@ -51,7 +51,9 @@ class AddToPlaylistDialog : ExpandedBottomSheet(R.layout.sheet_add_to_playlist) 
         val b = SheetAddToPlaylistBinding.bind(view)
         binding = b
 
-        val targetStreams = videoInfo?.let { listOf(it) } ?: PlayingQueue.getStreams()
+        val targetStreams = videoInfo?.let { listOf(it) }
+            ?: PlayingQueue.getCurrent()?.let { listOf(it) }
+            ?: emptyList()
         if (targetStreams.isEmpty()) {
             dismiss()
             return
@@ -83,7 +85,9 @@ class AddToPlaylistDialog : ExpandedBottomSheet(R.layout.sheet_add_to_playlist) 
     }
 
     private fun loadPlaylists() {
-        val targetStreams = videoInfo?.let { listOf(it) } ?: PlayingQueue.getStreams()
+        val targetStreams = videoInfo?.let { listOf(it) }
+            ?: PlayingQueue.getCurrent()?.let { listOf(it) }
+            ?: emptyList()
         if (targetStreams.isEmpty()) return
 
         // 1. Instant 0ms load directly from RAM cache

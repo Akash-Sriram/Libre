@@ -1005,14 +1005,17 @@ object YtMusicApi {
         studioMasterCache[cacheKey]?.let { return@withContext it }
 
         // Check if queue has a matching topic stream from the album first
-        val queueMatch = app.libre.util.PlayingQueue.getStreams().firstOrNull {
-            it.uploaderName?.endsWith("- Topic", ignoreCase = true) == true &&
-                !it.title.isNullOrBlank() &&
-                (title.contains(it.title.orEmpty(), ignoreCase = true) || it.title.orEmpty().contains(title, ignoreCase = true))
-        }
-        if (queueMatch != null) {
-            studioMasterCache[cacheKey] = queueMatch
-            return@withContext queueMatch
+        val cleanTargetTitle = app.libre.helpers.DuplicateAudioMatcher.cleanString(title)
+        if (cleanTargetTitle.isNotEmpty()) {
+            val queueMatch = app.libre.util.PlayingQueue.getStreams().firstOrNull {
+                it.uploaderName?.endsWith("- Topic", ignoreCase = true) == true &&
+                    !it.title.isNullOrBlank() &&
+                    app.libre.helpers.DuplicateAudioMatcher.cleanString(it.title) == cleanTargetTitle
+            }
+            if (queueMatch != null) {
+                studioMasterCache[cacheKey] = queueMatch
+                return@withContext queueMatch
+            }
         }
 
         try {
@@ -1123,7 +1126,10 @@ object YtMusicApi {
                                         val tVid = trackRenderer.optJSONObject("playlistItemData")?.optString("videoId").orEmpty()
                                         val cleanSearch = cleanTitle.filter { it.isLetterOrDigit() }.lowercase()
                                         val cleanTrack = tTitle.filter { it.isLetterOrDigit() }.lowercase()
-                                        if (tVid.isNotEmpty() && (cleanSearch in cleanTrack || cleanTrack in cleanSearch)) {
+                                        val isTitleMatch = cleanSearch == cleanTrack ||
+                                            (cleanSearch.length >= 6 && cleanTrack.length >= 6 &&
+                                                (cleanSearch.startsWith(cleanTrack) || cleanTrack.startsWith(cleanSearch)))
+                                        if (tVid.isNotEmpty() && isTitleMatch) {
                                             val tFixed = trackRenderer.optJSONArray("fixedColumns")
                                             val durRun = tFixed?.optJSONObject(0)
                                                 ?.optJSONObject("musicResponsiveListItemFixedColumnRenderer")
