@@ -135,9 +135,15 @@
 
         <ImageView
             android:id="@+id/optionsMenu"
-            android:layout_width="0dp"
-            android:layout_height="0dp"
-            android:visibility="gone" />
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginStart="4dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/more_options"
+            android:padding="12dp"
+            android:src="@drawable/ic_more_vert"
+            android:visibility="visible"
+            app:tint="?attr/colorOnSurfaceVariant" />
 
     </LinearLayout>
 

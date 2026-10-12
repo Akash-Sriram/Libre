@@ -12,6 +12,11 @@ fun String.toID(): String {
     val trimmed = this.trim()
     if (trimmed.isEmpty()) return ""
 
+    // 0. Preserve absolute filesystem paths (offline audio files)
+    if (trimmed.startsWith("/") && (trimmed.startsWith("/storage") || trimmed.startsWith("/data") || trimmed.startsWith("/sdcard") || trimmed.contains("."))) {
+        return trimmed
+    }
+
     // 1. YouTube Playlist ID from URL (e.g. ?list=PL..., &list=OLAK5uy_..., /playlist?list=...)
     val playlistMatch = Regex("""[?&]list=([a-zA-Z0-9_-]+)""").find(trimmed)
     if (playlistMatch != null) {

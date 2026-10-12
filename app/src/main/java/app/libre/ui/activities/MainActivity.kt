@@ -635,8 +635,13 @@ class MainActivity : AbstractPlayerHostActivity() {
         if (navigateToMediaByIntent(intent)) return
 
         // Get saved search query if available
-        intent?.getStringExtra(IntentData.query)?.let {
-            savedSearchQuery = it
+        intent?.getStringExtra(IntentData.query)?.let { query ->
+            if (::searchItem.isInitialized && ::searchView.isInitialized) {
+                searchItem.expandActionView()
+                searchView.setQuery(query, true)
+            } else {
+                savedSearchQuery = query
+            }
         }
 
 
@@ -649,19 +654,54 @@ class MainActivity : AbstractPlayerHostActivity() {
             intent?.removeExtra(EXTRA_AUTOPLAY_RECOGNITION)
 
             if (!recLocalPath.isNullOrBlank()) {
+                val isOff = recLocalPath.startsWith("/") || recLocalPath.contains("\\")
                 app.libre.helpers.NavigationHelper.navigateVideo(
                     context = this,
                     playerData = app.libre.parcelable.PlayerData(
                         videoId = recLocalPath,
-                        isOffline = true
+                        isOffline = isOff
                     ),
                     audioOnlyPlayerRequested = true
                 )
             } else if (!recTitle.isNullOrBlank() && !recArtist.isNullOrBlank()) {
                 lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                    // 1. Check local offline file
+                    val local = app.libre.helpers.LocalAudioMatcher.getLocalPathByTitle(recTitle, recArtist)
+                    if (!local.isNullOrBlank()) {
+                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                            app.libre.helpers.NavigationHelper.navigateVideo(
+                                context = this@MainActivity,
+                                playerData = app.libre.parcelable.PlayerData(
+                                    videoId = local,
+                                    isOffline = true
+                                ),
+                                audioOnlyPlayerRequested = true
+                            )
+                        }
+                        return@launch
+                    }
+
+                    // 2. Check local playlist match
+                    val playlistMatch = app.libre.helpers.LocalAudioMatcher.findPlaylistVideoId(recTitle, recArtist)
+                    if (!playlistMatch.isNullOrBlank()) {
+                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                            val isOff = playlistMatch.startsWith("/") || playlistMatch.contains("\\")
+                            app.libre.helpers.NavigationHelper.navigateVideo(
+                                context = this@MainActivity,
+                                playerData = app.libre.parcelable.PlayerData(
+                                    videoId = playlistMatch,
+                                    isOffline = isOff
+                                ),
+                                audioOnlyPlayerRequested = true
+                            )
+                        }
+                        return@launch
+                    }
+
+                    // 3. Try studio master
                     val master = app.libre.api.YtMusicApi.resolveStudioMaster(recTitle, recArtist)
-                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                        if (master != null) {
+                    if (master != null) {
+                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
                             app.libre.helpers.NavigationHelper.navigateVideo(
                                 context = this@MainActivity,
                                 playerData = app.libre.parcelable.PlayerData(
@@ -671,9 +711,32 @@ class MainActivity : AbstractPlayerHostActivity() {
                                 ),
                                 audioOnlyPlayerRequested = true
                             )
-                        } else {
-                            setQuery("$recTitle $recArtist", true)
                         }
+                        return@launch
+                    }
+
+                    // 4. Try search fallback
+                    try {
+                        val search = app.libre.api.MediaServiceRepository.instance.getSearchResults("$recTitle $recArtist", "all")
+                        val firstStream = search.items.filterIsInstance<app.libre.api.obj.StreamItem>().firstOrNull()
+                        if (firstStream != null) {
+                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                app.libre.helpers.NavigationHelper.navigateVideo(
+                                    context = this@MainActivity,
+                                    playerData = app.libre.parcelable.PlayerData(
+                                        videoId = firstStream.url,
+                                        isOffline = false
+                                    ),
+                                    audioOnlyPlayerRequested = true
+                                )
+                            }
+                            return@launch
+                        }
+                    } catch (_: Exception) {}
+
+                    // 5. Final fallback
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                        setQuery("$recTitle $recArtist", true)
                     }
                 }
             }
@@ -750,10 +813,12 @@ class MainActivity : AbstractPlayerHostActivity() {
     }
 
     private fun navigationVideo(videoId: String) {
+        val localPath = app.libre.helpers.LocalAudioMatcher.getLocalPath(videoId)
         NavigationHelper.navigateVideo(
             context = this@MainActivity,
             playerData = PlayerData(
-                videoId = videoId,
+                videoId = if (!localPath.isNullOrBlank()) localPath else videoId,
+                isOffline = !localPath.isNullOrBlank(),
                 timestamp = intent.getLongExtra(IntentData.timeStamp, 0L)
             ),
         )

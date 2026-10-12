@@ -57,11 +57,10 @@ open class BaseBottomSheet(@LayoutRes layoutResId: Int = R.layout.bottom_sheet) 
         this.items = items
         this.listener = { index ->
             lifecycleScope.launch {
-                dialog?.hide()
-                listener?.invoke(index)
                 runCatching {
                     dismiss()
                 }
+                listener?.invoke(index)
             }
         }
     }

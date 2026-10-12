@@ -93,6 +93,8 @@ class AudioPlayerFragment : BasePlayerFragment(R.layout.fragment_audio_player) {
     private var syncedLines = emptyList<SyncedLine>()
     private var syncedAdapter: SyncedLyricsAdapter? = null
     private var lyricsFetchedVideoId: String? = null
+    private var isUserScrollingLyrics: Boolean = false
+    private val resetLyricsScrollRunnable = Runnable { isUserScrollingLyrics = false }
     // When true, the audio player will NOT auto-promote to the video player for non-music content.
     // Set when the user manually switches from the video player to the audio player.
     private var noAutoVideoSwitch: Boolean = false
@@ -212,8 +214,37 @@ class AudioPlayerFragment : BasePlayerFragment(R.layout.fragment_audio_player) {
             }
         }
 
-        binding.miniPlayerClose.setOnClickListener {
-            killFragment(true)
+        binding.miniPlayerNext.setOnClickListener {
+            it.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP)
+            val nextVideoId = PlayingQueue.getNext()
+            if (nextVideoId != null) {
+                playNextVideo(nextVideoId)
+            } else {
+                playerController?.seekToNextMediaItem()
+            }
+        }
+
+        binding.shuffleBTN.setOnClickListener {
+            it.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP)
+            val currentIndex = PlayingQueue.currentIndex()
+            val start = currentIndex + 1
+            val count = PlayingQueue.size() - start
+            if (count > 0) {
+                PlayingQueue.shuffleUpcoming()
+                it.animate().rotationBy(360f).setDuration(400).start()
+            }
+        }
+
+        binding.repeatBTN.setOnClickListener {
+            it.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP)
+            val nextMode = when (PlayingQueue.repeatMode) {
+                Player.REPEAT_MODE_OFF -> Player.REPEAT_MODE_ALL
+                Player.REPEAT_MODE_ALL -> Player.REPEAT_MODE_ONE
+                else -> Player.REPEAT_MODE_OFF
+            }
+            PlayingQueue.repeatMode = nextMode
+            playerController?.repeatMode = nextMode
+            updateRepeatButtonState()
         }
 
         // Apply spring elasticity feedback to transport & action controls
@@ -222,10 +253,15 @@ class AudioPlayerFragment : BasePlayerFragment(R.layout.fragment_audio_player) {
         binding.prev.addSpringTouchFeedback()
         binding.next.addSpringTouchFeedback()
         binding.forwardBTN.addSpringTouchFeedback()
+        binding.shuffleBTN.addSpringTouchFeedback()
+        binding.repeatBTN.addSpringTouchFeedback()
         binding.openQueue.addSpringTouchFeedback()
         binding.openLyrics.addSpringTouchFeedback()
         binding.openVideo.addSpringTouchFeedback()
         binding.miniPlayerPause.addSpringTouchFeedback()
+        binding.miniPlayerNext.addSpringTouchFeedback()
+
+        updateRepeatButtonState()
 
         binding.thumbnail.setOnLongClickListener {
             showMoreOptionsSheet()
@@ -261,6 +297,31 @@ class AudioPlayerFragment : BasePlayerFragment(R.layout.fragment_audio_player) {
             isEnabled = !isJioSaavn
             alpha = if (isJioSaavn) 0.38f else 1.0f
         }
+    }
+
+    private fun updateRepeatButtonState() {
+        val binding = _binding ?: return
+        val context = binding.root.context
+        val (iconRes, tintColor, contentDescRes) = when (PlayingQueue.repeatMode) {
+            Player.REPEAT_MODE_ALL -> Triple(
+                R.drawable.ic_repeat,
+                ThemeHelper.getThemeColor(context, androidx.appcompat.R.attr.colorPrimary),
+                R.string.repeat_all
+            )
+            Player.REPEAT_MODE_ONE -> Triple(
+                R.drawable.ic_repeat_one,
+                ThemeHelper.getThemeColor(context, androidx.appcompat.R.attr.colorPrimary),
+                R.string.repeat_one
+            )
+            else -> Triple(
+                R.drawable.ic_repeat,
+                ThemeHelper.getThemeColor(context, com.google.android.material.R.attr.colorOnSurfaceVariant),
+                R.string.repeat_off
+            )
+        }
+        binding.repeatBTN.setIconResource(iconRes)
+        binding.repeatBTN.setIconTint(android.content.res.ColorStateList.valueOf(tintColor))
+        binding.repeatBTN.contentDescription = getString(contentDescRes)
     }
 
     fun switchToVideoMode(videoId: String) {
@@ -836,9 +897,24 @@ class AudioPlayerFragment : BasePlayerFragment(R.layout.fragment_audio_player) {
                     }
                     binding.lyricsRecycler.itemAnimator = null
                     binding.lyricsRecycler.clipToPadding = false
-                    binding.lyricsRecycler.setPadding(0, 320, 0, 320)
+                    val containerHeight = binding.lyricsContainer.height.takeIf { it > 0 }
+                        ?: (resources.displayMetrics.heightPixels / 2)
+                    val verticalPad = (containerHeight / 2 - 32).coerceAtLeast(80)
+                    binding.lyricsRecycler.setPadding(0, verticalPad, 0, verticalPad)
                     binding.lyricsRecycler.layoutManager = androidx.recyclerview.widget.LinearLayoutManager(requireContext())
                     binding.lyricsRecycler.adapter = syncedAdapter
+                    binding.lyricsRecycler.clearOnScrollListeners()
+                    binding.lyricsRecycler.addOnScrollListener(object : androidx.recyclerview.widget.RecyclerView.OnScrollListener() {
+                        override fun onScrollStateChanged(recyclerView: androidx.recyclerview.widget.RecyclerView, newState: Int) {
+                            if (newState == androidx.recyclerview.widget.RecyclerView.SCROLL_STATE_DRAGGING) {
+                                isUserScrollingLyrics = true
+                                handler.removeCallbacks(resetLyricsScrollRunnable)
+                            } else if (newState == androidx.recyclerview.widget.RecyclerView.SCROLL_STATE_IDLE) {
+                                handler.removeCallbacks(resetLyricsScrollRunnable)
+                                handler.postDelayed(resetLyricsScrollRunnable, 4000L)
+                            }
+                        }
+                    })
                     binding.lyricsRecycler.visibility = android.view.View.VISIBLE
                     binding.plainLyricsScroll.visibility = android.view.View.GONE
                 } else if (plainText != null) {
@@ -848,7 +924,7 @@ class AudioPlayerFragment : BasePlayerFragment(R.layout.fragment_audio_player) {
                     syncedLines = emptyList()
                     syncedAdapter = null
                 } else {
-                    binding.plainLyricsText.text = "Lyrics not available for this track"
+                    binding.plainLyricsText.text = getString(R.string.lyrics_not_available)
                     binding.plainLyricsScroll.visibility = android.view.View.VISIBLE
                     binding.lyricsRecycler.visibility = android.view.View.GONE
                     syncedLines = emptyList()
@@ -921,6 +997,12 @@ class AudioPlayerFragment : BasePlayerFragment(R.layout.fragment_audio_player) {
             }
         }
         android.util.Log.d("AudioPlayerLyrics", "positionMs: $positionMs, activeIndex: $activeIndex, currentPosition: ${adapter.currentPosition}")
+        if (isUserScrollingLyrics) {
+            if (activeIndex != -1 && adapter.currentPosition != activeIndex) {
+                adapter.currentPosition = activeIndex
+            }
+            return
+        }
         if (activeIndex != -1 && adapter.currentPosition != activeIndex) {
             adapter.currentPosition = activeIndex
             val smoothScroller = CenterSmoothScroller(binding.lyricsRecycler.context).apply {

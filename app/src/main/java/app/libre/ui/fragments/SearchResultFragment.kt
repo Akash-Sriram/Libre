@@ -6,6 +6,8 @@ import android.os.Parcelable
 import android.view.View
 import androidx.core.view.isGone
 import androidx.core.view.isVisible
+import androidx.core.view.updatePadding
+import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
@@ -18,10 +20,13 @@ import androidx.recyclerview.widget.RecyclerView
 import app.libre.R
 import app.libre.databinding.FragmentSearchResultBinding
 import app.libre.extensions.ceilHalf
+import app.libre.extensions.dpToPx
 import app.libre.ui.activities.MainActivity
 import app.libre.ui.adapters.SearchResultsAdapter
 import app.libre.ui.base.DynamicLayoutManagerFragment
+import app.libre.ui.extensions.animatePaddingBottom
 import app.libre.ui.extensions.setOnBackPressed
+import app.libre.ui.models.CommonPlayerViewModel
 import app.libre.ui.models.SearchResultViewModel
 import app.libre.util.TextUtils.toTimeInSeconds
 import kotlinx.coroutines.flow.collectLatest
@@ -33,6 +38,7 @@ class SearchResultFragment : DynamicLayoutManagerFragment(R.layout.fragment_sear
     private val binding get() = _binding!!
     private val args by navArgs<SearchResultFragmentArgs>()
     private val viewModel by viewModels<SearchResultViewModel>()
+    private val commonPlayerViewModel: CommonPlayerViewModel by activityViewModels()
 
     private val mainActivity get() = activity as MainActivity
     private var recyclerViewState: Parcelable? = null
@@ -59,6 +65,10 @@ class SearchResultFragment : DynamicLayoutManagerFragment(R.layout.fragment_sear
             stateRestorationPolicy = RecyclerView.Adapter.StateRestorationPolicy.PREVENT_WHEN_EMPTY
         }
         binding.searchRecycler.adapter = searchResultsAdapter
+
+        commonPlayerViewModel.isMiniPlayerVisible.observe(viewLifecycleOwner) { isMini ->
+            binding.searchRecycler.animatePaddingBottom(if (isMini) 88f.dpToPx() else 16f.dpToPx())
+        }
 
         var isUpdatingChips = false
 

@@ -119,4 +119,15 @@
         android:text="@string/try_again"
         android:visibility="gone" />
 
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btn_google_sound_search"
+        style="@style/Widget.Material3.Button.TextButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:text="@string/identify_with_google"
+        app:icon="@drawable/ic_search"
+        android:visibility="gone"
+        tools:visibility="visible" />
+
 </LinearLayout>

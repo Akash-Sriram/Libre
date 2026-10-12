@@ -13,7 +13,19 @@ import app.libre.ui.base.BaseActivity
 class RouterActivity : BaseActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val uri = intent.getStringExtra(Intent.EXTRA_TEXT)?.toUri() ?: intent.data
+        val text = intent.getStringExtra(Intent.EXTRA_TEXT)
+        val uri = if (!text.isNullOrBlank()) {
+            val urlRegex = "(https?://\\S+)".toRegex()
+            val match = urlRegex.find(text)
+            if (match != null) {
+                match.value.toUri()
+            } else {
+                Uri.Builder().scheme("libre").authority("search").appendQueryParameter("q", text.trim()).build()
+            }
+        } else {
+            intent.data
+        }
+
         if (uri != null) {
             // Start processing the given text, if available. Otherwise use the link shared as text
             // to the app.
@@ -30,7 +42,7 @@ class RouterActivity : BaseActivity() {
         val intent = packageManager.getLaunchIntentForPackage(packageName)!!.let { intent ->
             IntentHelper.resolveType(intent, uri)
         }
-        intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TASK
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
         startActivity(intent)
         finishAndRemoveTask()
     }

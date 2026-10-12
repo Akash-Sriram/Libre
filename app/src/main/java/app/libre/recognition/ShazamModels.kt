@@ -141,7 +141,8 @@ data class RecognitionResult(
     val shazamUrl: String?,
     val appleMusicUrl: String?,
     val isrc: String?,
-    val localFilePath: String? = null
+    val localFilePath: String? = null,
+    val playlistVideoId: String? = null
 )
 
 sealed class RecognitionStatus {

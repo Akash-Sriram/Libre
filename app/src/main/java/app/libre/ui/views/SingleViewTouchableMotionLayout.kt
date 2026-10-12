@@ -8,6 +8,8 @@ import android.view.GestureDetector
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
+import android.view.animation.AccelerateDecelerateInterpolator
+import android.view.animation.DecelerateInterpolator
 import androidx.constraintlayout.motion.widget.MotionLayout
 import androidx.constraintlayout.motion.widget.TransitionAdapter
 import app.libre.R
@@ -29,9 +31,12 @@ class SingleViewTouchableMotionLayout(context: Context, attributeSet: AttributeS
 
     private var startedMinimized = false
     private var isStrictlyDownSwipe = false
+    private var touchInitialX = 0f
     private var touchInitialY = 0f
     private var isTouchDownInsideHitArea = false
     private var shouldInterceptTouchEvent = false
+    private var isDraggingMiniPlayer = false
+    private var isDismissing = false
 
     init {
         super.setTransitionListener(object : TransitionAdapter() {
@@ -62,15 +67,19 @@ class SingleViewTouchableMotionLayout(context: Context, attributeSet: AttributeS
     private inner class Listener : GestureDetector.SimpleOnGestureListener() {
         override fun onSingleTapUp(e: MotionEvent): Boolean {
             val pauseButton = findViewById<View>(R.id.miniPlayerPause) ?: findViewById<View>(R.id.play_imageView)
-            if (pauseButton != null && pauseButton.visibility == View.VISIBLE) {
-                val rect = Rect()
-                pauseButton.getGlobalVisibleRect(rect)
-                val location = IntArray(2)
-                getLocationOnScreen(location)
-                val globalX = e.x.toInt() + location[0]
-                val globalY = e.y.toInt() + location[1]
-                if (rect.contains(globalX, globalY)) {
-                    return false
+            val nextButton = findViewById<View>(R.id.miniPlayerNext)
+            val interactiveButtons = listOfNotNull(pauseButton, nextButton)
+            val location = IntArray(2)
+            getLocationOnScreen(location)
+            val globalX = e.x.toInt() + location[0]
+            val globalY = e.y.toInt() + location[1]
+            for (button in interactiveButtons) {
+                if (button.visibility == View.VISIBLE) {
+                    val rect = Rect()
+                    button.getGlobalVisibleRect(rect)
+                    if (rect.contains(globalX, globalY)) {
+                        return false
+                    }
                 }
             }
             setTransitionDuration(350)
@@ -84,20 +93,20 @@ class SingleViewTouchableMotionLayout(context: Context, attributeSet: AttributeS
             velocityX: Float,
             velocityY: Float
         ): Boolean {
-            if (startedMinimized) {
+            if (startedMinimized && !isDismissing) {
                 val startX = e1?.x ?: 0f
                 val endX = e2.x
                 val diffX = endX - startX
                 val diffY = e2.y - (e1?.y ?: 0f)
-                if (kotlin.math.abs(diffX) > kotlin.math.abs(diffY) && kotlin.math.abs(diffX) > 80 && kotlin.math.abs(velocityX) > 250) {
+                if (kotlin.math.abs(diffX) > kotlin.math.abs(diffY) && kotlin.math.abs(diffX) > 60 && kotlin.math.abs(velocityX) > 250) {
                     animateDismiss(if (diffX > 0) 1 else -1)
                     return true
-                } else if (diffY > 80 && velocityY > 250) {
+                } else if (diffY > 60 && velocityY > 250) {
                     animateDismissDown()
                     return true
                 }
                 return false
-            } else {
+            } else if (!startedMinimized) {
                 val diffY = e2.y - (e1?.y ?: 0f)
                 val diffX = e2.x - (e1?.x ?: 0f)
                 if (diffY < -80 && velocityY < -250 && kotlin.math.abs(diffY) > kotlin.math.abs(diffX)) {
@@ -106,6 +115,7 @@ class SingleViewTouchableMotionLayout(context: Context, attributeSet: AttributeS
                 }
                 return false
             }
+            return false
         }
 
         override fun onScroll(
@@ -114,17 +124,6 @@ class SingleViewTouchableMotionLayout(context: Context, attributeSet: AttributeS
             distanceX: Float,
             distanceY: Float
         ): Boolean {
-            if (startedMinimized) {
-                if (isStrictlyDownSwipe && distanceY > 0) {
-                    isStrictlyDownSwipe = false
-                }
-
-                if (isStrictlyDownSwipe && distanceY < -15F) {
-                    animateDismissDown()
-                    return true
-                }
-            }
-
             return false
         }
     }
@@ -140,17 +139,21 @@ class SingleViewTouchableMotionLayout(context: Context, attributeSet: AttributeS
         val container = findViewById<View>(R.id.audio_player_container) ?: viewToDetectTouch ?: return
         val controls = findViewById<View>(R.id.miniPlayerControls)
         val targetTranslationX = (container.width.takeIf { it > 0 } ?: 1000) * direction.toFloat()
+        isDismissing = true
 
-        controls?.animate()?.translationX(targetTranslationX)?.alpha(0f)?.setDuration(220)?.start()
+        controls?.animate()
+            ?.translationX(targetTranslationX)
+            ?.alpha(0f)
+            ?.setDuration(200)
+            ?.setInterpolator(AccelerateDecelerateInterpolator())
+            ?.start()
+
         container.animate()
             .translationX(targetTranslationX)
             .alpha(0f)
-            .setDuration(220)
+            .setDuration(200)
+            .setInterpolator(AccelerateDecelerateInterpolator())
             .withEndAction {
-                container.translationX = 0f
-                container.alpha = 1f
-                controls?.translationX = 0f
-                controls?.alpha = 1f
                 swipeDismissListener.forEach { it.invoke() }
                 swipeDownListener.forEach { it.invoke() }
             }
@@ -163,18 +166,22 @@ class SingleViewTouchableMotionLayout(context: Context, attributeSet: AttributeS
     fun animateDismissDown() {
         val container = findViewById<View>(R.id.audio_player_container) ?: viewToDetectTouch ?: return
         val controls = findViewById<View>(R.id.miniPlayerControls)
-        val targetTranslationY = (container.height.takeIf { it > 0 } ?: 200).toFloat()
+        val targetTranslationY = (container.height.takeIf { it > 0 } ?: 200).toFloat() * 1.5f
+        isDismissing = true
 
-        controls?.animate()?.translationY(targetTranslationY)?.alpha(0f)?.setDuration(200)?.start()
+        controls?.animate()
+            ?.translationY(targetTranslationY)
+            ?.alpha(0f)
+            ?.setDuration(200)
+            ?.setInterpolator(AccelerateDecelerateInterpolator())
+            ?.start()
+
         container.animate()
             .translationY(targetTranslationY)
             .alpha(0f)
             .setDuration(200)
+            .setInterpolator(AccelerateDecelerateInterpolator())
             .withEndAction {
-                container.translationY = 0f
-                container.alpha = 1f
-                controls?.translationY = 0f
-                controls?.alpha = 1f
                 swipeDismissListener.forEach { it.invoke() }
                 swipeDownListener.forEach { it.invoke() }
             }
@@ -201,25 +208,39 @@ class SingleViewTouchableMotionLayout(context: Context, attributeSet: AttributeS
             MotionEvent.ACTION_DOWN -> {
                 shouldInterceptTouchEvent = false
                 isTouchDownInsideHitArea = false
-                startedMinimized = progress == 1F
+                isDraggingMiniPlayer = false
+                startedMinimized = progress >= 0.95f
 
                 viewToDetectTouch?.getHitRect(viewRect)
                 isTouchDownInsideHitArea = viewRect.contains(event.x.toInt(), event.y.toInt())
+                touchInitialX = event.x
                 touchInitialY = event.y
                 isStrictlyDownSwipe = true
             }
 
             MotionEvent.ACTION_MOVE -> {
-                if (!startedMinimized && !shouldInterceptTouchEvent && isTouchDownInsideHitArea) {
+                if (startedMinimized && isTouchDownInsideHitArea && !isDismissing) {
+                    val dx = event.x - touchInitialX
+                    val dy = event.y - touchInitialY
+
+                    if (!isDraggingMiniPlayer) {
+                        if (kotlin.math.abs(dx) > scaledTouchSlop && kotlin.math.abs(dx) > kotlin.math.abs(dy)) {
+                            isDraggingMiniPlayer = true
+                            shouldInterceptTouchEvent = true
+                            parent?.requestDisallowInterceptTouchEvent(true)
+                        } else if (dy > scaledTouchSlop && dy > kotlin.math.abs(dx)) {
+                            isDraggingMiniPlayer = true
+                            shouldInterceptTouchEvent = true
+                            parent?.requestDisallowInterceptTouchEvent(true)
+                        }
+                    }
+                } else if (!startedMinimized && !shouldInterceptTouchEvent && isTouchDownInsideHitArea) {
                     val deltaY = event.y - touchInitialY
 
                     // swipe down detected
                     if (deltaY > scaledTouchSlop) {
-                        // start intercepting and consume the event ourselves in onTouchEvent()
                         shouldInterceptTouchEvent = true
 
-                        // inject down MotionEvent from current position to properly trigger
-                        // motion scene's swipe action
                         MotionEvent.obtain(event).apply {
                             action = MotionEvent.ACTION_DOWN
                             setLocation(event.x, event.y)
@@ -234,6 +255,7 @@ class SingleViewTouchableMotionLayout(context: Context, attributeSet: AttributeS
 
         return shouldInterceptTouchEvent
     }
+
     override fun dispatchTouchEvent(event: MotionEvent): Boolean {
         if (progress >= 0.95f) {
             viewToDetectTouch?.getHitRect(viewRect)
@@ -246,12 +268,107 @@ class SingleViewTouchableMotionLayout(context: Context, attributeSet: AttributeS
 
     @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(event: MotionEvent): Boolean {
-        if (isTouchDownInsideHitArea && startedMinimized) {
-            // detect gesture only when the player is in minimized state
-            gestureDetector.onTouchEvent(event)
+        if (!isTouchDownInsideHitArea) return super.onTouchEvent(event)
+
+        if (startedMinimized && !isDismissing) {
+            val container = findViewById<View>(R.id.audio_player_container) ?: viewToDetectTouch
+            val controls = findViewById<View>(R.id.miniPlayerControls)
+
+            when (event.action) {
+                MotionEvent.ACTION_MOVE -> {
+                    val dx = event.x - touchInitialX
+                    val dy = event.y - touchInitialY
+
+                    if (!isDraggingMiniPlayer) {
+                        if (kotlin.math.abs(dx) > scaledTouchSlop && kotlin.math.abs(dx) > kotlin.math.abs(dy)) {
+                            isDraggingMiniPlayer = true
+                            parent?.requestDisallowInterceptTouchEvent(true)
+                        } else if (dy > scaledTouchSlop && dy > kotlin.math.abs(dx)) {
+                            isDraggingMiniPlayer = true
+                            parent?.requestDisallowInterceptTouchEvent(true)
+                        }
+                    }
+
+                    if (isDraggingMiniPlayer && container != null) {
+                        if (kotlin.math.abs(dx) > kotlin.math.abs(dy)) {
+                            // 1:1 Horizontal drag tracking
+                            container.translationX = dx
+                            container.translationY = 0f
+                            controls?.translationX = dx
+                            controls?.translationY = 0f
+
+                            val width = (container.width.takeIf { it > 0 } ?: 1000).toFloat()
+                            val progressFraction = (kotlin.math.abs(dx) / width).coerceIn(0f, 1f)
+                            val alpha = 1.0f - (progressFraction * 0.7f)
+                            container.alpha = alpha
+                            controls?.alpha = alpha
+                        } else if (dy > 0) {
+                            // 1:1 Downward drag tracking
+                            container.translationY = dy
+                            container.translationX = 0f
+                            controls?.translationY = dy
+                            controls?.translationX = 0f
+
+                            val height = (container.height.takeIf { it > 0 } ?: 200).toFloat()
+                            val progressFraction = (dy / height).coerceIn(0f, 1f)
+                            val alpha = 1.0f - (progressFraction * 0.7f)
+                            container.alpha = alpha
+                            controls?.alpha = alpha
+                        }
+                        return true
+                    }
+                }
+
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    if (isDraggingMiniPlayer && container != null) {
+                        isDraggingMiniPlayer = false
+                        val width = (container.width.takeIf { it > 0 } ?: 1000).toFloat()
+                        val height = (container.height.takeIf { it > 0 } ?: 200).toFloat()
+
+                        if (kotlin.math.abs(container.translationX) > 0f) {
+                            if (kotlin.math.abs(container.translationX) > width * 0.35f) {
+                                val direction = if (container.translationX > 0f) 1 else -1
+                                animateDismiss(direction)
+                            } else {
+                                container.animate()
+                                    .translationX(0f)
+                                    .alpha(1f)
+                                    .setDuration(220)
+                                    .setInterpolator(DecelerateInterpolator())
+                                    .start()
+                                controls?.animate()
+                                    ?.translationX(0f)
+                                    ?.alpha(1f)
+                                    ?.setDuration(220)
+                                    ?.setInterpolator(DecelerateInterpolator())
+                                    ?.start()
+                            }
+                            return true
+                        } else if (container.translationY > 0f) {
+                            if (container.translationY > height * 0.35f) {
+                                animateDismissDown()
+                            } else {
+                                container.animate()
+                                    .translationY(0f)
+                                    .alpha(1f)
+                                    .setDuration(220)
+                                    .setInterpolator(DecelerateInterpolator())
+                                    .start()
+                                controls?.animate()
+                                    ?.translationY(0f)
+                                    ?.alpha(1f)
+                                    ?.setDuration(220)
+                                    ?.setInterpolator(DecelerateInterpolator())
+                                    ?.start()
+                            }
+                            return true
+                        }
+                    }
+                }
+            }
         }
 
-        return isTouchDownInsideHitArea && super.onTouchEvent(event)
+        return super.onTouchEvent(event)
     }
 
     override fun onStartNestedScroll(child: View, target: View, axes: Int, type: Int): Boolean {

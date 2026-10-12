@@ -12,6 +12,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import java.io.File
 import java.io.FileInputStream
 import java.util.Locale
@@ -29,6 +30,19 @@ object LocalAudioMatcher {
      * Used for JioSaavn and other non-YouTube songs where we match by title.
      */
     private val titleToPathMap = ConcurrentHashMap<String, String>()
+
+    /** Normalized title / search key -> videoId of a track in user's Libre playlists */
+    private val playlistTracksMap = ConcurrentHashMap<String, String>()
+
+    data class PlaylistTrackItem(
+        val videoId: String,
+        val title: String,
+        val artist: String,
+        val titleTokens: Set<String>,
+        val artistTokens: Set<String>
+    )
+
+    private val playlistItemsList = java.util.concurrent.CopyOnWriteArrayList<PlaylistTrackItem>()
 
     /** videoId -> embedded album art bytes (lazy-extracted on first use) */
     private val embeddedArtCache = ConcurrentHashMap<String, ByteArray?>()
@@ -71,12 +85,66 @@ object LocalAudioMatcher {
                     if (entry.localFilePath.isNotEmpty() && File(entry.localFilePath).exists()) {
                         localAudioMap[entry.videoId] = entry.localFilePath
                         restoredIds.add(entry.videoId)
+                        val file = File(entry.localFilePath)
+                        val normName = normalizeTitle(file.nameWithoutExtension)
+                        if (normName.isNotEmpty()) {
+                            titleToPathMap[normName] = entry.localFilePath
+                        }
                     } else if (entry.localFilePath.isNotEmpty()) {
                         Log.i(TAG, "Stale entry removed: ${entry.videoId}")
                         dao.deleteByVideoId(entry.videoId)
                     }
                 }
                 Log.i(TAG, "Restored ${restoredIds.size} tracks from DB cache (no scan needed).")
+
+                // ── Phase 1b: Index user's local playlists from Room DB ────────────
+                try {
+                    playlistItemsList.clear()
+                    val allItems = DatabaseHolder.Database.localPlaylistsDao().getAllPlaylistItems()
+                    for (item in allItems) {
+                        val rawTitle = item.title.orEmpty()
+                        val normTitle = normalizeTitle(rawTitle)
+                        if (normTitle.isNotEmpty()) {
+                            val normArtist = normalizeTitle(item.uploader.orEmpty())
+                            val path = localAudioMap[item.videoId] ?: if (File(item.videoId).exists()) item.videoId else null
+                            if (path != null) {
+                                titleToPathMap[normTitle] = path
+                                if (normArtist.isNotEmpty()) {
+                                    titleToPathMap["$normArtist $normTitle"] = path
+                                    titleToPathMap["$normTitle $normArtist"] = path
+                                }
+                            }
+                            playlistTracksMap[normTitle] = item.videoId
+                            if (normArtist.isNotEmpty()) {
+                                playlistTracksMap["$normArtist $normTitle"] = item.videoId
+                                playlistTracksMap["$normTitle $normArtist"] = item.videoId
+                            }
+
+                            val tTokens = extractSignificantTokens(normTitle)
+                            val aTokens = extractSignificantTokens(normArtist)
+                            playlistItemsList.add(PlaylistTrackItem(item.videoId, normTitle, normArtist, tTokens, aTokens))
+
+                            // Also index segmented pieces (e.g. "Song - Movie", "Movie | Song", "Song (From Movie)")
+                            for (part in rawTitle.split('-', '|', '•', '/', ':', ';', '~', '_', '(', ')', '[', ']', ',')) {
+                                val normPart = normalizeTitle(part)
+                                if (normPart.length >= 3 && normPart != normTitle) {
+                                    playlistTracksMap[normPart] = item.videoId
+                                    if (normArtist.isNotEmpty()) {
+                                        playlistTracksMap["$normArtist $normPart"] = item.videoId
+                                        playlistTracksMap["$normPart $normArtist"] = item.videoId
+                                    }
+                                    val partTokens = extractSignificantTokens(normPart)
+                                    if (partTokens.isNotEmpty()) {
+                                        playlistItemsList.add(PlaylistTrackItem(item.videoId, normPart, normArtist, partTokens, aTokens))
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    Log.i(TAG, "Indexed ${playlistTracksMap.size} playlist search keys and ${playlistItemsList.size} items from ${allItems.size} Room items.")
+                } catch (e: Exception) {
+                    Log.w(TAG, "Could not index Room playlists: ${e.message}")
+                }
 
                 // Signal: map is ready for playback lookups immediately
                 dbRestoreReady.complete(Unit)
@@ -87,6 +155,21 @@ object LocalAudioMatcher {
                 if (standard.exists()) musicDirs.add(standard)
                 val alt = File("/storage/emulated/0/Music")
                 if (alt.exists() && alt.canonicalPath != standard.canonicalPath) musicDirs.add(alt)
+
+                val downloads = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+                if (downloads.exists()) musicDirs.add(downloads)
+                val altDownloads = File("/storage/emulated/0/Download")
+                if (altDownloads.exists() && altDownloads.canonicalPath != downloads.canonicalPath) musicDirs.add(altDownloads)
+                val altDownloads2 = File("/storage/emulated/0/Downloads")
+                if (altDownloads2.exists()) musicDirs.add(altDownloads2)
+
+                val audioDir = File("/storage/emulated/0/Audio")
+                if (audioDir.exists()) musicDirs.add(audioDir)
+                val recDir = File("/storage/emulated/0/Recordings")
+                if (recDir.exists()) musicDirs.add(recDir)
+
+                context.getExternalFilesDir(Environment.DIRECTORY_MUSIC)?.let { if (it.exists()) musicDirs.add(it) }
+                context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)?.let { if (it.exists()) musicDirs.add(it) }
 
                 val offlineUriStr = PreferenceHelper.getString(app.libre.constants.PreferenceKeys.OFFLINE_SONGS_FOLDER_URI, "")
                 if (offlineUriStr.isNotEmpty()) {
@@ -195,6 +278,11 @@ object LocalAudioMatcher {
                     if (normalizedFileName.isNotEmpty() && normalizedFileName != normalizedTitle) {
                         titleToPathMap[normalizedFileName] = file.absolutePath
                     }
+                    val normalizedArtist = artist?.let { normalizeTitle(it) }.orEmpty()
+                    if (normalizedArtist.isNotEmpty() && normalizedTitle.isNotEmpty()) {
+                        titleToPathMap["$normalizedArtist $normalizedTitle"] = file.absolutePath
+                        titleToPathMap["$normalizedTitle $normalizedArtist"] = file.absolutePath
+                    }
 
                     val title = rawTitle?.trim()?.takeIf { it.isNotBlank() }
                     val tags = LocalAudioTags(artist, album, year, trackNumber, albumArtist, genre, title)
@@ -245,12 +333,10 @@ object LocalAudioMatcher {
                             newlyFound[videoId] = file.absolutePath
                             Log.i(TAG, "New: ${file.name} -> $videoId")
                         }
-                    } else {
-                        // No ID found — index by title as last resort for fuzzy matching
-                        val normalizedTitle = normalizeTitle(file.nameWithoutExtension)
-                        if (normalizedTitle.isNotEmpty()) {
-                            titleToPathMap[normalizedTitle] = file.absolutePath
-                        }
+                    }
+                    val normalizedTitle = normalizeTitle(file.nameWithoutExtension)
+                    if (normalizedTitle.isNotEmpty()) {
+                        titleToPathMap[normalizedTitle] = file.absolutePath
                     }
                 }
             }
@@ -368,6 +454,7 @@ object LocalAudioMatcher {
      * extracts the token and looks up `jsa:TOKEN` in the map.
      */
     suspend fun getLocalPathAsync(videoId: String): String? {
+        if (videoId.startsWith("/") && File(videoId).exists()) return videoId
         dbRestoreReady.await()
         val path = localAudioMap[videoId] ?: toJsaKey(videoId)?.let { localAudioMap[it] }
         Log.i(TAG, "getLocalPathAsync: asked for '$videoId', found: $path")
@@ -375,8 +462,10 @@ object LocalAudioMatcher {
     }
 
     /** Sync version — returns null if map not yet loaded. Use [getLocalPathAsync] in coroutines. */
-    fun getLocalPath(videoId: String): String? =
-        localAudioMap[videoId] ?: toJsaKey(videoId)?.let { localAudioMap[it] }
+    fun getLocalPath(videoId: String): String? {
+        if (videoId.startsWith("/") && File(videoId).exists()) return videoId
+        return localAudioMap[videoId] ?: toJsaKey(videoId)?.let { localAudioMap[it] }
+    }
 
     /**
      * Extracts the JioSaavn token from a variety of videoId formats:
@@ -406,30 +495,315 @@ object LocalAudioMatcher {
 
     /**
      * Tries to find a local file matching [title] (and optionally [artist]) for songs
-     * that have no YouTube ID (e.g. JioSaavn songs). Uses normalized string comparison.
-     * Returns the local file path if found, null otherwise.
-     */
-    /**
-     * Tries to find a local file matching [title] (and optionally [artist]) for songs
-     * that have no YouTube ID (e.g. JioSaavn songs, local songs). Uses normalized string comparison.
+     * that have no YouTube ID (e.g. JioSaavn songs, local songs, Shazam recognized tracks).
+     *
+     * Multi-stage matching strategy:
+     * 1. Direct exact hash map lookups on normalized title and artist-title combinations.
+     * 2. Tag cache lookup: checks cached ID3 title and artist tags.
+     * 3. Token-based fuzzy matcher: tokenizes query into significant keywords and matches
+     *    against indexed candidates, scoring by token coverage and artist consistency.
+     *
      * Returns the local file path if found, null otherwise.
      */
     fun getLocalPathByTitle(title: String, artist: String = ""): String? {
-        if (titleToPathMap.isEmpty()) return null
+        if (titleToPathMap.isEmpty() && tagCache.isEmpty()) return null
         val normalizedQuery = normalizeTitle(title)
-        if (normalizedQuery.length < 3) return null
+        if (normalizedQuery.length < 2) return null
 
-        // 1. Exact normalized title match
+        // ── Step 1: Direct exact match in titleToPathMap ──
         titleToPathMap[normalizedQuery]?.let { return it }
 
-        // 2. Exact match with artist if provided
         val artistNorm = normalizeTitle(artist)
         if (artistNorm.isNotEmpty()) {
-            val combined = "$artistNorm $normalizedQuery"
-            titleToPathMap[combined]?.let { return it }
+            titleToPathMap["$artistNorm $normalizedQuery"]?.let { return it }
+            titleToPathMap["$normalizedQuery $artistNorm"]?.let { return it }
+
+            val primaryArtist = artistNorm.split(Regex("""\b(feat|ft|with|and)\b|[,&]"""))
+                .firstOrNull()?.trim().orEmpty()
+            if (primaryArtist.isNotEmpty() && primaryArtist != artistNorm) {
+                titleToPathMap["$primaryArtist $normalizedQuery"]?.let { return it }
+                titleToPathMap["$normalizedQuery $primaryArtist"]?.let { return it }
+            }
         }
 
-        return null
+        // ── Step 2: Tag Cache Match ──
+        for ((pathOrKey, tags) in tagCache) {
+            val tagTitle = tags.title?.let { normalizeTitle(it) } ?: continue
+            if (tagTitle == normalizedQuery) {
+                val tagArtist = tags.artist?.let { normalizeTitle(it) }.orEmpty()
+                if (artistNorm.isEmpty() || tagArtist.isEmpty() ||
+                    tagArtist.contains(artistNorm) || artistNorm.contains(tagArtist) ||
+                    areTokensCompatible(artistNorm, tagArtist)
+                ) {
+                    val resolved = if (File(pathOrKey).exists()) pathOrKey else localAudioMap[pathOrKey]
+                    if (resolved != null && File(resolved).exists()) return resolved
+                }
+            }
+        }
+
+        // ── Step 3: Token-based fuzzy matcher ──
+        val queryTokens = extractSignificantTokens(normalizedQuery)
+        if (queryTokens.isEmpty()) return null
+
+        val artistTokens = if (artistNorm.isNotEmpty()) extractSignificantTokens(artistNorm) else emptySet()
+
+        var bestMatchPath: String? = null
+        var bestScore = 0.0
+
+        for ((candidateTitle, candidatePath) in titleToPathMap) {
+            val candidateTokens = extractSignificantTokens(candidateTitle)
+            if (candidateTokens.isEmpty()) continue
+
+            val matchedTitleTokens = countMatchedTokens(queryTokens, candidateTokens)
+            if (matchedTitleTokens == 0) continue
+
+            val titleMatchRatio = matchedTitleTokens.toDouble() / queryTokens.size.toDouble()
+            if (titleMatchRatio < 0.6) continue
+
+            var score = titleMatchRatio * 0.75
+
+            val extraTokens = candidateTokens.filterNot { c -> queryTokens.any { q -> areTokensFuzzyEqual(c, q) } }
+            val extraArtistTokens = if (artistTokens.isNotEmpty()) countMatchedTokens(artistTokens, extraTokens.toSet()) else 0
+            val noiseCount = extraTokens.size - extraArtistTokens
+            if (noiseCount > 0) {
+                score -= (noiseCount * 0.05).coerceAtMost(0.2)
+            }
+
+            if (artistTokens.isNotEmpty()) {
+                val matchedArtistTokens = countMatchedTokens(artistTokens, candidateTokens)
+                if (matchedArtistTokens > 0) {
+                    val artistRatio = matchedArtistTokens.toDouble() / artistTokens.size.toDouble()
+                    score += 0.25 * artistRatio
+                } else {
+                    val cachedTags = tagCache[candidatePath]
+                    val cachedArtist = cachedTags?.artist?.let { normalizeTitle(it) }
+                    if (cachedArtist != null && cachedArtist.isNotEmpty()) {
+                        val cachedArtistTokens = extractSignificantTokens(cachedArtist)
+                        val cachedMatched = countMatchedTokens(artistTokens, cachedArtistTokens)
+                        if (cachedMatched > 0) {
+                            score += 0.25 * (cachedMatched.toDouble() / artistTokens.size.toDouble())
+                        }
+                    }
+                }
+            } else {
+                if (titleMatchRatio >= 0.99) {
+                    score += 0.15
+                }
+            }
+
+            if (score > bestScore) {
+                bestScore = score
+                bestMatchPath = candidatePath
+            }
+        }
+
+        return if (bestScore >= 0.6) bestMatchPath else null
+    }
+
+    private val STOPWORDS = hashSetOf(
+        "the", "a", "an", "and", "or", "of", "in", "on", "at", "to", "for", "with",
+        "by", "from", "feat", "ft", "featuring", "official", "audio", "video", "music",
+        "remix", "version", "original", "edit", "mix", "soundtrack", "ost",
+        "topic", "channel", "subject"
+    )
+
+    fun extractSignificantTokens(text: String): Set<String> {
+        val tokens = text.split(" ")
+            .map { it.trim() }
+            .filter { it.length >= 2 }
+        val filtered = tokens.filterNot { it in STOPWORDS }
+        return (if (filtered.isNotEmpty()) filtered else tokens).toSet()
+    }
+
+    private fun collapseDuplicateChars(text: String): String {
+        return text.replace(Regex("""([a-z])\1+"""), "$1")
+    }
+
+    private fun levenshteinDistance(s1: String, s2: String): Int {
+        val dp = IntArray(s2.length + 1) { it }
+        for (i in 1..s1.length) {
+            var prev = dp[0]
+            dp[0] = i
+            for (j in 1..s2.length) {
+                val temp = dp[j]
+                dp[j] = if (s1[i - 1] == s2[j - 1]) prev else minOf(prev, dp[j], dp[j - 1]) + 1
+                prev = temp
+            }
+        }
+        return dp[s2.length]
+    }
+
+    fun areTokensFuzzyEqual(t1: String, t2: String): Boolean {
+        if (t1 == t2) return true
+        val c1 = collapseDuplicateChars(t1).replace("thth", "th").replace("chch", "ch").replace("shsh", "sh")
+        val c2 = collapseDuplicateChars(t2).replace("thth", "th").replace("chch", "ch").replace("shsh", "sh")
+        if (c1 == c2) return true
+        val minLen = minOf(t1.length, t2.length)
+        if (minLen >= 4 && kotlin.math.abs(t1.length - t2.length) <= 1 && levenshteinDistance(t1, t2) <= 1) {
+            return true
+        }
+        if (minLen >= 5 && kotlin.math.abs(t1.length - t2.length) <= 2 && levenshteinDistance(t1, t2) <= 2) {
+            return true
+        }
+        return false
+    }
+
+    fun countMatchedTokens(tokensA: Set<String>, tokensB: Set<String>): Int {
+        return tokensA.count { a -> tokensB.any { b -> areTokensFuzzyEqual(a, b) } }
+    }
+
+    private fun areTokensCompatible(artistA: String, artistB: String): Boolean {
+        val tokensA = extractSignificantTokens(artistA)
+        val tokensB = extractSignificantTokens(artistB)
+        return tokensA.any { a -> tokensB.any { b -> areTokensFuzzyEqual(a, b) } }
+    }
+
+    /**
+     * Ensures that local DB restoration has loaded into memory.
+     * Starts background scan if not yet started.
+     */
+    suspend fun ensureLoaded(context: Context) {
+        if (!dbRestoreReady.isCompleted) {
+            if (!isIndexing) {
+                startAutoScan(context)
+            }
+            try {
+                withTimeoutOrNull(4000L) {
+                    dbRestoreReady.await()
+                }
+            } catch (_: Exception) {}
+        }
+    }
+
+    /**
+     * Searches the user's Libre playlists for a song matching [title] (and optionally [artist]).
+     * Returns the match's videoId if found, null otherwise.
+     */
+    fun findPlaylistVideoId(title: String, artist: String = ""): String? {
+        if (playlistTracksMap.isEmpty() && playlistItemsList.isEmpty()) return null
+        val normalizedQuery = normalizeTitle(title)
+        if (normalizedQuery.length < 2) return null
+
+        // 1. Direct hash map match on normalized title
+        playlistTracksMap[normalizedQuery]?.let { return it }
+
+        // 2. Direct segment match (if query contains movie name or subtitle)
+        for (part in title.split('-', '|', '•', '/', ':', ';', '~', '_', '(', ')', '[', ']', ',')) {
+            val normPart = normalizeTitle(part)
+            if (normPart.length >= 3) {
+                playlistTracksMap[normPart]?.let { return it }
+            }
+        }
+
+        val artistNorm = normalizeTitle(artist)
+        if (artistNorm.isNotEmpty()) {
+            playlistTracksMap["$artistNorm $normalizedQuery"]?.let { return it }
+            playlistTracksMap["$normalizedQuery $artistNorm"]?.let { return it }
+
+            val primaryArtist = artistNorm.split(Regex("""\b(feat|ft|with|and)\b|[,&]"""))
+                .firstOrNull()?.trim().orEmpty()
+            if (primaryArtist.isNotEmpty() && primaryArtist != artistNorm) {
+                playlistTracksMap["$primaryArtist $normalizedQuery"]?.let { return it }
+                playlistTracksMap["$normalizedQuery $primaryArtist"]?.let { return it }
+            }
+        }
+
+        // 3. Structured match against playlist items (title tokens + artist tokens)
+        val queryTitleTokens = extractSignificantTokens(normalizedQuery)
+        if (queryTitleTokens.isEmpty()) return null
+        val queryArtistTokens = if (artistNorm.isNotEmpty()) extractSignificantTokens(artistNorm) else emptySet()
+
+        var bestId: String? = null
+        var bestScore = 0.0
+
+        for (item in playlistItemsList) {
+            val matchedTitle = countMatchedTokens(queryTitleTokens, item.titleTokens)
+            if (matchedTitle == 0) continue
+
+            val minTitleSize = minOf(queryTitleTokens.size, item.titleTokens.size)
+            val titleOverlap = matchedTitle.toDouble() / minTitleSize.toDouble()
+
+            val matchedArtist = if (queryArtistTokens.isNotEmpty() && item.artistTokens.isNotEmpty()) {
+                countMatchedTokens(queryArtistTokens, item.artistTokens)
+            } else 0
+
+            val artistOverlap = if (queryArtistTokens.isNotEmpty() && item.artistTokens.isNotEmpty()) {
+                val minArtistSize = minOf(queryArtistTokens.size, item.artistTokens.size)
+                matchedArtist.toDouble() / minArtistSize.toDouble()
+            } else 0.0
+
+            val isMatch = (titleOverlap >= 0.75 && matchedTitle >= 2) ||
+                          (matchedTitle >= 3 && titleOverlap >= 0.5) ||
+                          (minTitleSize == 1 && matchedTitle == 1 && queryTitleTokens.first() == item.titleTokens.first()) ||
+                          (titleOverlap >= 0.5 && matchedArtist >= 1 && artistOverlap >= 0.5)
+
+            if (isMatch) {
+                val score = titleOverlap * 0.7 + artistOverlap * 0.3
+                if (score > bestScore) {
+                    bestScore = score
+                    bestId = item.videoId
+                    if (score >= 0.95) break // near perfect match
+                }
+            }
+        }
+
+        if (bestId != null) return bestId
+
+        // 4. Token match against legacy composite candidate titles in playlistTracksMap
+        var bestLegacyOverlap = 0.0
+        for ((candidateTitle, videoId) in playlistTracksMap) {
+            val candidateTokens = extractSignificantTokens(candidateTitle)
+            if (candidateTokens.isEmpty()) continue
+            val matchedTokens = countMatchedTokens(queryTitleTokens, candidateTokens)
+            if (matchedTokens == 0) continue
+
+            val minSize = minOf(queryTitleTokens.size, candidateTokens.size)
+            val overlap = matchedTokens.toDouble() / minSize.toDouble()
+
+            val isMatch = (overlap >= 0.75 && matchedTokens >= 2) ||
+                          (matchedTokens >= 3 && overlap >= 0.5) ||
+                          (minSize == 1 && matchedTokens == 1 && queryTitleTokens.first() == candidateTokens.first())
+
+            if (isMatch && overlap > bestLegacyOverlap) {
+                bestLegacyOverlap = overlap
+                bestId = videoId
+            }
+        }
+
+        return bestId
+    }
+
+    @androidx.annotation.VisibleForTesting
+    internal fun registerTitlePathForTesting(key: String, path: String) {
+        titleToPathMap[key] = path
+    }
+
+    @androidx.annotation.VisibleForTesting
+    internal fun registerPlaylistTrackForTesting(key: String, videoId: String) {
+        playlistTracksMap[key] = videoId
+    }
+
+    @androidx.annotation.VisibleForTesting
+    internal fun registerPlaylistItemForTesting(videoId: String, title: String, artist: String) {
+        val normTitle = normalizeTitle(title)
+        val normArtist = normalizeTitle(artist)
+        val tTokens = extractSignificantTokens(normTitle)
+        val aTokens = extractSignificantTokens(normArtist)
+        playlistTracksMap[normTitle] = videoId
+        if (normArtist.isNotEmpty()) {
+            playlistTracksMap["$normArtist $normTitle"] = videoId
+            playlistTracksMap["$normTitle $normArtist"] = videoId
+        }
+        playlistItemsList.add(PlaylistTrackItem(videoId, normTitle, normArtist, tTokens, aTokens))
+    }
+
+    @androidx.annotation.VisibleForTesting
+    internal fun clearForTesting() {
+        titleToPathMap.clear()
+        playlistTracksMap.clear()
+        playlistItemsList.clear()
+        localAudioMap.clear()
+        tagCache.clear()
     }
 
     /**
@@ -448,7 +822,11 @@ object LocalAudioMatcher {
             .replace(Regex("""\[.*?\]"""), "")         // remove [year], [id], [320kbps]
             .replace(Regex("""\(feat\.?.*?\)"""), "")   // remove (feat. X)
             .replace(Regex("""\(ft\.?.*?\)"""), "")
-            .replace(Regex("""\b(masstamilan|starmusiq|sensongs|isaimini|tamiltunes|128kbps|320kbps|official|audio|video|song|lyric|lyrics)\b"""), " ")
+            .replace(Regex("""\(with.*?\)"""), "")
+            .replace(Regex("""\(prod\.?.*?\)"""), "")
+            .replace(Regex("""(?i)\(from\s+.*?\)|\[from\s+.*?\]|\bfrom\s+["'].*?["']"""), " ") // (From Movie)
+            .replace(Regex("""\.(?:com|org|net|dev|in|io|co|me|cc|info)\b"""), " ")
+            .replace(Regex("""\b(masstamilan|starmusiq|sensongs|isaimini|tamiltunes|128kbps|320kbps|official|audio|video|lyric|lyrics)\b"""), " ")
             .replace(Regex("""[^a-z0-9 ]"""), " ")      // keep only alphanumeric + space
             .replace(Regex("""\s+"""), " ")
             .trim()

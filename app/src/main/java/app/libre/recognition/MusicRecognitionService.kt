@@ -20,10 +20,11 @@ import java.io.ByteArrayOutputStream
 import java.nio.ByteOrder
 
 object MusicRecognitionService {
+    private const val TAG = "MusicRecognitionService"
     private const val RECORDING_SAMPLE_RATE = 44100
     private const val CHANNEL_CONFIG = AudioFormat.CHANNEL_IN_MONO
     private const val AUDIO_FORMAT = AudioFormat.ENCODING_PCM_16BIT
-    private const val RECORDING_DURATION_MS = 12000L
+    private const val RECORDING_DURATION_MS = 6500L
     private const val TARGET_SAMPLE_RATE = 16000
 
     private val _recognitionStatus = MutableStateFlow<RecognitionStatus>(RecognitionStatus.Ready)
@@ -83,9 +84,17 @@ object MusicRecognitionService {
 
             result.fold(
                 onSuccess = { recResult ->
+                    // Ensure LocalAudioMatcher has loaded DB cache and user playlists
+                    LocalAudioMatcher.ensureLoaded(context)
+
                     // Check local-first offline library!
                     val localMatch = LocalAudioMatcher.getLocalPathByTitle(recResult.title, recResult.artist)
-                    val enrichedResult = recResult.copy(localFilePath = localMatch)
+                    val playlistMatch = if (localMatch == null) LocalAudioMatcher.findPlaylistVideoId(recResult.title, recResult.artist) else null
+                    android.util.Log.i(TAG, "Recognized track: title='${recResult.title}', artist='${recResult.artist}' -> localMatch=$localMatch, playlistMatch=$playlistMatch")
+                    val enrichedResult = recResult.copy(
+                        localFilePath = localMatch,
+                        playlistVideoId = playlistMatch
+                    )
 
                     val success = RecognitionStatus.Success(enrichedResult)
                     _recognitionStatus.value = success
@@ -123,7 +132,7 @@ object MusicRecognitionService {
 
         val audioRecord = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
             AudioRecord.Builder()
-                .setAudioSource(MediaRecorder.AudioSource.UNPROCESSED)
+                .setAudioSource(MediaRecorder.AudioSource.MIC)
                 .setAudioFormat(
                     AudioFormat.Builder()
                         .setEncoding(AUDIO_FORMAT)

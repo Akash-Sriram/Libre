@@ -241,6 +241,7 @@
                 android:layout_height="wrap_content"
                 android:layout_gravity="center"
                 android:gravity="center"
+                android:contentDescription="@string/rewind"
                 app:iconGravity="textStart"
                 app:iconSize="35dp"
                 app:icon="@drawable/ic_rewind_md" />
@@ -253,6 +254,7 @@
                 android:layout_height="wrap_content"
                 android:layout_gravity="center"
                 android:gravity="center"
+                android:contentDescription="@string/previous"
                 app:iconGravity="textStart"
                 app:iconSize="35dp"
                 app:icon="@drawable/ic_prev" />
@@ -264,6 +266,7 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="3"
                 android:gravity="center"
+                android:contentDescription="@string/tooltip_play"
                 app:iconGravity="textStart"
                 app:iconSize="55dp"
                 app:icon="@drawable/ic_pause" />
@@ -276,6 +279,7 @@
                 android:layout_height="wrap_content"
                 android:layout_gravity="center"
                 android:gravity="center"
+                android:contentDescription="@string/next"
                 app:iconGravity="textStart"
                 app:iconSize="35dp"
                 app:icon="@drawable/ic_next" />
@@ -288,6 +292,7 @@
                 android:layout_height="wrap_content"
                 android:layout_gravity="center"
                 android:gravity="center"
+                android:contentDescription="@string/forward"
                 app:iconGravity="textStart"
                 app:iconSize="35dp"
                 app:icon="@drawable/ic_forward_md" />
@@ -299,8 +304,23 @@
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:gravity="center_vertical"
-            android:paddingHorizontal="28dp"
+            android:paddingHorizontal="20dp"
             android:paddingVertical="16dp">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/shuffleBTN"
+                style="?materialIconButtonFilledTonalStyle"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                app:cornerRadius="24dp"
+                android:contentDescription="@string/shuffle"
+                app:icon="@drawable/ic_shuffle"
+                app:iconTint="?attr/colorOnSurfaceVariant" />
+
+            <View
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:layout_weight="1" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/open_queue"
@@ -324,6 +344,21 @@
                 app:cornerRadius="24dp"
                 android:contentDescription="@string/lyrics"
                 app:icon="@drawable/ic_lyrics" />
+
+            <View
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:layout_weight="1" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/repeatBTN"
+                style="?materialIconButtonFilledTonalStyle"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                app:cornerRadius="24dp"
+                android:contentDescription="@string/repeat"
+                app:icon="@drawable/ic_repeat"
+                app:iconTint="?attr/colorOnSurfaceVariant" />
 
             <View
                 android:layout_width="0dp"
@@ -407,8 +442,8 @@
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/miniPlayerPause"
                 style="?attr/materialIconButtonFilledTonalStyle"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
                 android:layout_gravity="center_vertical"
                 android:insetLeft="0dp"
                 android:insetTop="0dp"
@@ -416,17 +451,17 @@
                 android:insetBottom="0dp"
                 android:padding="0dp"
                 android:contentDescription="@string/tooltip_play"
-                app:cornerRadius="20dp"
+                app:cornerRadius="24dp"
                 app:icon="@drawable/ic_pause"
                 app:iconGravity="textStart"
                 app:iconPadding="0dp"
-                app:iconSize="22dp" />
+                app:iconSize="24dp" />
 
             <com.google.android.material.button.MaterialButton
-                android:id="@+id/miniPlayerClose"
+                android:id="@+id/miniPlayerNext"
                 style="?attr/materialIconButtonStyle"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
                 android:layout_gravity="center_vertical"
                 android:layout_marginStart="4dp"
                 android:insetLeft="0dp"
@@ -434,13 +469,12 @@
                 android:insetRight="0dp"
                 android:insetBottom="0dp"
                 android:padding="0dp"
-                android:contentDescription="@string/tooltip_close"
-                android:tooltipText="@string/tooltip_close"
-                app:cornerRadius="20dp"
-                app:icon="@drawable/ic_close"
+                android:contentDescription="@string/next"
+                app:cornerRadius="24dp"
+                app:icon="@drawable/ic_next"
                 app:iconGravity="textStart"
                 app:iconPadding="0dp"
-                app:iconSize="20dp"
+                app:iconSize="24dp"
                 app:iconTint="?attr/colorOnSurfaceVariant" />
 
         </LinearLayout>

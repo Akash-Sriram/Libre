@@ -649,5 +649,27 @@
     <string name="recognition_listening">Listening…</string>
     <string name="recognition_processing">Analyzing…</string>
     <string name="recognition_track_identified">Track Identified!</string>
+    <string name="identify_with_google">Identify with Google (Hum / Sing)</string>
+    <string name="google_sound_search_hint">Tip: Tap Share → Libre on Google\'s result to play here</string>
+    <string name="google_app_not_found">Google app not found on this device</string>
+    <string name="capture_google_sound_search_title">Capture Google Song Search</string>
+    <string name="capture_google_sound_search_desc">Automatically detect Google Sound Search notifications and play in Libre</string>
+    <string name="notification_permission_required">Notification Access permission is required</string>
     <string name="grant_overlay_permission">Enable \'Display over other apps\'</string>
+    <string name="next">Next</string>
+    <string name="previous">Previous</string>
+    <string name="repeat">Repeat</string>
+    <string name="repeat_off">Repeat off</string>
+    <string name="repeat_all">Repeat all</string>
+    <string name="repeat_one">Repeat one</string>
+    <string name="lyrics_not_available">Lyrics not available for this track</string>
+    <string name="go_to_album">Go to album</string>
+    <string name="rescan_offline_audio">Rescan Offline Audio</string>
+    <string name="rescan_offline_audio_summary">Scan folder and MediaStore for newly synced PC tracks</string>
+    <string name="wifi_sync_server">Wi-Fi Sync Server</string>
+    <string name="wifi_sync_stopped">Stopped</string>
+    <string name="auto_backup_pref">Auto Backup (24h)</string>
+    <string name="auto_backup_summary">Automatically backup playlists and app data every 24 hours (keeps last 5)</string>
+    <string name="open_supported_links_title">Open YouTube Links in Libre</string>
+    <string name="open_supported_links_summary">Set Libre as the default handler for YouTube links across the device</string>
 </resources>

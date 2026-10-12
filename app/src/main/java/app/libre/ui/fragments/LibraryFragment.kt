@@ -8,6 +8,7 @@ import android.widget.Toast
 import androidx.core.view.isGone
 import androidx.core.view.isVisible
 import androidx.core.view.updateLayoutParams
+import androidx.core.view.updatePadding
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
@@ -25,6 +26,7 @@ import app.libre.extensions.TAG
 import app.libre.extensions.addSpringTouchFeedback
 import app.libre.extensions.ceilHalf
 import app.libre.extensions.dpToPx
+import app.libre.ui.extensions.animatePaddingBottom
 import app.libre.helpers.PreferenceHelper
 import app.libre.ui.adapters.PlaylistBookmarkAdapter
 import app.libre.ui.adapters.PlaylistsAdapter
@@ -107,6 +109,15 @@ class LibraryFragment : DynamicLayoutManagerFragment(R.layout.fragment_library) 
         activity?.supportFragmentManager?.setFragmentResultListener(PlaylistOptionsBottomSheet.PLAYLIST_OPTIONS_REQUEST_KEY, viewLifecycleOwner, updateCallback)
         binding.searchFab.setOnClickListener {
             findNavController().navigate(R.id.openSearch)
+        }
+
+        commonPlayerViewModel.isMiniPlayerVisible.observe(viewLifecycleOwner) { isMini ->
+            val bottomInset = if (isMini) 78f.dpToPx() else 0
+            binding.libraryScrollView.animatePaddingBottom(bottomInset)
+            binding.searchFab.animate()
+                .translationY(if (isMini) -78f.dpToPx().toFloat() else 0f)
+                .setDuration(200)
+                .start()
         }
 
         val sortOptions = resources.getStringArray(R.array.playlistSortingOptions)

@@ -12,14 +12,14 @@
         <Preference
             android:icon="@drawable/ic_refresh"
             app:key="rescan_offline_songs"
-            app:title="Rescan Offline Audio"
-            app:summary="Scan folder and MediaStore for newly synced PC tracks" />
+            app:title="@string/rescan_offline_audio"
+            app:summary="@string/rescan_offline_audio_summary" />
 
         <Preference
             android:icon="@drawable/ic_device"
             app:key="wifi_sync_status"
-            app:title="Wi-Fi Sync Server"
-            app:summary="Stopped" />
+            app:title="@string/wifi_sync_server"
+            app:summary="@string/wifi_sync_stopped" />
 
         <Preference
             android:icon="@drawable/ic_backup"
@@ -31,8 +31,8 @@
             android:icon="@drawable/ic_auto_backup"
             app:defaultValue="true"
             app:key="enable_auto_backup"
-            app:title="Auto Backup (24h)"
-            app:summary="Automatically backup playlists and app data every 24 hours (keeps last 5)" />
+            app:title="@string/auto_backup_pref"
+            app:summary="@string/auto_backup_summary" />
 
         <Preference
             android:icon="@drawable/ic_upload"
@@ -54,6 +54,21 @@
             android:summary="@string/auto_music_audio_mode_summary"
             android:title="@string/auto_music_audio_mode"
             app:key="auto_music_audio_mode" />
+    </PreferenceCategory>
+
+    <PreferenceCategory app:title="@string/identify_music">
+        <SwitchPreferenceCompat
+            android:defaultValue="true"
+            android:icon="@drawable/ic_mic"
+            android:summary="@string/capture_google_sound_search_desc"
+            android:title="@string/capture_google_sound_search_title"
+            app:key="capture_google_song_notifications" />
+
+        <Preference
+            android:icon="@drawable/ic_share"
+            app:key="open_supported_links"
+            app:title="@string/open_supported_links_title"
+            app:summary="@string/open_supported_links_summary" />
     </PreferenceCategory>
 
     <PreferenceCategory app:title="@string/settings_category_system">

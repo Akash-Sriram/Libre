@@ -7,8 +7,11 @@ import android.view.ViewGroup
 import androidx.core.view.isVisible
 import androidx.lifecycle.lifecycleScope
 import app.libre.R
+import app.libre.api.MediaServiceRepository
 import app.libre.api.YtMusicApi
+import app.libre.api.obj.StreamItem
 import app.libre.databinding.BottomSheetTrackRecognitionBinding
+import app.libre.helpers.LocalAudioMatcher
 import app.libre.recognition.MusicRecognitionService
 import app.libre.recognition.RecognitionResult
 import app.libre.recognition.RecognitionStatus
@@ -41,6 +44,10 @@ class TrackRecognitionBottomSheet : BottomSheetDialogFragment() {
 
         binding.btnTryAgain.setOnClickListener {
             startRecognition()
+        }
+
+        binding.btnGoogleSoundSearch.setOnClickListener {
+            launchGoogleSoundSearch()
         }
 
         val preTitle = arguments?.getString(ARG_TITLE)
@@ -81,6 +88,7 @@ class TrackRecognitionBottomSheet : BottomSheetDialogFragment() {
         binding.recognitionArtist.isVisible = false
         binding.recognitionActionsLayout.isVisible = false
         binding.btnTryAgain.isVisible = false
+        binding.btnGoogleSoundSearch.isVisible = false
 
         lifecycleScope.launch {
             val status = MusicRecognitionService.recognize(requireContext())
@@ -125,33 +133,90 @@ class TrackRecognitionBottomSheet : BottomSheetDialogFragment() {
 
                 binding.recognitionActionsLayout.isVisible = true
 
-                // Local offline file detected!
+                // Local offline file or user playlist track detected!
                 if (!track.localFilePath.isNullOrBlank()) {
                     binding.btnPlayLocal.isVisible = true
+                    binding.btnPlayLocal.text = getString(R.string.play_local_file)
                     binding.btnPlayLocal.setOnClickListener {
-                        dismiss()
-                        (activity as? MainActivity)?.let { act ->
-                            NavigationHelper.navigateVideo(
-                                context = act,
-                                playerData = PlayerData(
-                                    videoId = track.localFilePath,
-                                    isOffline = true
-                                ),
-                                audioOnlyPlayerRequested = true
-                            )
-                        }
+                        val act = activity as? MainActivity ?: return@setOnClickListener
+                        dismissAllowingStateLoss()
+                        NavigationHelper.navigateVideo(
+                            context = act,
+                            playerData = PlayerData(
+                                videoId = track.localFilePath,
+                                isOffline = true
+                            ),
+                            audioOnlyPlayerRequested = true
+                        )
+                    }
+                } else if (!track.playlistVideoId.isNullOrBlank()) {
+                    binding.btnPlayLocal.isVisible = true
+                    binding.btnPlayLocal.text = "Play from Local Playlist"
+                    binding.btnPlayLocal.setOnClickListener {
+                        val act = activity as? MainActivity ?: return@setOnClickListener
+                        val isOff = track.playlistVideoId.startsWith("/") || track.playlistVideoId.contains("\\")
+                        dismissAllowingStateLoss()
+                        NavigationHelper.navigateVideo(
+                            context = act,
+                            playerData = PlayerData(
+                                videoId = track.playlistVideoId,
+                                isOffline = isOff
+                            ),
+                            audioOnlyPlayerRequested = true
+                        )
                     }
                 } else {
                     binding.btnPlayLocal.isVisible = false
                 }
 
                 binding.btnPlayStream.setOnClickListener {
-                    dismiss()
-                    lifecycleScope.launch(Dispatchers.IO) {
-                        val master = YtMusicApi.resolveStudioMaster(track.title, track.artist)
-                        withContext(Dispatchers.Main) {
-                            (activity as? MainActivity)?.let { act ->
-                                if (master != null) {
+                    val act = activity as? MainActivity ?: return@setOnClickListener
+                    binding.btnPlayStream.isEnabled = false
+                    binding.recognitionProgress.isVisible = true
+                    binding.recognitionStatusText.text = getString(R.string.recognition_processing)
+
+                    act.lifecycleScope.launch(Dispatchers.IO) {
+                        try {
+                            // 1. If we have a local offline file, play it directly
+                            val localMatch = track.localFilePath ?: LocalAudioMatcher.getLocalPathByTitle(track.title, track.artist)
+                            if (!localMatch.isNullOrBlank()) {
+                                withContext(Dispatchers.Main) {
+                                    dismissAllowingStateLoss()
+                                    NavigationHelper.navigateVideo(
+                                        context = act,
+                                        playerData = PlayerData(
+                                            videoId = localMatch,
+                                            isOffline = true
+                                        ),
+                                        audioOnlyPlayerRequested = true
+                                    )
+                                }
+                                return@launch
+                            }
+
+                            // 2. If it exists in the user's local playlist, play it directly
+                            val playlistMatch = track.playlistVideoId ?: LocalAudioMatcher.findPlaylistVideoId(track.title, track.artist)
+                            if (!playlistMatch.isNullOrBlank()) {
+                                withContext(Dispatchers.Main) {
+                                    val isOff = playlistMatch.startsWith("/") || playlistMatch.contains("\\")
+                                    dismissAllowingStateLoss()
+                                    NavigationHelper.navigateVideo(
+                                        context = act,
+                                        playerData = PlayerData(
+                                            videoId = playlistMatch,
+                                            isOffline = isOff
+                                        ),
+                                        audioOnlyPlayerRequested = true
+                                    )
+                                }
+                                return@launch
+                            }
+
+                            // 3. Try YouTube Music Studio Master
+                            val master = YtMusicApi.resolveStudioMaster(track.title, track.artist)
+                            if (master != null) {
+                                withContext(Dispatchers.Main) {
+                                    dismissAllowingStateLoss()
                                     NavigationHelper.navigateVideo(
                                         context = act,
                                         playerData = PlayerData(
@@ -161,28 +226,87 @@ class TrackRecognitionBottomSheet : BottomSheetDialogFragment() {
                                         ),
                                         audioOnlyPlayerRequested = true
                                     )
-                                } else {
-                                    act.setQuery("${track.title} ${track.artist}", true)
                                 }
+                                return@launch
+                            }
+
+                            // 4. Robust YouTube Search fallback: finds top matching video/song and plays immediately
+                            try {
+                                val search = MediaServiceRepository.instance.getSearchResults("${track.title} ${track.artist}", "all")
+                                val firstStream = search.items.filterIsInstance<StreamItem>().firstOrNull()
+                                if (firstStream != null) {
+                                    withContext(Dispatchers.Main) {
+                                        dismissAllowingStateLoss()
+                                        NavigationHelper.navigateVideo(
+                                            context = act,
+                                            playerData = PlayerData(
+                                                videoId = firstStream.url,
+                                                isOffline = false
+                                            ),
+                                            audioOnlyPlayerRequested = true
+                                        )
+                                    }
+                                    return@launch
+                                }
+                            } catch (e: Exception) {
+                                android.util.Log.w(TAG, "Search fallback failed: ${e.message}")
+                            }
+
+                            // 5. Final fallback: open search view
+                            withContext(Dispatchers.Main) {
+                                dismissAllowingStateLoss()
+                                act.setQuery("${track.title} ${track.artist}", true)
+                            }
+                        } catch (e: Exception) {
+                            android.util.Log.e(TAG, "Error resolving track for playback", e)
+                            withContext(Dispatchers.Main) {
+                                dismissAllowingStateLoss()
+                                act.setQuery("${track.title} ${track.artist}", true)
                             }
                         }
                     }
                 }
 
                 binding.btnSearchTrack.setOnClickListener {
-                    dismiss()
-                    (activity as? MainActivity)?.setQuery("${track.title} ${track.artist}", true)
+                    val act = activity as? MainActivity ?: return@setOnClickListener
+                    dismissAllowingStateLoss()
+                    act.setQuery("${track.title} ${track.artist}", true)
                 }
             }
             is RecognitionStatus.NoMatch -> {
                 binding.recognitionProgress.isVisible = false
                 binding.recognitionStatusText.text = status.message
                 binding.btnTryAgain.isVisible = true
+                binding.btnGoogleSoundSearch.isVisible = true
             }
             is RecognitionStatus.Error -> {
                 binding.recognitionProgress.isVisible = false
                 binding.recognitionStatusText.text = status.message
                 binding.btnTryAgain.isVisible = true
+                binding.btnGoogleSoundSearch.isVisible = true
+            }
+        }
+    }
+
+    private fun launchGoogleSoundSearch() {
+        val googleIntent = android.content.Intent("com.google.android.googlequicksearchbox.MUSIC_SEARCH").apply {
+            flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK
+        }
+        try {
+            android.widget.Toast.makeText(requireContext(), R.string.google_sound_search_hint, android.widget.Toast.LENGTH_LONG).show()
+            startActivity(googleIntent)
+            dismissAllowingStateLoss()
+        } catch (_: Exception) {
+            try {
+                android.widget.Toast.makeText(requireContext(), R.string.google_sound_search_hint, android.widget.Toast.LENGTH_LONG).show()
+                val webIntent = android.content.Intent(android.content.Intent.ACTION_WEB_SEARCH).apply {
+                    putExtra(android.app.SearchManager.QUERY, "what's this song")
+                    flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK
+                }
+                startActivity(webIntent)
+                dismissAllowingStateLoss()
+            } catch (_: Exception) {
+                android.widget.Toast.makeText(requireContext(), R.string.google_app_not_found, android.widget.Toast.LENGTH_SHORT).show()
             }
         }
     }

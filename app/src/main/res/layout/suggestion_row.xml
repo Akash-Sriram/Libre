@@ -49,11 +49,13 @@
     <!-- Trailing Action: Delete for History -->
     <ImageView
         android:id="@+id/delete_history"
-        android:layout_width="36dp"
-        android:layout_height="36dp"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:minWidth="48dp"
+        android:minHeight="48dp"
         android:background="?attr/selectableItemBackgroundBorderless"
         android:contentDescription="@string/delete"
-        android:padding="8dp"
+        android:padding="12dp"
         android:src="@drawable/ic_close"
         android:tooltipText="@string/delete"
         android:visibility="gone"
@@ -63,11 +65,13 @@
     <!-- Trailing Action: Insert Arrow for Online Suggestions -->
     <ImageView
         android:id="@+id/arrow"
-        android:layout_width="36dp"
-        android:layout_height="36dp"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:minWidth="48dp"
+        android:minHeight="48dp"
         android:background="?attr/selectableItemBackgroundBorderless"
         android:contentDescription="@string/search_hint"
-        android:padding="8dp"
+        android:padding="12dp"
         android:src="@drawable/ic_arrow_up_left"
         android:visibility="gone"
         app:tint="?attr/colorOutline"

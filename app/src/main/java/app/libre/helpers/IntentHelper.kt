@@ -61,6 +61,24 @@ object IntentHelper {
         val pathSegments = uri.pathSegments
         val lastSegment = uri.lastPathSegment
 
+        // Custom libre scheme or text search: libre://search?q=...
+        if (uri.scheme == "libre" || host == "search") {
+            val query = uri.getQueryParameter("q") ?: uri.getQueryParameter("query")
+            if (!query.isNullOrBlank()) {
+                putExtra(IntentData.query, query)
+            }
+            return@with this
+        }
+
+        // Google Search / Sound Search results URL redirection (e.g. https://www.google.com/search?q=...)
+        if (host.contains("google.") || host.contains("googlequicksearchbox") || host == "g.co") {
+            val query = uri.getQueryParameter("q") ?: uri.getQueryParameter("query")
+            if (!query.isNullOrBlank()) {
+                putExtra(IntentData.query, query)
+                return@with this
+            }
+        }
+
         if (host.contains("jiosaavn.com")) {
             // Examples:
             // https://www.jiosaavn.com/album/kanchana/TODtx4wo8yU_

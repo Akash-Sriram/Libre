@@ -201,8 +201,9 @@ class FloatingRecognitionOverlay(private val context: Context) {
             }
         }
 
-        if (!result.localFilePath.isNullOrBlank()) {
+        if (!result.localFilePath.isNullOrBlank() || !result.playlistVideoId.isNullOrBlank()) {
             binding.btnPlayLocal.visibility = View.VISIBLE
+            binding.btnPlayLocal.text = if (!result.localFilePath.isNullOrBlank()) "Play Local File" else "Play from Playlist"
             binding.btnPlayLocal.setOnClickListener {
                 openInLibre(result, playLocal = true)
             }
@@ -247,7 +248,7 @@ class FloatingRecognitionOverlay(private val context: Context) {
             putExtra(RecognitionForegroundService.EXTRA_RECOGNITION_RESULT_COVER, result.coverArtHqUrl ?: result.coverArtUrl)
             putExtra(RecognitionForegroundService.EXTRA_RECOGNITION_RESULT_ALBUM, result.album)
             if (playLocal) {
-                putExtra(RecognitionForegroundService.EXTRA_RECOGNITION_RESULT_LOCAL_PATH, result.localFilePath)
+                putExtra(RecognitionForegroundService.EXTRA_RECOGNITION_RESULT_LOCAL_PATH, result.localFilePath ?: result.playlistVideoId)
             }
             putExtra(MainActivity.EXTRA_AUTOPLAY_RECOGNITION, true)
         }

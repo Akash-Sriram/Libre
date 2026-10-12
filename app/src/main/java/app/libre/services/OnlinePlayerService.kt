@@ -200,8 +200,10 @@ open class OnlinePlayerService : AbstractPlayerService() {
             }
             val isJio = app.libre.helpers.JioSaavnHelper.isJioSaavn(videoId)
 
-            // Only use local audio fast-path if this is an audio-only player session
-            val localPath = if (isAudioOnlyPlayer) {
+            val isLocalFile = videoId.startsWith("/") && java.io.File(videoId).exists()
+            val localPath = if (isLocalFile) {
+                videoId
+            } else if (isAudioOnlyPlayer) {
                 app.libre.helpers.LocalAudioMatcher.getLocalPathAsync(videoId)
                     ?: if (isJio) currentQueueItem?.title?.let { app.libre.helpers.LocalAudioMatcher.getLocalPathByTitle(it, currentQueueItem.uploaderName.orEmpty()) } else null
             } else null
@@ -227,10 +229,19 @@ open class OnlinePlayerService : AbstractPlayerService() {
                     ?: streamItem?.thumbnail?.takeIf { it.isNotBlank() }
                     ?: cached?.thumbnailUrl.orEmpty()
                 
+                val fileTitle = app.libre.helpers.LocalAudioMatcher.getTitleFromFile(localPath, streamItem?.title)
+                    ?: cached?.title?.takeIf { it.isNotBlank() }
+                    ?: streamItem?.title
+                    ?: if (isLocalFile) java.io.File(localPath).nameWithoutExtension else "Local Audio"
+                val fileArtist = app.libre.helpers.LocalAudioMatcher.getArtistFromFile(localPath, streamItem?.title)
+                    ?: cached?.uploader?.takeIf { it.isNotBlank() }
+                    ?: streamItem?.uploaderName
+                    ?: "Local Artist"
+
                 streams = Streams(
-                    title = app.libre.helpers.LocalAudioMatcher.getTitleFromFile(videoId, streamItem?.title) ?: cached?.title?.takeIf { it.isNotBlank() } ?: streamItem?.title ?: "Local Audio",
-                    uploader = cached?.uploader?.takeIf { it.isNotBlank() } ?: streamItem?.uploaderName ?: "Local Artist",
-                    artist = app.libre.helpers.LocalAudioMatcher.getArtistFromFile(videoId, streamItem?.title),
+                    title = fileTitle,
+                    uploader = fileArtist,
+                    artist = fileArtist,
                     thumbnailUrl = thumbnailUrl,
                     duration = cached?.duration?.takeIf { it > 0 } ?: streamItem?.duration ?: 0L
                 )
@@ -335,8 +346,8 @@ open class OnlinePlayerService : AbstractPlayerService() {
     private fun setStreamSource() {
         val streams = streams ?: return
 
-        // Intercept and use local audio files only in audio-only player mode
-        val localPath = if (isAudioOnlyPlayer) app.libre.helpers.LocalAudioMatcher.getLocalPath(videoId) else null
+        val isLocalFile = videoId.startsWith("/") && java.io.File(videoId).exists()
+        val localPath = if (isLocalFile) videoId else if (isAudioOnlyPlayer) app.libre.helpers.LocalAudioMatcher.getLocalPath(videoId) else null
         if (localPath != null) {
             android.util.Log.i("OnlinePlayerService", "Local audio match found: $localPath. Playing locally instead of streaming!")
             val localUri = android.net.Uri.fromFile(java.io.File(localPath))

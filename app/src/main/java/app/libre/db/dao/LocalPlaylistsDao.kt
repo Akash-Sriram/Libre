@@ -70,4 +70,7 @@ interface LocalPlaylistsDao {
 
     @Query("SELECT duration FROM localPlaylistItem WHERE videoId = :videoId LIMIT 1")
     suspend fun getVideoDuration(videoId: String): Long?
+
+    @Query("SELECT * FROM localPlaylistItem")
+    suspend fun getAllPlaylistItems(): List<LocalPlaylistItem>
 }

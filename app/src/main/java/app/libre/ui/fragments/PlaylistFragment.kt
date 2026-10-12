@@ -35,6 +35,7 @@ import app.libre.extensions.TAG
 import app.libre.extensions.addSpringTouchFeedback
 import app.libre.extensions.ceilHalf
 import app.libre.extensions.dpToPx
+import app.libre.ui.extensions.animatePaddingBottom
 import app.libre.extensions.setOnDismissListener
 import app.libre.extensions.toID
 import app.libre.extensions.toastFromMainDispatcher
@@ -148,7 +149,7 @@ class PlaylistFragment : DynamicLayoutManagerFragment(R.layout.fragment_playlist
         }
 
         commonPlayerViewModel.isMiniPlayerVisible.observe(viewLifecycleOwner) {
-            binding.playlistRecView.updatePadding(bottom = if (it) 78f.dpToPx() else 0)
+            binding.playlistRecView.animatePaddingBottom(if (it) 78f.dpToPx() else 0)
         }
 
         binding.scrollToTopFab.setOnClickListener {

@@ -7,8 +7,10 @@
     tools:context=".ui.fragments.LibraryFragment">
 
     <androidx.core.widget.NestedScrollView
+        android:id="@+id/library_scroll_view"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:clipToPadding="false"
         android:orientation="vertical">
 
             <LinearLayout
@@ -149,7 +151,7 @@
         android:layout_marginStart="16dp"
         android:layout_marginEnd="16dp"
         android:layout_marginTop="16dp"
-        android:layout_marginBottom="94dp"
+        android:layout_marginBottom="16dp"
         app:backgroundTint="?attr/colorPrimaryContainer"
         app:srcCompat="@drawable/ic_search"
         app:tint="?attr/colorOnPrimaryContainer" />

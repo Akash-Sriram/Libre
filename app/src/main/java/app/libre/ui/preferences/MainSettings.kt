@@ -163,6 +163,47 @@ class MainSettings : BasePreferenceFragment() {
             true
         }
 
+        // Capture Google Song Search Notifications
+        findPreference<SwitchPreferenceCompat>("capture_google_song_notifications")?.setOnPreferenceChangeListener { _, newValue ->
+            val enabled = newValue as? Boolean ?: true
+            if (enabled) {
+                val ctx = context ?: return@setOnPreferenceChangeListener true
+                val isGranted = androidx.core.app.NotificationManagerCompat.getEnabledListenerPackages(ctx).contains(ctx.packageName)
+                if (!isGranted) {
+                    Toast.makeText(ctx, R.string.notification_permission_required, Toast.LENGTH_LONG).show()
+                    try {
+                        startActivity(Intent(android.provider.Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+                    } catch (_: Exception) {}
+                }
+            }
+            true
+        }
+
+        // Open Supported Links in Libre
+        findPreference<Preference>("open_supported_links")?.setOnPreferenceClickListener {
+            val ctx = context ?: return@setOnPreferenceClickListener true
+            try {
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                    startActivity(
+                        Intent(
+                            android.provider.Settings.ACTION_APP_OPEN_BY_DEFAULT_SETTINGS,
+                            android.net.Uri.parse("package:${ctx.packageName}")
+                        )
+                    )
+                } else {
+                    startActivity(
+                        Intent(
+                            android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                            android.net.Uri.parse("package:${ctx.packageName}")
+                        )
+                    )
+                }
+            } catch (_: Exception) {
+                Toast.makeText(ctx, R.string.error, Toast.LENGTH_SHORT).show()
+            }
+            true
+        }
+
         // Version & Update Check
         val update = findPreference<Preference>("update")
         update?.summary = BuildConfig.VERSION_NAME

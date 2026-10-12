@@ -1,6 +1,10 @@
 package app.libre.ui.extensions
 
+import android.animation.ValueAnimator
 import android.view.View
+import android.view.animation.DecelerateInterpolator
+import androidx.core.view.updatePadding
+import app.libre.R
 
 /**
  * This function animates a view in a downward direction by a specified amount.
@@ -17,7 +21,32 @@ fun View.animateDown(
     this
         .animate()
         .withEndAction { onEnd.invoke() }
-        .y(dy)
+        .translationY(dy)
+        .alpha(0f)
         .setDuration(duration)
         .start()
+}
+
+/**
+ * Smoothly animates the bottom padding of a view to a target value.
+ */
+fun View.animatePaddingBottom(
+    targetPadding: Int,
+    duration: Long = 200L
+) {
+    val initialPadding = paddingBottom
+    if (initialPadding == targetPadding) return
+
+    (getTag(R.id.tag_padding_animator) as? ValueAnimator)?.cancel()
+
+    ValueAnimator.ofInt(initialPadding, targetPadding).apply {
+        this.duration = duration
+        interpolator = DecelerateInterpolator()
+        addUpdateListener { animator ->
+            val value = animator.animatedValue as Int
+            this@animatePaddingBottom.updatePadding(bottom = value)
+        }
+        setTag(R.id.tag_padding_animator, this)
+        start()
+    }
 }

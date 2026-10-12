@@ -564,11 +564,12 @@ class PlayerFragment : BasePlayerFragment(R.layout.fragment_player), CustomPlaye
     }
 
     private fun closeMiniPlayer() {
+        val dismissDistance = (binding.playerMotionLayout.height.takeIf { it > 0 } ?: 300).toFloat()
         binding
             .playerMotionLayout
             .animateDown(
-                duration = 300L,
-                dy = 500F,
+                duration = 220L,
+                dy = dismissDistance,
                 onEnd = ::killPlayerFragment
             )
     }

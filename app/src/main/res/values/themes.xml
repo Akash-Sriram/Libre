@@ -49,6 +49,7 @@
         <item name="loadingIndicatorStyle">@style/Widget.Material3.LoadingIndicator.Contained</item>
 
         <item name="materialAlertDialogTheme">@style/AlertDialogTheme</item>
+        <item name="android:windowAnimationStyle">@style/WindowAnimation.Libre</item>
     </style>
 
     <style name="SplashScreenTheme" parent="Theme.SplashScreen">
@@ -358,6 +359,13 @@
         <item name="cornerSizeTopRight">28dp</item>
         <item name="cornerSizeBottomLeft">0dp</item>
         <item name="cornerSizeBottomRight">0dp</item>
+    </style>
+
+    <style name="WindowAnimation.Libre" parent="@android:style/Animation.Activity">
+        <item name="android:activityOpenEnterAnimation">@anim/slide_in_right</item>
+        <item name="android:activityOpenExitAnimation">@anim/slide_out_left</item>
+        <item name="android:activityCloseEnterAnimation">@anim/slide_in_left</item>
+        <item name="android:activityCloseExitAnimation">@anim/slide_out_right</item>
     </style>
 
 </resources>
