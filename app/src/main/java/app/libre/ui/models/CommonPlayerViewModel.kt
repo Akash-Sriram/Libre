@@ -43,6 +43,7 @@ data class PlayerUiState(
 class CommonPlayerViewModel : ViewModel() {
     val isMiniPlayerVisible = MutableLiveData(false)
     val isFullscreen = MutableLiveData(false)
+    val systemBarInsets = MutableLiveData<androidx.core.graphics.Insets>()
     var maxSheetHeightPx = 0
 
     val sheetExpand = MutableLiveData<Boolean?>()

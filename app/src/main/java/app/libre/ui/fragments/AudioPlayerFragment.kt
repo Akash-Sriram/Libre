@@ -28,6 +28,7 @@ import app.libre.R
 import app.libre.api.JsonHelper
 import app.libre.api.YtMusicApi
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import app.libre.api.obj.ChapterSegment
 import app.libre.api.obj.Streams
@@ -36,6 +37,7 @@ import app.libre.constants.IntentData
 import app.libre.databinding.FragmentAudioPlayerBinding
 import app.libre.enums.PlayerCommand
 import app.libre.extensions.addSpringTouchFeedback
+import app.libre.extensions.dpToPx
 import app.libre.extensions.navigateVideo
 import app.libre.extensions.normalize
 import app.libre.extensions.seekBy
@@ -196,6 +198,28 @@ class AudioPlayerFragment : BasePlayerFragment(R.layout.fragment_audio_player) {
         }
 
         updateVideoModeButtonState()
+
+        viewModel.systemBarInsets.observe(viewLifecycleOwner) { insets ->
+            if (insets != null) {
+                binding.audioPlayerContent.setPadding(
+                    0,
+                    insets.top,
+                    0,
+                    insets.bottom + 8f.dpToPx()
+                )
+                try {
+                    val endConstraintSet = binding.playerMotionLayout.getConstraintSet(R.id.end)
+                    endConstraintSet?.setMargin(
+                        R.id.audio_player_container,
+                        androidx.constraintlayout.widget.ConstraintSet.BOTTOM,
+                        10f.dpToPx() + insets.bottom
+                    )
+                    binding.playerMotionLayout.updateState(R.id.end, endConstraintSet)
+                } catch (e: Exception) {
+                    android.util.Log.e("AudioPlayerFragment", "Error updating mini player margin", e)
+                }
+            }
+        }
 
         childFragmentManager.setFragmentResultListener(
             ChaptersBottomSheet.SEEK_TO_POSITION_REQUEST_KEY,
@@ -493,12 +517,61 @@ class AudioPlayerFragment : BasePlayerFragment(R.layout.fragment_audio_player) {
 
         binding.uploader.text = cleanArtist
         binding.uploader.setOnClickListener {
-            val uploaderId = metadata.composer?.toString() ?: return@setOnClickListener
-            NavigationHelper.navigateChannel(requireContext(), uploaderId)
+            val uploaderId = metadata.composer?.toString()
+            NavigationHelper.navigateChannel(requireContext(), uploaderId, cleanArtist)
         }
 
         binding.albumAndYear.text = albumYearText
         binding.albumAndYear.isVisible = albumYearText.isNotBlank()
+        binding.albumAndYear.setOnClickListener {
+            val currentItem = PlayingQueue.getCurrent() ?: return@setOnClickListener
+            val candidateAlbumId = currentItem.albumId
+            val albumName = currentItem.albumName?.takeIf { it.isNotBlank() }
+                ?: if (isLocalPlaylist) app.libre.helpers.LocalAudioMatcher.getAlbumFromFile(currentVideoId, streamTitle) else null
+            val isJsa = JioSaavnHelper.isJioSaavn(currentVideoId, isOffline)
+
+            if (!candidateAlbumId.isNullOrBlank() && (candidateAlbumId.startsWith("MPRE") || candidateAlbumId.startsWith("OLAK") || candidateAlbumId.startsWith("VL") || candidateAlbumId.startsWith("PL") || candidateAlbumId.startsWith("jsa_album_"))) {
+                NavigationHelper.navigatePlaylist(requireContext(), candidateAlbumId, app.libre.enums.PlaylistType.PUBLIC)
+            } else {
+                val act = activity as? app.libre.ui.activities.MainActivity
+                act?.lifecycleScope?.launch(Dispatchers.IO) {
+                    var resolvedId: String? = null
+                    if (currentVideoId.length == 11) {
+                        resolvedId = app.libre.api.YtMusicApi.resolveAlbumForVideo(currentVideoId)
+                    }
+
+                    if (resolvedId.isNullOrBlank()) {
+                        val rawArtist = (currentItem.uploaderName ?: "").replace(Regex("""\s*-\s*Topic\b""", RegexOption.IGNORE_CASE), "").trim()
+                        val artist = app.libre.helpers.LocalAudioMatcher.normalizeArtistString(rawArtist) ?: rawArtist
+                        var targetAlbum = albumName
+                        if (targetAlbum.isNullOrBlank()) {
+                            val master = app.libre.api.YtMusicApi.resolveStudioMaster(currentItem.title.orEmpty(), artist)
+                            targetAlbum = master?.albumName?.takeIf { it.isNotBlank() }
+                            resolvedId = master?.albumId?.takeIf { it.isNotBlank() }
+                        }
+                        if (resolvedId.isNullOrBlank() && !targetAlbum.isNullOrBlank()) {
+                            resolvedId = app.libre.api.YtMusicApi.resolveAlbumId(targetAlbum, artist)
+                            if (resolvedId.isNullOrBlank() && isJsa) {
+                                resolvedId = runCatching {
+                                    app.libre.api.JioSaavnMediaServiceRepository().getSearchResults(targetAlbum, "music_albums").items.firstOrNull()?.url
+                                }.getOrNull()
+                            }
+                        }
+                        if (resolvedId.isNullOrBlank()) {
+                            resolvedId = app.libre.api.YtMusicApi.resolveAlbumId(currentItem.title.orEmpty(), artist)
+                        }
+                    }
+
+                    withContext(Dispatchers.Main) {
+                        if (!resolvedId.isNullOrBlank() && isAdded) {
+                            NavigationHelper.navigatePlaylist(requireContext(), resolvedId, app.libre.enums.PlaylistType.PUBLIC)
+                        } else if (isAdded) {
+                            android.widget.Toast.makeText(requireContext(), R.string.error, android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+            }
+        }
 
         val currentQueueItem = PlayingQueue.getCurrent()
         val currentId = currentQueueItem?.url?.toID()
@@ -575,6 +648,20 @@ class AudioPlayerFragment : BasePlayerFragment(R.layout.fragment_audio_player) {
             binding.progress.isGone = true
 
             if (bitmap != null) {
+                withContext(Dispatchers.Main) {
+                    val b = _binding ?: return@withContext
+                    b.ambientBackground.setImageBitmap(bitmap)
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                        b.ambientBackground.setRenderEffect(
+                            android.graphics.RenderEffect.createBlurEffect(
+                                80f,
+                                80f,
+                                android.graphics.Shader.TileMode.CLAMP
+                            )
+                        )
+                    }
+                }
+
                 withContext(Dispatchers.Default) {
                     // Palette requires a software bitmap — hardware bitmaps (GPU-allocated by Coil)
                     // crash with "pixel access is not supported on Config#HARDWARE bitmaps".
@@ -600,7 +687,7 @@ class AudioPlayerFragment : BasePlayerFragment(R.layout.fragment_audio_player) {
                     )
 
                     withContext(Dispatchers.Main) {
-                        _binding?.audioPlayerMain?.background = gradient
+                        _binding?.ambientScrim?.background = gradient
                     }
                 }
             }
@@ -782,6 +869,7 @@ class AudioPlayerFragment : BasePlayerFragment(R.layout.fragment_audio_player) {
         binding.progress.visibility = android.view.View.VISIBLE
         binding.lyricsRecycler.visibility = android.view.View.GONE
         binding.plainLyricsScroll.visibility = android.view.View.GONE
+        binding.noLyricsLayout.visibility = android.view.View.GONE
 
         lifecycleScope.launch {
             var syncedLrc: String? = null
@@ -917,15 +1005,17 @@ class AudioPlayerFragment : BasePlayerFragment(R.layout.fragment_audio_player) {
                     })
                     binding.lyricsRecycler.visibility = android.view.View.VISIBLE
                     binding.plainLyricsScroll.visibility = android.view.View.GONE
+                    binding.noLyricsLayout.visibility = android.view.View.GONE
                 } else if (plainText != null) {
                     binding.plainLyricsText.text = plainText
                     binding.plainLyricsScroll.visibility = android.view.View.VISIBLE
                     binding.lyricsRecycler.visibility = android.view.View.GONE
+                    binding.noLyricsLayout.visibility = android.view.View.GONE
                     syncedLines = emptyList()
                     syncedAdapter = null
                 } else {
-                    binding.plainLyricsText.text = getString(R.string.lyrics_not_available)
-                    binding.plainLyricsScroll.visibility = android.view.View.VISIBLE
+                    binding.noLyricsLayout.visibility = android.view.View.VISIBLE
+                    binding.plainLyricsScroll.visibility = android.view.View.GONE
                     binding.lyricsRecycler.visibility = android.view.View.GONE
                     syncedLines = emptyList()
                     syncedAdapter = null
@@ -1018,7 +1108,7 @@ class AudioPlayerFragment : BasePlayerFragment(R.layout.fragment_audio_player) {
         }
 
         override fun calculateSpeedPerPixel(displayMetrics: android.util.DisplayMetrics): Float {
-            return 120f / displayMetrics.densityDpi
+            return 80f / displayMetrics.densityDpi
         }
     }
 
@@ -1029,13 +1119,17 @@ class AudioPlayerFragment : BasePlayerFragment(R.layout.fragment_audio_player) {
         private val onLineClick: (SyncedLine) -> Unit
     ) : androidx.recyclerview.widget.RecyclerView.Adapter<SyncedLyricsAdapter.ViewHolder>() {
 
+        companion object {
+            private const val PAYLOAD_ACTIVE = "payload_active"
+        }
+
         var currentPosition: Int = -1
             set(value) {
                 if (field != value) {
                     val old = field
                     field = value
-                    if (old in lines.indices) notifyItemChanged(old)
-                    if (value in lines.indices) notifyItemChanged(value)
+                    if (old in lines.indices) notifyItemChanged(old, PAYLOAD_ACTIVE)
+                    if (value in lines.indices) notifyItemChanged(value, PAYLOAD_ACTIVE)
                 }
             }
 
@@ -1045,38 +1139,61 @@ class AudioPlayerFragment : BasePlayerFragment(R.layout.fragment_audio_player) {
                     android.view.ViewGroup.LayoutParams.MATCH_PARENT,
                     android.view.ViewGroup.LayoutParams.WRAP_CONTENT
                 )
-                setPadding(32, 16, 32, 16)
+                setPadding(32, 18, 32, 18)
                 gravity = android.view.Gravity.CENTER_HORIZONTAL
+                setLineSpacing(0f, 1.25f)
             }
             return ViewHolder(textView)
+        }
+
+        override fun onBindViewHolder(holder: ViewHolder, position: Int, payloads: MutableList<Any>) {
+            if (payloads.isNotEmpty()) {
+                val isCurrent = (position == currentPosition)
+                applyLineState(holder, isCurrent, animate = true)
+            } else {
+                super.onBindViewHolder(holder, position, payloads)
+            }
         }
 
         override fun onBindViewHolder(holder: ViewHolder, position: Int) {
             val line = lines[position]
             holder.textView.text = line.text
 
-            val context = holder.textView.context
-            val primaryColor = ThemeHelper.getThemeColor(context, android.R.attr.textColorPrimary)
-            val inactiveColor = androidx.core.graphics.ColorUtils.setAlphaComponent(primaryColor, (0.35f * 255).toInt())
-
             val isCurrent = (position == currentPosition)
-            holder.textView.alpha = 1.0f
-            holder.textView.scaleX = 1.0f
-            holder.textView.scaleY = 1.0f
-
-            if (isCurrent) {
-                holder.textView.textSize = 22f
-                holder.textView.setTextColor(primaryColor)
-                holder.textView.typeface = android.graphics.Typeface.DEFAULT_BOLD
-            } else {
-                holder.textView.textSize = 19f
-                holder.textView.setTextColor(inactiveColor)
-                holder.textView.typeface = android.graphics.Typeface.DEFAULT
-            }
+            applyLineState(holder, isCurrent, animate = false)
 
             holder.textView.setOnClickListener {
                 holder.textView.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP)
                 onLineClick(line)
+            }
+        }
+
+        private fun applyLineState(holder: ViewHolder, isCurrent: Boolean, animate: Boolean) {
+            val context = holder.textView.context
+            val primaryColor = ThemeHelper.getThemeColor(context, android.R.attr.textColorPrimary)
+            val inactiveColor = androidx.core.graphics.ColorUtils.setAlphaComponent(primaryColor, (0.35f * 255).toInt())
+
+            val targetAlpha = if (isCurrent) 1.0f else 0.35f
+            val targetScale = if (isCurrent) 1.06f else 1.0f
+            val targetSize = if (isCurrent) 23f else 19f
+            val targetColor = if (isCurrent) primaryColor else inactiveColor
+            val targetTypeface = if (isCurrent) android.graphics.Typeface.DEFAULT_BOLD else android.graphics.Typeface.DEFAULT
+
+            holder.textView.typeface = targetTypeface
+            holder.textView.setTextColor(targetColor)
+            holder.textView.textSize = targetSize
+
+            if (animate) {
+                holder.textView.animate()
+                    .alpha(targetAlpha)
+                    .scaleX(targetScale)
+                    .scaleY(targetScale)
+                    .setDuration(220)
+                    .start()
+            } else {
+                holder.textView.alpha = targetAlpha
+                holder.textView.scaleX = targetScale
+                holder.textView.scaleY = targetScale
             }
         }
 

@@ -104,6 +104,10 @@ class SingleViewTouchableMotionLayout(context: Context, attributeSet: AttributeS
                 } else if (diffY > 60 && velocityY > 250) {
                     animateDismissDown()
                     return true
+                } else if (diffY < -60 && velocityY < -250) {
+                    setTransitionDuration(350)
+                    transitionToStart()
+                    return true
                 }
                 return false
             } else if (!startedMinimized) {
@@ -209,7 +213,7 @@ class SingleViewTouchableMotionLayout(context: Context, attributeSet: AttributeS
                 shouldInterceptTouchEvent = false
                 isTouchDownInsideHitArea = false
                 isDraggingMiniPlayer = false
-                startedMinimized = progress >= 0.95f
+                startedMinimized = progress >= 0.95f || currentState == R.id.end
 
                 viewToDetectTouch?.getHitRect(viewRect)
                 isTouchDownInsideHitArea = viewRect.contains(event.x.toInt(), event.y.toInt())
@@ -257,18 +261,29 @@ class SingleViewTouchableMotionLayout(context: Context, attributeSet: AttributeS
     }
 
     override fun dispatchTouchEvent(event: MotionEvent): Boolean {
-        if (progress >= 0.95f) {
-            viewToDetectTouch?.getHitRect(viewRect)
-            if (viewRect.contains(event.x.toInt(), event.y.toInt())) {
-                gestureDetector.onTouchEvent(event)
+        val isMinimized = progress >= 0.95f || currentState == R.id.end
+        if (isMinimized) {
+            val touchView = viewToDetectTouch
+            if (touchView != null) {
+                touchView.getHitRect(viewRect)
+                if (event.action == MotionEvent.ACTION_DOWN) {
+                    isTouchDownInsideHitArea = viewRect.contains(event.x.toInt(), event.y.toInt())
+                }
+                if (!isTouchDownInsideHitArea) {
+                    // Touch occurred outside mini player (e.g. on playlist/album tracks).
+                    // Do not intercept or consume touches so underlying fragments can scroll freely without expanding player.
+                    return false
+                }
             }
+            gestureDetector.onTouchEvent(event)
         }
         return super.dispatchTouchEvent(event)
     }
 
     @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(event: MotionEvent): Boolean {
-        if (!isTouchDownInsideHitArea) return super.onTouchEvent(event)
+        val isMinimized = progress >= 0.95f || currentState == R.id.end
+        if (isMinimized && !isTouchDownInsideHitArea) return false
 
         if (startedMinimized && !isDismissing) {
             val container = findViewById<View>(R.id.audio_player_container) ?: viewToDetectTouch

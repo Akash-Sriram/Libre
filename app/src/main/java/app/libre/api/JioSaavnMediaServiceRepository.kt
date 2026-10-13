@@ -16,6 +16,7 @@ fun JioSaavnOfficialSong.toStreamItem(): StreamItem {
         .replace("-50x50.", "-500x500.")
     val uploaderName = moreInfo?.music ?: music ?: "JioSaavn"
     val finalAlbumId = moreInfo?.albumId ?: albumId ?: albumid ?: "unknown"
+    val albumTitle = moreInfo?.album ?: album ?: "Single"
     val token = perma_url?.split("/")?.lastOrNull()?.takeIf { it.isNotBlank() }
     val finalId = if (token != null) "${id}_$token" else id
     return StreamItem(
@@ -32,7 +33,10 @@ fun JioSaavnOfficialSong.toStreamItem(): StreamItem {
         views = -1,
         uploaded = -1,
         uploaderVerified = false,
-        isShort = false
+        isShort = false,
+        albumName = albumTitle,
+        albumId = if (finalAlbumId != "unknown") "jsa_album_$finalAlbumId" else null,
+        source = "jiosaavn"
     )
 }
 
@@ -42,6 +46,7 @@ fun JioSaavnOfficialSong.toContentItem(): ContentItem {
         .replace("-50x50.", "-500x500.")
     val uploaderName = moreInfo?.music ?: music ?: "JioSaavn"
     val finalAlbumId = moreInfo?.albumId ?: albumId ?: albumid ?: "unknown"
+    val albumTitle = moreInfo?.album ?: album ?: "Single"
     val token = perma_url?.split("/")?.lastOrNull()?.takeIf { it.isNotBlank() }
     val finalId = if (token != null) "${id}_$token" else id
     return ContentItem(
@@ -57,7 +62,9 @@ fun JioSaavnOfficialSong.toContentItem(): ContentItem {
         uploaderVerified = false,
         uploaderName = uploaderName,
         uploaded = year?.toLongOrNull() ?: -1L,
-        source = "jiosaavn"
+        source = "jiosaavn",
+        albumName = albumTitle,
+        albumId = if (finalAlbumId != "unknown") "jsa_album_$finalAlbumId" else null
     )
 }
 
@@ -194,13 +201,20 @@ class JioSaavnMediaServiceRepository : MediaServiceRepository {
 
     override suspend fun getStreams(videoId: String): Streams {
         val fullId = videoId.removePrefix("jsa_song_")
-        val token = fullId.substringAfterLast("_", "")
-        val id = if (token.isNotEmpty() && fullId.contains("_")) fullId.substringBeforeLast("_") else fullId
+        val numericPid = fullId.takeWhile { it.isDigit() }
+        val id = numericPid
+        val token = if (numericPid.isNotEmpty()) fullId.removePrefix(numericPid).removePrefix("_") else fullId
 
-        var response = try {
-            api.getSongDetails(pids = id)
-        } catch (e: Exception) {
-            api.getSongDetailsByToken(token = token.ifEmpty { id })
+        val response = if (id.isNotEmpty()) {
+            try {
+                api.getSongDetails(pids = id)
+            } catch (e: Exception) {
+                if (token.isNotEmpty()) {
+                    api.getSongDetailsByToken(token = token)
+                } else throw e
+            }
+        } else {
+            api.getSongDetailsByToken(token = token)
         }
         val song = response.values.firstOrNull() ?: throw Exception("Song not found")
         return song.toStreams()
@@ -305,15 +319,10 @@ class JioSaavnMediaServiceRepository : MediaServiceRepository {
             cleanPlaylistId = cleanPlaylistId.substring(4)
         }
         
-        // Handle compound IDs: if there's an underscore, the first part is the internal ID.
-        // Wait! If the ID was imported from a URL, it might just be the token!
-        // A token is not numeric. An internal ID usually is numeric (for albums/playlists).
-        // Let's split by underscore.
-        val parts = cleanPlaylistId.split("_")
-        val internalId = parts[0]
-        val token = parts.getOrNull(1)
-        
-        val isNumeric = internalId.all { it.isDigit() }
+        val numericId = cleanPlaylistId.takeWhile { it.isDigit() }
+        val token = if (numericId.isNotEmpty()) cleanPlaylistId.removePrefix(numericId).removePrefix("_") else cleanPlaylistId
+        val internalId = if (numericId.isNotEmpty()) numericId else cleanPlaylistId
+        val isNumeric = numericId.isNotEmpty()
 
         var title = "Unknown JioSaavn Playlist"
         var description = ""
@@ -334,7 +343,7 @@ class JioSaavnMediaServiceRepository : MediaServiceRepository {
                 uploader = response.artist ?: response.primaryArtists ?: uploader
                 songs = response.songs ?: emptyList()
             } catch (e: Exception) {
-                if (token != null) {
+                if (token.isNotEmpty() && token != internalId) {
                     val fallback = api.getAlbumDetailsByToken(token = token)
                     title = fallback.title ?: fallback.name ?: title
                     description = "Album | Year: ${fallback.year ?: "Unknown"}"
@@ -354,7 +363,7 @@ class JioSaavnMediaServiceRepository : MediaServiceRepository {
                 thumbnail = response.image?.replace("-150x150.", "-500x500.")?.replace("-50x50.", "-500x500.") ?: ""
                 songs = response.list ?: emptyList()
             } catch (e: Exception) {
-                if (token != null) {
+                if (token.isNotEmpty() && token != internalId) {
                     val fallback = api.getPlaylistDetailsByToken(token = token)
                     title = fallback.title ?: fallback.name ?: title
                     thumbnail = fallback.image?.replace("-150x150.", "-500x500.")?.replace("-50x50.", "-500x500.") ?: ""
@@ -364,40 +373,41 @@ class JioSaavnMediaServiceRepository : MediaServiceRepository {
         } else {
             if (isNumeric) {
                 try {
-                    val response = api.getAlbumDetails(albumId = cleanPlaylistId)
+                    val response = api.getAlbumDetails(albumId = internalId)
                     title = response.title ?: response.name ?: title
                     description = "Album | Year: ${response.year ?: "Unknown"}"
                     thumbnail = response.image?.replace("-150x150.", "-500x500.")?.replace("-50x50.", "-500x500.") ?: ""
                     uploader = response.artist ?: response.primaryArtists ?: uploader
                     songs = response.songs ?: emptyList()
                 } catch (e: Exception) {
-                    android.util.Log.e("JioSaavn", "Error getting album details (numeric fallback) for id: $cleanPlaylistId", e)
+                    android.util.Log.e("JioSaavn", "Error getting album details (numeric fallback) for id: $internalId", e)
                     try {
-                        val response = api.getPlaylistDetails(listId = cleanPlaylistId)
+                        val response = api.getPlaylistDetails(listId = internalId)
                         title = response.title ?: response.name ?: title
                         thumbnail = response.image?.replace("-150x150.", "-500x500.")?.replace("-50x50.", "-500x500.") ?: ""
                         songs = response.list ?: emptyList()
                     } catch (pe: Exception) {
-                        android.util.Log.e("JioSaavn", "Error getting playlist details (numeric fallback) for id: $cleanPlaylistId", pe)
+                        android.util.Log.e("JioSaavn", "Error getting playlist details (numeric fallback) for id: $internalId", pe)
                     }
                 }
             } else {
+                val targetToken = if (token.isNotEmpty()) token else cleanPlaylistId
                 try {
-                    val response = api.getAlbumDetailsByToken(token = cleanPlaylistId)
+                    val response = api.getAlbumDetailsByToken(token = targetToken)
                     title = response.title ?: response.name ?: title
                     description = "Album | Year: ${response.year ?: "Unknown"}"
                     thumbnail = response.image?.replace("-150x150.", "-500x500.")?.replace("-50x50.", "-500x500.") ?: ""
                     uploader = response.artist ?: response.primaryArtists ?: uploader
                     songs = response.songs ?: emptyList()
                 } catch (e: Exception) {
-                    android.util.Log.e("JioSaavn", "Error getting album details by token (non-numeric fallback) for id: $cleanPlaylistId", e)
+                    android.util.Log.e("JioSaavn", "Error getting album details by token (non-numeric fallback) for id: $targetToken", e)
                     try {
-                        val response = api.getPlaylistDetailsByToken(token = cleanPlaylistId)
+                        val response = api.getPlaylistDetailsByToken(token = targetToken)
                         title = response.title ?: response.name ?: title
                         thumbnail = response.image?.replace("-150x150.", "-500x500.")?.replace("-50x50.", "-500x500.") ?: ""
                         songs = response.list ?: emptyList()
                     } catch (pe: Exception) {
-                        android.util.Log.e("JioSaavn", "Error getting playlist details by token (non-numeric fallback) for id: $cleanPlaylistId", pe)
+                        android.util.Log.e("JioSaavn", "Error getting playlist details by token (non-numeric fallback) for id: $targetToken", pe)
                     }
                 }
             }

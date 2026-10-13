@@ -66,8 +66,19 @@ class SearchResultFragment : DynamicLayoutManagerFragment(R.layout.fragment_sear
         }
         binding.searchRecycler.adapter = searchResultsAdapter
 
-        commonPlayerViewModel.isMiniPlayerVisible.observe(viewLifecycleOwner) { isMini ->
-            binding.searchRecycler.animatePaddingBottom(if (isMini) 88f.dpToPx() else 16f.dpToPx())
+        val updateSearchBottomPadding = {
+            val isMini = commonPlayerViewModel.isMiniPlayerVisible.value == true
+            val navBottom = commonPlayerViewModel.systemBarInsets.value?.bottom ?: 0
+            val targetPad = if (isMini) (88f.dpToPx() + navBottom) else (navBottom + 16f.dpToPx())
+            binding.searchRecycler.animatePaddingBottom(targetPad)
+        }
+
+        commonPlayerViewModel.isMiniPlayerVisible.observe(viewLifecycleOwner) {
+            updateSearchBottomPadding()
+        }
+
+        commonPlayerViewModel.systemBarInsets.observe(viewLifecycleOwner) {
+            updateSearchBottomPadding()
         }
 
         var isUpdatingChips = false

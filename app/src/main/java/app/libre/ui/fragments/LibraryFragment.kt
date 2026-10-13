@@ -111,13 +111,23 @@ class LibraryFragment : DynamicLayoutManagerFragment(R.layout.fragment_library) 
             findNavController().navigate(R.id.openSearch)
         }
 
-        commonPlayerViewModel.isMiniPlayerVisible.observe(viewLifecycleOwner) { isMini ->
-            val bottomInset = if (isMini) 78f.dpToPx() else 0
+        val updateLibraryBottomPadding = {
+            val isMini = commonPlayerViewModel.isMiniPlayerVisible.value == true
+            val navBottom = commonPlayerViewModel.systemBarInsets.value?.bottom ?: 0
+            val bottomInset = if (isMini) (82f.dpToPx() + navBottom) else (navBottom + 16f.dpToPx())
             binding.libraryScrollView.animatePaddingBottom(bottomInset)
             binding.searchFab.animate()
-                .translationY(if (isMini) -78f.dpToPx().toFloat() else 0f)
+                .translationY(if (isMini) -(82f.dpToPx() + navBottom).toFloat() else -navBottom.toFloat())
                 .setDuration(200)
                 .start()
+        }
+
+        commonPlayerViewModel.isMiniPlayerVisible.observe(viewLifecycleOwner) {
+            updateLibraryBottomPadding()
+        }
+
+        commonPlayerViewModel.systemBarInsets.observe(viewLifecycleOwner) {
+            updateLibraryBottomPadding()
         }
 
         val sortOptions = resources.getStringArray(R.array.playlistSortingOptions)

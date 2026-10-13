@@ -469,8 +469,46 @@ class NewPipeMediaServiceRepository : MediaServiceRepository {
     }
 
     override suspend fun getChannel(channelId: String): Channel {
-        val channelUrl = "$YOUTUBE_FRONTEND_URL/channel/${channelId}"
-        val channelInfo = ChannelInfo.getInfo(NewPipeExtractorInstance.extractor, channelUrl)
+        val clean = channelId.trim().removePrefix("/")
+        val channelUrl = when {
+            clean.startsWith("http://") || clean.startsWith("https://") -> clean
+            clean.startsWith("@") -> "$YOUTUBE_FRONTEND_URL/$clean"
+            clean.startsWith("c/") || clean.startsWith("user/") || clean.startsWith("channel/") -> "$YOUTUBE_FRONTEND_URL/$clean"
+            clean.startsWith("UC") -> "$YOUTUBE_FRONTEND_URL/channel/$clean"
+            else -> "$YOUTUBE_FRONTEND_URL/@$clean"
+        }
+
+        val channelInfo = try {
+            ChannelInfo.getInfo(NewPipeExtractorInstance.extractor, channelUrl)
+        } catch (e: Exception) {
+            if (!clean.startsWith("http://") && !clean.startsWith("https://")) {
+                if (channelUrl.contains("/@")) {
+                    try {
+                        ChannelInfo.getInfo(NewPipeExtractorInstance.extractor, "$YOUTUBE_FRONTEND_URL/channel/$clean")
+                    } catch (_: Exception) {
+                        try {
+                            ChannelInfo.getInfo(NewPipeExtractorInstance.extractor, "$YOUTUBE_FRONTEND_URL/c/$clean")
+                        } catch (_: Exception) {
+                            throw e
+                        }
+                    }
+                } else if (channelUrl.contains("/channel/")) {
+                    try {
+                        ChannelInfo.getInfo(NewPipeExtractorInstance.extractor, "$YOUTUBE_FRONTEND_URL/@$clean")
+                    } catch (_: Exception) {
+                        try {
+                            ChannelInfo.getInfo(NewPipeExtractorInstance.extractor, "$YOUTUBE_FRONTEND_URL/c/$clean")
+                        } catch (_: Exception) {
+                            throw e
+                        }
+                    }
+                } else {
+                    throw e
+                }
+            } else {
+                throw e
+            }
+        }
 
         val channel = channelInfo.toChannel()
 
@@ -503,8 +541,31 @@ class NewPipeMediaServiceRepository : MediaServiceRepository {
     }
 
     override suspend fun getChannelByName(channelName: String): Channel {
-        val channelUrl = "$YOUTUBE_FRONTEND_URL/c/${channelName}"
-        val channelInfo = ChannelInfo.getInfo(NewPipeExtractorInstance.extractor, channelUrl)
+        val clean = channelName.trim()
+            .removePrefix("/c/")
+            .removePrefix("/user/")
+            .removePrefix("/channel/")
+            .removePrefix("/")
+        val channelUrl = when {
+            clean.startsWith("http://") || clean.startsWith("https://") -> clean
+            clean.startsWith("@") -> "$YOUTUBE_FRONTEND_URL/$clean"
+            clean.startsWith("UC") -> "$YOUTUBE_FRONTEND_URL/channel/$clean"
+            else -> "$YOUTUBE_FRONTEND_URL/@$clean"
+        }
+
+        val channelInfo = try {
+            ChannelInfo.getInfo(NewPipeExtractorInstance.extractor, channelUrl)
+        } catch (e: Exception) {
+            try {
+                ChannelInfo.getInfo(NewPipeExtractorInstance.extractor, "$YOUTUBE_FRONTEND_URL/c/$clean")
+            } catch (_: Exception) {
+                try {
+                    ChannelInfo.getInfo(NewPipeExtractorInstance.extractor, "$YOUTUBE_FRONTEND_URL/channel/$clean")
+                } catch (_: Exception) {
+                    throw e
+                }
+            }
+        }
 
         val channel = channelInfo.toChannel()
 
@@ -576,7 +637,8 @@ class NewPipeMediaServiceRepository : MediaServiceRepository {
             }
         }
 
-        val playlistUrl = "${YOUTUBE_FRONTEND_URL}/playlist?list=${cleanPlaylistId}"
+        val normalizedPlaylistId = if (cleanPlaylistId.startsWith("VL") && cleanPlaylistId.length > 2) cleanPlaylistId.removePrefix("VL") else cleanPlaylistId
+        val playlistUrl = "${YOUTUBE_FRONTEND_URL}/playlist?list=${normalizedPlaylistId}"
         return try {
             val playlistInfo = PlaylistInfo.getInfo(playlistUrl)
             playlistInfo.toPlaylist()

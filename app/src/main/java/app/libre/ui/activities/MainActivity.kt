@@ -155,6 +155,7 @@ class MainActivity : AbstractPlayerHostActivity() {
         setContentView(binding.root)
 
         binding.root.onSystemInsets { _, systemBarInsets ->
+            commonPlayerViewModel.systemBarInsets.value = systemBarInsets
             binding.root.viewTreeObserver.addOnGlobalLayoutListener(object :
                 ViewTreeObserver.OnGlobalLayoutListener {
                 override fun onGlobalLayout() {
@@ -788,7 +789,8 @@ class MainActivity : AbstractPlayerHostActivity() {
         }
         intent.getStringExtra(IntentData.playlistId)?.let {
             actionBefore()
-            navController.navigate(NavDirections.openPlaylist(playlistId = it))
+            val effectiveType = app.libre.api.PlaylistsHelper.getPlaylistType(it)
+            navController.navigate(NavDirections.openPlaylist(playlistId = it, playlistType = effectiveType))
             return true
         }
         intent.getStringArrayExtra(IntentData.videoIds)?.let {
@@ -804,8 +806,14 @@ class MainActivity : AbstractPlayerHostActivity() {
             return true
         }
 
-        intent.getStringExtra(IntentData.videoId)?.let {
-            navigationVideo(it)
+        intent.getStringExtra(IntentData.videoId)?.let { id ->
+            if (id.startsWith("MPRE") || id.startsWith("OLAK") || id.startsWith("VLOLAK") || id.startsWith("jsa_album_") || id.startsWith("jsa_playlist_")) {
+                actionBefore()
+                val effectiveType = app.libre.api.PlaylistsHelper.getPlaylistType(id)
+                navController.navigate(NavDirections.openPlaylist(playlistId = id, playlistType = effectiveType))
+                return true
+            }
+            navigationVideo(id)
             return true
         }
 

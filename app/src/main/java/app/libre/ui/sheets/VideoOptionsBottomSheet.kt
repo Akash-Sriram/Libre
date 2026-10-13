@@ -49,18 +49,13 @@ class VideoOptionsBottomSheet : ExpandedBottomSheet(R.layout.sheet_video_options
         val subtitleText: String
 
         if (isLocalPlaylist || isFromPlayer) {
-            val localTitle = app.libre.helpers.LocalAudioMatcher.getTitleFromFile(videoId, streamItem.title)
-            val baseTitle = (localTitle ?: streamItem.title).orEmpty()
-            val trackNumber = app.libre.helpers.LocalAudioMatcher.getTrackNumberFromFile(videoId, streamItem.title)
-            displayTitle = app.libre.helpers.LocalAudioMatcher.formatTitleWithTrackNumber(baseTitle, trackNumber)
+            val tags = app.libre.helpers.LocalAudioMatcher.getTags(videoId, streamItem.title)
+            val baseTitle = (tags?.title ?: streamItem.title).orEmpty()
+            displayTitle = app.libre.helpers.LocalAudioMatcher.formatTitleWithTrackNumber(baseTitle, tags?.trackNumber)
 
-            val localArtist = app.libre.helpers.LocalAudioMatcher.getArtistFromFile(videoId, streamItem.title)
-            val localAlbum = app.libre.helpers.LocalAudioMatcher.getAlbumFromFile(videoId, streamItem.title)
-            val localYear = app.libre.helpers.LocalAudioMatcher.getYearFromFile(videoId, streamItem.title)
-
-            val album = localAlbum ?: streamItem.albumName.orEmpty().trim()
-            val year = localYear
-            val rawArtist = (localArtist ?: streamItem.uploaderName.orEmpty()).replace(Regex("""\s*-\s*Topic\b""", RegexOption.IGNORE_CASE), "").trim()
+            val album = tags?.album ?: streamItem.albumName.orEmpty().trim()
+            val year = tags?.year
+            val rawArtist = (tags?.artist ?: streamItem.uploaderName.orEmpty()).replace(Regex("""\s*-\s*Topic\b""", RegexOption.IGNORE_CASE), "").trim()
             val artist = app.libre.helpers.LocalAudioMatcher.normalizeArtistString(rawArtist) ?: rawArtist
 
             subtitleText = when {
@@ -216,9 +211,7 @@ class VideoOptionsBottomSheet : ExpandedBottomSheet(R.layout.sheet_video_options
 
         binding.actionChannel.setOnClickListener {
             dismiss()
-            streamItem.uploaderUrl?.let {
-                NavigationHelper.navigateChannel(requireContext(), it)
-            }
+            NavigationHelper.navigateChannel(requireContext(), streamItem.uploaderUrl, streamItem.uploaderName)
         }
 
         // 8. Go to album
@@ -256,6 +249,11 @@ class VideoOptionsBottomSheet : ExpandedBottomSheet(R.layout.sheet_video_options
                             }
                             if (resolvedId.isNullOrBlank() && !targetAlbum.isNullOrBlank()) {
                                 resolvedId = app.libre.api.YtMusicApi.resolveAlbumId(targetAlbum, artist)
+                                if (resolvedId.isNullOrBlank() && isJioSaavn) {
+                                    resolvedId = runCatching {
+                                        app.libre.api.JioSaavnMediaServiceRepository().getSearchResults(targetAlbum, "music_albums").items.firstOrNull()?.url
+                                    }.getOrNull()
+                                }
                             }
                             if (resolvedId.isNullOrBlank()) {
                                 resolvedId = app.libre.api.YtMusicApi.resolveAlbumId(streamItem.title.orEmpty(), artist)

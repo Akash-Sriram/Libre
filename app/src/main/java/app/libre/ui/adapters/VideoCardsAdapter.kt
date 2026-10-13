@@ -100,12 +100,12 @@ class VideoCardsAdapter(private val columnWidthDp: Float? = null) :
                 channelImageContainer.isVisible = true
                 ImageHelper.loadImage(video.uploaderAvatar, channelImage, true)
                 channelImage.setOnClickListener {
-                    NavigationHelper.navigateChannel(root.context, video.uploaderUrl)
+                    NavigationHelper.navigateChannel(root.context, video.uploaderUrl, video.uploaderName)
                 }
             } else {
                 channelImageContainer.isGone = true
                 textViewChannel.setOnClickListener {
-                    NavigationHelper.navigateChannel(root.context, video.uploaderUrl)
+                    NavigationHelper.navigateChannel(root.context, video.uploaderUrl, video.uploaderName)
                 }
             }
             root.setOnClickListener {

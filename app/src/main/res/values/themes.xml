@@ -49,6 +49,7 @@
         <item name="loadingIndicatorStyle">@style/Widget.Material3.LoadingIndicator.Contained</item>
 
         <item name="materialAlertDialogTheme">@style/AlertDialogTheme</item>
+        <item name="bottomSheetDialogTheme">@style/Theme.Libre.BottomSheetDialog</item>
         <item name="android:windowAnimationStyle">@style/WindowAnimation.Libre</item>
     </style>
 
@@ -366,6 +367,16 @@
         <item name="android:activityOpenExitAnimation">@anim/slide_out_left</item>
         <item name="android:activityCloseEnterAnimation">@anim/slide_in_left</item>
         <item name="android:activityCloseExitAnimation">@anim/slide_out_right</item>
+    </style>
+
+    <!-- One UI 8.5 Bottom Sheet Styling: 28dp rounded top corners -->
+    <style name="Theme.Libre.BottomSheetDialog" parent="Theme.Material3.DayNight.BottomSheetDialog">
+        <item name="bottomSheetStyle">@style/Widget.Libre.BottomSheet</item>
+    </style>
+
+    <style name="Widget.Libre.BottomSheet" parent="Widget.Material3.BottomSheet">
+        <item name="shapeAppearance">@style/ShapeAppearance.Recognition.BottomSheet</item>
+        <item name="shapeAppearanceOverlay">@style/ShapeAppearance.Recognition.BottomSheet</item>
     </style>
 
 </resources>

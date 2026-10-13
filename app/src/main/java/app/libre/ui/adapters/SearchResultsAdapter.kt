@@ -219,7 +219,7 @@ class SearchResultsAdapter(
                 true
             }
             channelContainer.setOnClickListener {
-                NavigationHelper.navigateChannel(root.context, item.uploaderUrl)
+                NavigationHelper.navigateChannel(root.context, item.uploaderUrl, item.uploaderName)
             }
             watchProgress.setWatchProgressLength(videoId, item.duration)
 
@@ -260,7 +260,7 @@ class SearchResultsAdapter(
             }
 
             root.setOnClickListener {
-                NavigationHelper.navigateChannel(root.context, item.url)
+                NavigationHelper.navigateChannel(root.context, item.url, item.name)
             }
 
             binding.searchSubButton.isGone = true

@@ -80,12 +80,8 @@ object IntentHelper {
         }
 
         if (host.contains("jiosaavn.com")) {
-            // Examples:
-            // https://www.jiosaavn.com/album/kanchana/TODtx4wo8yU_
-            // https://www.jiosaavn.com/song/some-song-name/someId
-            // https://www.jiosaavn.com/featured/some-playlist-name/someId
-            val type = pathSegments.getOrNull(0)
-            val id = lastSegment
+            val type = pathSegments.firstOrNull { it == "album" || it == "featured" || it == "playlist" || it == "song" }
+            val id = pathSegments.lastOrNull { it.isNotBlank() }
             if (id != null) {
                 when (type) {
                     "album" -> putExtra(IntentData.playlistId, "jsa_album_$id")
@@ -97,6 +93,30 @@ object IntentHelper {
         }
 
         val secondLastSegment = pathSegments.getOrNull(pathSegments.size - 2)
+        val listParam = uri.getQueryParameter("list")
+
+        // 1. Explicit playlist or album query parameter (?list=OLAK..., ?list=PL..., ?list=MPRE...)
+        if (!listParam.isNullOrBlank()) {
+            if (listParam.startsWith("RD")) {
+                val baseVideoId = listParam.removePrefix("RD").takeIf { it.length == 11 }
+                putExtra(IntentData.videoId, baseVideoId)
+                putExtra(IntentData.playlistId, listParam)
+            } else {
+                putExtra(IntentData.playlistId, listParam)
+            }
+            return@with this
+        }
+
+        // 2. YouTube Music album browse links (/browse/MPREb_..., /album/MPREb_..., /browse/OLAK...)
+        if (secondLastSegment == "browse" || secondLastSegment == "album" ||
+            lastSegment?.startsWith("MPREb_") == true || lastSegment?.startsWith("OLAK") == true || lastSegment?.startsWith("VLOLAK") == true) {
+            val albumId = lastSegment
+            if (!albumId.isNullOrBlank()) {
+                putExtra(IntentData.playlistId, albumId)
+                return@with this
+            }
+        }
+
         when {
             lastSegment == "results" -> {
                 putExtra(IntentData.query, uri.getQueryParameter("search_query"))
@@ -107,16 +127,6 @@ object IntentHelper {
             secondLastSegment == "c" || secondLastSegment == "user" -> {
                 putExtra(IntentData.channelName, lastSegment)
             }
-            lastSegment == "playlist" -> {
-                val listId = uri.getQueryParameter("list")
-                if (listId?.startsWith("RD") == true) {
-                    val baseVideoId = listId.removePrefix("RD").takeIf { it.length == 11 }
-                    putExtra(IntentData.videoId, baseVideoId)
-                    putExtra(IntentData.playlistId, listId)
-                } else {
-                    putExtra(IntentData.playlistId, listId)
-                }
-            }
             lastSegment == "watch_videos" -> {
                 putExtra(IntentData.playlistName, uri.getQueryParameter("title"))
                 val videoIds = uri.getQueryParameter("video_ids")?.split(",")
@@ -124,11 +134,7 @@ object IntentHelper {
             }
             else -> {
                 val id = if (lastSegment == "watch") uri.getQueryParameter("v") else lastSegment
-                val listId = uri.getQueryParameter("list")
                 putExtra(IntentData.videoId, id)
-                if (listId != null) {
-                    putExtra(IntentData.playlistId, listId)
-                }
                 putExtra(IntentData.timeStamp, uri.getQueryParameter("t")?.toTimeInSeconds())
             }
         }

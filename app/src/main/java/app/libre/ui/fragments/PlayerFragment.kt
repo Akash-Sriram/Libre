@@ -131,6 +131,7 @@ class PlayerFragment : BasePlayerFragment(R.layout.fragment_player), CustomPlaye
     private var channelId: String? = null
     var isOffline: Boolean = false
         private set
+    var forceVideo: Boolean = false
 
     // data and objects stored for the player
     private lateinit var streams: Streams
@@ -383,6 +384,7 @@ class PlayerFragment : BasePlayerFragment(R.layout.fragment_player), CustomPlaye
         isOffline = playerData.isOffline
         playlistId = playerData.playlistId
         channelId = playerData.channelId
+        forceVideo = playerData.forceVideo
 
         // remember if playback already started once and only restart playback if that's the first run
         val createNewSession = !requireArguments().getBoolean(IntentData.alreadyStarted)
@@ -405,6 +407,22 @@ class PlayerFragment : BasePlayerFragment(R.layout.fragment_player), CustomPlaye
             playerControlsBinding.exoProgress.setChapters(it.orEmpty())
         }
 
+        commonPlayerViewModel.systemBarInsets.observe(viewLifecycleOwner) { insets ->
+            if (insets != null) {
+                try {
+                    val endConstraintSet = binding.playerMotionLayout.getConstraintSet(R.id.end)
+                    endConstraintSet?.setMargin(
+                        R.id.main_container,
+                        androidx.constraintlayout.widget.ConstraintSet.BOTTOM,
+                        10f.dpToPx() + insets.bottom
+                    )
+                    binding.playerMotionLayout.updateState(R.id.end, endConstraintSet)
+                } catch (e: Exception) {
+                    android.util.Log.e("PlayerFragment", "Error updating mini player margin", e)
+                }
+            }
+        }
+
         attachToPlayerService(playerData, createNewSession)
 
         toggleVideoInfoVisibility(false)
@@ -416,6 +434,7 @@ class PlayerFragment : BasePlayerFragment(R.layout.fragment_player), CustomPlaye
             putParcelable(IntentData.playerData, playerData)
             putBoolean(IntentData.audioOnly, false)
         }
+        forceVideo = playerData.forceVideo
 
         BackgroundHelper.startMediaService(
             requireContext(),
@@ -445,7 +464,7 @@ class PlayerFragment : BasePlayerFragment(R.layout.fragment_player), CustomPlaye
                         }
 
                 // reload online streams data and video playback if metadata doesn't exist or was audio-only without video streams
-                if (streams == null || (streams.videoStreams.isEmpty() && !isOffline)) {
+                if (streams == null || (!streams.hasVideo && streams.videoStreams.isEmpty() && !isOffline)) {
                     playNextVideo(videoId)
                     return@startMediaService
                 }
@@ -570,17 +589,20 @@ class PlayerFragment : BasePlayerFragment(R.layout.fragment_player), CustomPlaye
             .animateDown(
                 duration = 220L,
                 dy = dismissDistance,
-                onEnd = ::killPlayerFragment
+                onEnd = { killPlayerFragment(stopPlayer = true) }
             )
     }
 
     // actions that don't depend on video information
     private fun initializeOnClickActions() {
-        binding.closeImageView.setOnClickListener {
-            killPlayerFragment()
+        binding.nextImageView?.setOnClickListener {
+            it.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP)
+            PlayingQueue.getNext()?.let { next -> playNextVideo(next) }
         }
         playerControlsBinding.closeImageButton.setOnClickListener {
-            killPlayerFragment()
+            it.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP)
+            binding.playerMotionLayout.transitionToEnd()
+            baseActivity.minimizePlayerContainerLayout()
         }
 
         binding.playImageView.setOnClickListener {
@@ -630,7 +652,11 @@ class PlayerFragment : BasePlayerFragment(R.layout.fragment_player), CustomPlaye
         binding.playerChannel.setOnClickListener {
             if (!this::streams.isInitialized) return@setOnClickListener
 
-            NavigationHelper.navigateChannel(requireContext(), streams.uploaderUrl)
+            NavigationHelper.navigateChannel(
+                requireContext(),
+                streams.uploaderUrl,
+                streams.uploader
+            )
         }
 
         binding.descriptionLayout.handleLink = this::handleLink
@@ -712,7 +738,7 @@ class PlayerFragment : BasePlayerFragment(R.layout.fragment_player), CustomPlaye
         binding.player.detachPlayer()
 
         playerController.release()
-        killPlayerFragment()
+        killPlayerFragment(stopPlayer = false)
 
         NavigationHelper.openAudioPlayerFragment(requireContext(), offlinePlayer = isOffline, noAutoVideoSwitch = true)
     }
@@ -897,10 +923,22 @@ class PlayerFragment : BasePlayerFragment(R.layout.fragment_player), CustomPlaye
     /**
      * Manually kill the player fragment - call instead of using onDestroy directly
      */
-    private fun killPlayerFragment() {
+    private fun killPlayerFragment(stopPlayer: Boolean = true) {
         binding.playerMotionLayout.transitionToEnd()
 
         commonPlayerViewModel.isMiniPlayerVisible.value = false
+
+        if (stopPlayer) {
+            if (::playerController.isInitialized && playerController.isConnected) {
+                playerController.removeListener(playerListener)
+                playerController.pause()
+                playerController.sendCustomCommand(
+                    AbstractPlayerService.stopServiceCommand,
+                    Bundle.EMPTY
+                )
+                playerController.release()
+            }
+        }
 
         if (commonPlayerViewModel.isFullscreen.value == true) {
             // wait for the mini player transition to finish
@@ -910,16 +948,20 @@ class PlayerFragment : BasePlayerFragment(R.layout.fragment_player), CustomPlaye
                 override fun onTransitionCompleted(motionLayout: MotionLayout?, currentId: Int) {
                     super.onTransitionCompleted(motionLayout, currentId)
 
-                    baseActivity.supportFragmentManager.commit(allowStateLoss = true) {
-                        remove(this@PlayerFragment)
+                    if (isAdded && !isStateSaved) {
+                        baseActivity.supportFragmentManager.commit(allowStateLoss = true) {
+                            remove(this@PlayerFragment)
+                        }
                     }
                 }
             })
 
             unsetFullscreen()
         } else {
-            baseActivity.supportFragmentManager.commit(allowStateLoss = true) {
-                remove(this@PlayerFragment)
+            if (isAdded && !isStateSaved) {
+                baseActivity.supportFragmentManager.commit(allowStateLoss = true) {
+                    remove(this@PlayerFragment)
+                }
             }
         }
     }
@@ -989,12 +1031,13 @@ class PlayerFragment : BasePlayerFragment(R.layout.fragment_player), CustomPlaye
     private fun updatePlayerView() {
         setPlayerDefaults()
 
-        // Cache the music category for informational purposes.
-        // We no longer auto-redirect to AudioPlayerFragment for music videos;
-        // the video player handles music with its audio-only thumbnail layout.
         if (!isOffline) {
             val isMusic = streams.category == Streams.CATEGORY_MUSIC
             MusicCategoryCache.put(requireContext(), videoId, isMusic)
+            if (isMusic && PlayerHelper.autoMusicAudioMode && !forceVideo) {
+                switchToAudioMode()
+                return
+            }
         }
 
         binding.player.useController = false

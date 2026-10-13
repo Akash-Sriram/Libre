@@ -11,6 +11,8 @@ import app.libre.databinding.QueueBottomSheetBinding
 import app.libre.extensions.addSpringTouchFeedback
 import app.libre.extensions.setActionListener
 import app.libre.extensions.toID
+import app.libre.extensions.dpToPx
+import app.libre.ui.extensions.onSystemInsets
 import app.libre.ui.adapters.PlayingQueueAdapter
 import app.libre.util.PlayingQueue
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -39,6 +41,15 @@ class PlayingQueueSheet : ExpandedBottomSheet(R.layout.queue_bottom_sheet) {
             updateQueueHeader()
         }
         binding.optionsRecycler.adapter = adapter
+
+        binding.optionsRecycler.onSystemInsets { v, insets ->
+            v.setPadding(
+                v.paddingLeft,
+                v.paddingTop,
+                v.paddingRight,
+                insets.bottom + 16f.dpToPx()
+            )
+        }
 
         updateQueueHeader()
 

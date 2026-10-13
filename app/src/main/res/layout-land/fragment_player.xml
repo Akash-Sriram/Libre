@@ -256,15 +256,15 @@
         app:surface_type="surface_view" />
 
     <ImageView
-        android:id="@+id/close_imageView"
+        android:id="@+id/next_imageView"
         android:layout_width="48dp"
         android:layout_height="48dp"
         android:alpha="0"
         android:background="?attr/selectableItemBackgroundBorderless"
         android:padding="10dp"
         android:scaleType="centerInside"
-        android:src="@drawable/ic_close"
-        android:tooltipText="@string/tooltip_close"
+        android:src="@drawable/ic_next"
+        android:tooltipText="@string/next"
         android:visibility="gone"
         app:layout_constraintBottom_toBottomOf="@id/main_container"
         app:layout_constraintEnd_toEndOf="@id/main_container"
@@ -281,9 +281,9 @@
         android:src="@drawable/ic_play"
         android:tooltipText="@string/tooltip_play"
         android:visibility="gone"
-        app:layout_constraintBottom_toBottomOf="@+id/close_imageView"
-        app:layout_constraintEnd_toStartOf="@+id/close_imageView"
-        app:layout_constraintTop_toTopOf="@+id/close_imageView" />
+        app:layout_constraintBottom_toBottomOf="@+id/next_imageView"
+        app:layout_constraintEnd_toStartOf="@+id/next_imageView"
+        app:layout_constraintTop_toTopOf="@+id/next_imageView" />
 
     <TextView
         android:id="@+id/title_textView"

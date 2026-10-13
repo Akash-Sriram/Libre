@@ -25,12 +25,19 @@ import app.libre.ui.fragments.PlayerFragment
 import app.libre.util.PlayingQueue
 
 object NavigationHelper {
-    fun navigateChannel(context: Context, channelUrlOrId: String?) {
-        if (channelUrlOrId == null) return
+    fun navigateChannel(context: Context, channelUrlOrId: String?, channelName: String? = null) {
+        val cleanId = channelUrlOrId?.toID()?.takeIf { it.isNotBlank() }
+        val cleanName = channelName?.trim()?.takeIf { it.isNotBlank() }
+        if (cleanId == null && cleanName == null) return
 
         // navigating to channels is only supported in the main activity, not in the no internet activity
         val activity = ContextHelper.tryUnwrapActivity<MainActivity>(context) ?: return
-        activity.navController.navigate(NavDirections.openChannel(channelUrlOrId.toID()))
+        activity.navController.navigate(
+            NavDirections.openChannel(
+                channelId = cleanId,
+                channelName = cleanName
+            )
+        )
         try {
             // minimize player if currently expanded
             activity.runOnPlayerFragment {
@@ -55,11 +62,25 @@ object NavigationHelper {
         forceVideo: Boolean = false,
         audioOnlyPlayerRequested: Boolean = false,
     ) {
+        val forceVideoMode = playerData.forceVideo || forceVideo
         val isJioSaavn = JioSaavnHelper.isJioSaavn(playerData.videoId, playerData.isOffline)
-        // Only JioSaavn or explicit audio-only requests route to the audio player.
-        // Music category videos always load in the video player first;
-        // the player itself will activate the audio-only thumbnail layout if needed.
-        val finalAudioOnlyPlayerRequested = audioOnlyPlayerRequested || isJioSaavn
+        val cleanYtId = playerData.videoId?.toID().orEmpty()
+        val isYtm = playerData.source == "ytm" ||
+            playerData.videoId?.contains("music.youtube.com") == true ||
+            playerData.videoId?.contains("/album/") == true ||
+            cleanYtId.startsWith("OLAK") ||
+            cleanYtId.startsWith("MPRE") ||
+            playerData.playlistId?.startsWith("OLAK") == true ||
+            playerData.playlistId?.startsWith("MPRE") == true ||
+            playerData.playlistId?.startsWith("jsa_album_") == true
+
+        val cachedIsMusic = playerData.videoId?.let { MusicCategoryCache.get(context, it.toID()) }
+
+        val finalAudioOnlyPlayerRequested = !forceVideoMode && (
+            audioOnlyPlayerRequested ||
+            isJioSaavn ||
+            (PlayerHelper.autoMusicAudioMode && (isYtm || cachedIsMusic == true))
+        )
 
 
         // attempt to attach to the current media session first by using the corresponding
@@ -73,6 +94,7 @@ object NavigationHelper {
             try {
                 // Only clear after current if not keeping the playlist queue
                 if (!playerData.keepQueue) PlayingQueue.clearAfterCurrent()
+                this.forceVideo = forceVideoMode
                 this.playNextVideo(playerData.videoId.toID())
 
                 if (finalAudioOnlyPlayerRequested) {
@@ -91,7 +113,7 @@ object NavigationHelper {
         }
         if (attachedToRunningPlayer) return
 
-        val audioOnlyMode = isJioSaavn
+        val audioOnlyMode = isJioSaavn || (!forceVideoMode && isYtm && PlayerHelper.autoMusicAudioMode)
         val attachedToRunningAudioPlayer = activity.runOnAudioPlayerFragment {
             // can only continue using player if in same mode (online/offline)
             // otherwise, recreate the player
@@ -115,31 +137,15 @@ object NavigationHelper {
         }
         if (attachedToRunningAudioPlayer) return
 
-        val cleanYtId = playerData.videoId?.toID().orEmpty()
-        val isYtm = playerData.source == "ytm" ||
-            playerData.videoId?.contains("music.youtube.com") == true ||
-            playerData.videoId?.contains("/album/") == true ||
-            cleanYtId.startsWith("OLAK") ||
-            cleanYtId.startsWith("MPRE")
-
-        val isAudioSource = isJioSaavn || isYtm || finalAudioOnlyPlayerRequested
-        val cachedIsMusic = playerData.videoId?.let { MusicCategoryCache.get(context, it.toID()) }
-
-        // Route to AudioPlayer immediately for YouTube Music, JioSaavn, explicit audio requests, or known cached music.
-        // Standard YouTube video searches go directly to the Video Player with 0ms redirection overhead.
-        val goToAudioPlayer = !playerData.forceVideo && !forceVideo && (
-            isAudioSource ||
-            (PlayerHelper.autoMusicAudioMode && cachedIsMusic == true)
-        )
         val isLocalPlaylist = playerData.playlistId?.let { app.libre.api.PlaylistsHelper.getPlaylistType(it) == app.libre.enums.PlaylistType.LOCAL } ?: false
-        if (goToAudioPlayer) {
+        if (finalAudioOnlyPlayerRequested) {
             BackgroundHelper.playOnBackground(context, playerData)
             // Always expand the audio player by default (never minimize on open)
             openAudioPlayerFragment(
                 context,
                 offlinePlayer = playerData.isOffline,
                 minimizeByDefault = false,
-                noAutoVideoSwitch = isJioSaavn,  // JioSaavn must never auto-switch to video
+                noAutoVideoSwitch = isJioSaavn || (isYtm && PlayerHelper.autoMusicAudioMode),
                 isLocalPlaylist = isLocalPlaylist
             )
         } else {

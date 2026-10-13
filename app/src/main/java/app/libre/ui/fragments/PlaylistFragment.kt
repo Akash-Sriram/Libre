@@ -93,7 +93,8 @@ class PlaylistFragment : DynamicLayoutManagerFragment(R.layout.fragment_playlist
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         playlistId = args.playlistId
-        playlistType = args.playlistType
+        val detectedType = PlaylistsHelper.getPlaylistType(playlistId)
+        playlistType = if (detectedType == PlaylistType.LOCAL) PlaylistType.LOCAL else args.playlistType
         selectedSortOrder = PreferenceHelper.getInt(
             "playlist_sort_$playlistId",
             PreferenceHelper.getInt(app.libre.constants.PreferenceKeys.DEFAULT_PLAYLIST_SORT_ORDER, 1)
@@ -148,8 +149,19 @@ class PlaylistFragment : DynamicLayoutManagerFragment(R.layout.fragment_playlist
             }
         }
 
+        val updateRecyclerBottomPadding = {
+            val isMini = commonPlayerViewModel.isMiniPlayerVisible.value == true
+            val navBottom = commonPlayerViewModel.systemBarInsets.value?.bottom ?: 0
+            val targetPad = if (isMini) (82f.dpToPx() + navBottom) else (navBottom + 16f.dpToPx())
+            binding.playlistRecView.animatePaddingBottom(targetPad)
+        }
+
         commonPlayerViewModel.isMiniPlayerVisible.observe(viewLifecycleOwner) {
-            binding.playlistRecView.animatePaddingBottom(if (it) 78f.dpToPx() else 0)
+            updateRecyclerBottomPadding()
+        }
+
+        commonPlayerViewModel.systemBarInsets.observe(viewLifecycleOwner) {
+            updateRecyclerBottomPadding()
         }
 
         binding.scrollToTopFab.setOnClickListener {
@@ -228,12 +240,14 @@ class PlaylistFragment : DynamicLayoutManagerFragment(R.layout.fragment_playlist
 
             binding.playlistInfo.text = getChannelAndVideoString(response, response.videos)
             binding.playlistInfo.setOnClickListener {
-                NavigationHelper.navigateChannel(requireContext(), response.uploaderUrl)
+                NavigationHelper.navigateChannel(requireContext(), response.uploaderUrl, response.uploader)
             }
 
             playlistAdapter = PlaylistAdapter(playlistId, playlistType == PlaylistType.LOCAL) { streamItem ->
                 startVideoItemPlayback(streamItem)
             }
+            binding.playlistRecView.setHasFixedSize(true)
+            binding.playlistRecView.setItemViewCacheSize(20)
             binding.playlistRecView.adapter = playlistAdapter
 
             // listen for playlist items to become deleted
@@ -345,7 +359,7 @@ class PlaylistFragment : DynamicLayoutManagerFragment(R.layout.fragment_playlist
                         val base = it.item
                         val cleanUrl = base.url?.toID() ?: base.url
                         if (!albumArt.isNullOrBlank() && isTrueAlbum) {
-                            base.copy(url = cleanUrl, thumbnail = albumArt, albumName = playlistName)
+                            base.copy(url = cleanUrl, thumbnail = albumArt, albumName = playlistName, albumId = playlistId, source = base.source ?: if (isTrueAlbum) "ytm" else null)
                         } else {
                             base.copy(url = cleanUrl)
                         }
@@ -411,13 +425,17 @@ class PlaylistFragment : DynamicLayoutManagerFragment(R.layout.fragment_playlist
     }
 
     private fun navigateVideo(streamItem: StreamItem) {
+        val isTrueAlbum = playlistId.startsWith("OLAK") || playlistId.startsWith("MPRE") || playlistId.startsWith("jsa_album_")
+        val isLocal = playlistType == PlaylistType.LOCAL
         NavigationHelper.navigateVideo(
             requireContext(),
             playerData = PlayerData(
-                streamItem.url!!.toID(),
+                videoId = streamItem.url!!.toID(),
+                playlistId = playlistId,
                 keepQueue = true,
-                source = streamItem.source
-            )
+                source = streamItem.source ?: if (isTrueAlbum) "ytm" else null
+            ),
+            audioOnlyPlayerRequested = isTrueAlbum || isLocal
         )
     }
 
@@ -431,7 +449,7 @@ class PlaylistFragment : DynamicLayoutManagerFragment(R.layout.fragment_playlist
             val base = it.item
             val cleanUrl = base.url?.toID() ?: base.url
             if (!albumArt.isNullOrBlank() && isTrueAlbum) {
-                base.copy(url = cleanUrl, thumbnail = albumArt, albumName = playlistName)
+                base.copy(url = cleanUrl, thumbnail = albumArt, albumName = playlistName, albumId = playlistId, source = base.source ?: if (isTrueAlbum) "ytm" else null)
             } else {
                 base.copy(url = cleanUrl)
             }
@@ -489,11 +507,10 @@ class PlaylistFragment : DynamicLayoutManagerFragment(R.layout.fragment_playlist
             val trackNumber: Int
 
             if (isLocal) {
-                val cachedTags = app.libre.helpers.LocalAudioMatcher.tagCache[videoId]
-                    ?: app.libre.helpers.LocalAudioMatcher.tagCache[item.item.title.orEmpty()]
-                title = cachedTags?.title ?: app.libre.helpers.LocalAudioMatcher.getTitleFromFile(videoId, item.item.title) ?: item.item.title.orEmpty()
-                album = cachedTags?.album ?: app.libre.helpers.LocalAudioMatcher.getAlbumFromFile(videoId, item.item.title) ?: item.item.albumName.orEmpty()
-                trackNumber = cachedTags?.trackNumber ?: app.libre.helpers.LocalAudioMatcher.getTrackNumberFromFile(videoId, item.item.title) ?: Int.MAX_VALUE
+                val tags = app.libre.helpers.LocalAudioMatcher.getTags(videoId, item.item.title)
+                title = tags?.title ?: item.item.title.orEmpty()
+                album = tags?.album ?: item.item.albumName.orEmpty()
+                trackNumber = tags?.trackNumber ?: Int.MAX_VALUE
             } else {
                 title = item.item.title.orEmpty()
                 album = item.item.albumName.orEmpty()
@@ -543,8 +560,7 @@ class PlaylistFragment : DynamicLayoutManagerFragment(R.layout.fragment_playlist
         cachedSearchList = sorted.map { item ->
             val videoId = item.item.url.orEmpty().toID()
             val tags = if (isLocal) {
-                app.libre.helpers.LocalAudioMatcher.tagCache[videoId]
-                    ?: app.libre.helpers.LocalAudioMatcher.tagCache[item.item.title.orEmpty()]
+                app.libre.helpers.LocalAudioMatcher.getTags(videoId, item.item.title)
             } else null
 
             val genre = tags?.genre.orEmpty()

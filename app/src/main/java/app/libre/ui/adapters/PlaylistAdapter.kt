@@ -62,23 +62,19 @@ class PlaylistAdapter(
             val subtitleText: String
 
             if (isLocalPlaylist) {
-                val localTitle = app.libre.helpers.LocalAudioMatcher.getTitleFromFile(videoId, streamItem.title)
-                val baseTitle = (localTitle ?: streamItem.title).orEmpty()
-                val trackNumber = app.libre.helpers.LocalAudioMatcher.getTrackNumberFromFile(videoId, streamItem.title)
-                displayTitle = app.libre.helpers.LocalAudioMatcher.formatTitleWithTrackNumber(baseTitle, trackNumber)
+                val tags = app.libre.helpers.LocalAudioMatcher.getTags(videoId, streamItem.title)
+                val baseTitle = (tags?.title ?: streamItem.title).orEmpty()
+                displayTitle = app.libre.helpers.LocalAudioMatcher.formatTitleWithTrackNumber(baseTitle, tags?.trackNumber)
 
-                val localAlbum = app.libre.helpers.LocalAudioMatcher.getAlbumFromFile(videoId, streamItem.title)
-                val localYear = app.libre.helpers.LocalAudioMatcher.getYearFromFile(videoId, streamItem.title)
-                val album = localAlbum ?: streamItem.albumName.orEmpty().trim()
-                val year = localYear
+                val album = tags?.album ?: streamItem.albumName.orEmpty().trim()
+                val year = tags?.year
 
                 subtitleText = when {
                     album.isNotEmpty() && !year.isNullOrBlank() -> "$album • $year"
                     album.isNotEmpty() -> album
                     !year.isNullOrBlank() -> year
                     else -> {
-                        val localArtist = app.libre.helpers.LocalAudioMatcher.getArtistFromFile(videoId, streamItem.title)
-                        val rawArtist = (localArtist ?: streamItem.uploaderName.orEmpty()).replace(Regex("""\s*-\s*Topic\b""", RegexOption.IGNORE_CASE), "").trim()
+                        val rawArtist = (tags?.artist ?: streamItem.uploaderName.orEmpty()).replace(Regex("""\s*-\s*Topic\b""", RegexOption.IGNORE_CASE), "").trim()
                         app.libre.helpers.LocalAudioMatcher.normalizeArtistString(rawArtist) ?: rawArtist
                     }
                 }

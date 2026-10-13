@@ -60,7 +60,10 @@ class ChannelFragment : Fragment(R.layout.fragment_channel) {
         channelName = args.channelName
             ?.replace("/c/", "")
             ?.replace("/user/", "")
-        channelId = args.channelId
+            ?.replace("/channel/", "")
+            ?.trim()
+            ?.takeIf { it.isNotBlank() }
+        channelId = args.channelId?.trim()?.takeIf { it.isNotBlank() }
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -108,10 +111,20 @@ class ChannelFragment : Fragment(R.layout.fragment_channel) {
 
         val response = try {
             withContext(Dispatchers.IO) {
-                if (channelId != null) {
-                    MediaServiceRepository.instance.getChannel(channelId!!)
-                } else {
+                if (!channelId.isNullOrBlank()) {
+                    try {
+                        MediaServiceRepository.instance.getChannel(channelId!!)
+                    } catch (e: Exception) {
+                        if (!channelName.isNullOrBlank()) {
+                            MediaServiceRepository.instance.getChannelByName(channelName!!)
+                        } else {
+                            throw e
+                        }
+                    }
+                } else if (!channelName.isNullOrBlank()) {
                     MediaServiceRepository.instance.getChannelByName(channelName!!)
+                } else {
+                    throw IllegalArgumentException("No channel identifier provided")
                 }
             }
         } catch (e: Exception) {

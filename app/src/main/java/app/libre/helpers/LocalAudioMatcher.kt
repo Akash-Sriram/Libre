@@ -267,7 +267,7 @@ object LocalAudioMatcher {
                     val trackNumber = if (rawTrack > 0) rawTrack % 1000 else null
                     val albumArtist = if (albumArtistCol >= 0) normalizeArtistString(cursor.getString(albumArtistCol)) else null
                     val genre = (if (genreCol >= 0) cursor.getString(genreCol)?.trim() else null)
-                        ?.takeIf { it.isNotBlank() } ?: extractGenreFromBinary(file.absolutePath)
+                        ?.takeIf { it.isNotBlank() }
 
                     // Index for fuzzy title search
                     val normalizedTitle = normalizeTitle(rawTitle ?: file.nameWithoutExtension)
@@ -925,9 +925,11 @@ object LocalAudioMatcher {
         return "$prefix$cleanTitle"
     }
 
+    private val EMPTY_TAGS = LocalAudioTags(null, null, null, null, null, null, null)
+
     private fun extractTagsForPath(cacheKey: String, path: String): LocalAudioTags {
-        val cached = tagCache[cacheKey]
-        if (cached != null && cached.genre != null && cached.artist != null && cached.title != null) return cached
+        val cached = tagCache[cacheKey] ?: tagCache[path]
+        if (cached != null && cached !== EMPTY_TAGS) return cached
 
         val tags = try {
             MediaMetadataRetriever().use { retriever ->
@@ -958,6 +960,7 @@ object LocalAudioMatcher {
             LocalAudioTags(null, null, null, null, null, binaryGenre, null)
         }
         tagCache[cacheKey] = tags
+        tagCache[path] = tags
         return tags
     }
 
@@ -1007,88 +1010,71 @@ object LocalAudioMatcher {
             if (direct != null) return direct
         }
         if (!title.isNullOrBlank()) {
-            val titleMatch = getLocalPathByTitle(title)
-            if (titleMatch != null) {
-                return titleMatch
-            }
+            val norm = normalizeTitle(title)
+            val exactMatch = titleToPathMap[norm]
+            if (exactMatch != null) return exactMatch
         }
         return null
     }
 
-    fun getArtistFromFile(videoId: String, title: String? = null): String? {
+    /**
+     * Resolves all audio tags for a videoId or title in a single O(1) in-memory call.
+     * Never performs disk I/O or Levenshtein distance iterations on the UI thread.
+     */
+    fun getTags(videoId: String, title: String? = null): LocalAudioTags? {
         val key = videoId.ifEmpty { title.orEmpty() }
+        if (key.isEmpty()) return null
         val cached = tagCache[key]
-        if (!cached?.artist.isNullOrBlank()) return cached.artist
-        val path = resolvePath(videoId, title) ?: return null
-        return extractTagsForPath(key, path).artist
+        if (cached != null) return if (cached === EMPTY_TAGS) null else cached
+
+        val path = resolvePath(videoId, title)
+        if (path == null) {
+            // Negative cache so repeated calls for this online track take 0.0001ms
+            tagCache[key] = EMPTY_TAGS
+            return null
+        }
+        return extractTagsForPath(key, path)
     }
+
+    fun getArtistFromFile(videoId: String, title: String? = null): String? =
+        getTags(videoId, title)?.artist
 
     /**
      * Reads the TITLE tag embedded in the local audio file.
      * Returns null if no title tag is present or the file isn't indexed.
      */
-    fun getTitleFromFile(videoId: String, title: String? = null): String? {
-        val key = videoId.ifEmpty { title.orEmpty() }
-        val cached = tagCache[key]
-        if (!cached?.title.isNullOrBlank()) return cached.title
-        val path = resolvePath(videoId, title) ?: return null
-        return extractTagsForPath(key, path).title
-    }
+    fun getTitleFromFile(videoId: String, title: String? = null): String? =
+        getTags(videoId, title)?.title
 
     /**
      * Reads the ALBUM tag embedded in the local audio file.
      * Returns null if no album tag is present or the file isn't indexed.
      */
-    fun getAlbumFromFile(videoId: String, title: String? = null): String? {
-        val key = videoId.ifEmpty { title.orEmpty() }
-        val cached = tagCache[key]
-        if (!cached?.album.isNullOrBlank()) return cached.album
-        val path = resolvePath(videoId, title) ?: return null
-        return extractTagsForPath(key, path).album
-    }
+    fun getAlbumFromFile(videoId: String, title: String? = null): String? =
+        getTags(videoId, title)?.album
 
     /**
      * Reads the YEAR/DATE tag embedded in the local audio file.
      * Returns null if no year tag is present or the file isn't indexed.
      */
-    fun getYearFromFile(videoId: String, title: String? = null): String? {
-        val key = videoId.ifEmpty { title.orEmpty() }
-        val cached = tagCache[key]
-        if (!cached?.year.isNullOrBlank()) return cached.year
-        val path = resolvePath(videoId, title) ?: return null
-        return extractTagsForPath(key, path).year
-    }
+    fun getYearFromFile(videoId: String, title: String? = null): String? =
+        getTags(videoId, title)?.year
 
     /**
      * Reads the TRACK NUMBER tag embedded in the local audio file.
      */
-    fun getTrackNumberFromFile(videoId: String, title: String? = null): Int? {
-        val key = videoId.ifEmpty { title.orEmpty() }
-        val cached = tagCache[key]
-        if (cached?.trackNumber != null) return cached.trackNumber
-        val path = resolvePath(videoId, title) ?: return null
-        return extractTagsForPath(key, path).trackNumber
-    }
+    fun getTrackNumberFromFile(videoId: String, title: String? = null): Int? =
+        getTags(videoId, title)?.trackNumber
 
     /**
      * Reads the ALBUM ARTIST tag embedded in the local audio file.
      */
-    fun getAlbumArtistFromFile(videoId: String, title: String? = null): String? {
-        val key = videoId.ifEmpty { title.orEmpty() }
-        val cached = tagCache[key]
-        if (!cached?.albumArtist.isNullOrBlank()) return cached.albumArtist
-        val path = resolvePath(videoId, title) ?: return null
-        return extractTagsForPath(key, path).albumArtist
-    }
+    fun getAlbumArtistFromFile(videoId: String, title: String? = null): String? =
+        getTags(videoId, title)?.albumArtist
 
     /**
      * Reads the GENRE tag embedded in the local audio file.
      */
-    fun getGenreFromFile(videoId: String, title: String? = null): String? {
-        val key = videoId.ifEmpty { title.orEmpty() }
-        val cached = tagCache[key]
-        if (!cached?.genre.isNullOrBlank()) return cached.genre
-        val path = resolvePath(videoId, title) ?: return null
-        return extractTagsForPath(key, path).genre
-    }
+    fun getGenreFromFile(videoId: String, title: String? = null): String? =
+        getTags(videoId, title)?.genre
 }

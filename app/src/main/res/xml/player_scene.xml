@@ -12,11 +12,11 @@
             <KeyAttribute
                 android:alpha="0"
                 motion:framePosition="60"
-                motion:motionTarget="@+id/close_imageView" />
+                motion:motionTarget="@+id/next_imageView" />
             <KeyAttribute
                 android:alpha="1"
                 motion:framePosition="100"
-                motion:motionTarget="@+id/close_imageView" />
+                motion:motionTarget="@+id/next_imageView" />
             <KeyAttribute
                 android:alpha="0"
                 motion:framePosition="60"
@@ -77,7 +77,7 @@
             motion:layout_constraintStart_toStartOf="@id/main_container"
             motion:layout_constraintTop_toTopOf="@id/main_container" />
         <Constraint
-            android:id="@+id/close_imageView"
+            android:id="@+id/next_imageView"
             android:layout_width="44dp"
             android:layout_height="44dp"
             android:layout_marginEnd="8dp"
@@ -90,11 +90,11 @@
             android:id="@+id/play_imageView"
             android:layout_width="44dp"
             android:layout_height="44dp"
-            android:layout_marginEnd="2dp"
+            android:layout_marginEnd="4dp"
             android:alpha="1"
             android:visibility="visible"
             motion:layout_constraintBottom_toBottomOf="@id/main_container"
-            motion:layout_constraintEnd_toStartOf="@+id/close_imageView"
+            motion:layout_constraintEnd_toStartOf="@+id/next_imageView"
             motion:layout_constraintTop_toTopOf="@id/main_container" />
         <Constraint
             android:id="@+id/title_textView"

@@ -492,30 +492,47 @@ object YtMusicApi {
                 }
             }
 
-            // 1. Check singleColumnBrowseResultsRenderer
-            var sectionContents = masterTrackJson.optJSONObject("contents")
-                ?.optJSONObject("singleColumnBrowseResultsRenderer")
-                ?.optJSONArray("tabs")
-                ?.optJSONObject(0)
-                ?.optJSONObject("tabRenderer")
-                ?.optJSONObject("content")
-                ?.optJSONObject("sectionListRenderer")
-                ?.optJSONArray("contents")
-                ?.optJSONObject(0)
-                ?.optJSONObject("musicShelfRenderer")
-                ?.optJSONArray("contents")
+            fun findShelfContents(root: JSONObject): org.json.JSONArray? {
+                val tabsList = root.optJSONObject("contents")
+                    ?.optJSONObject("twoColumnBrowseResultsRenderer")
+                    ?.optJSONArray("tabs")
+                    ?: root.optJSONObject("contents")
+                    ?.optJSONObject("singleColumnBrowseResultsRenderer")
+                    ?.optJSONArray("tabs")
 
-            // 2. Check twoColumnBrowseResultsRenderer (musicPlaylistShelfRenderer or musicShelfRenderer)
-            if (sectionContents == null) {
-                val twoColSec = masterTrackJson.optJSONObject("contents")
+                val tabSections = tabsList?.optJSONObject(0)
+                    ?.optJSONObject("tabRenderer")
+                    ?.optJSONObject("content")
+                    ?.optJSONObject("sectionListRenderer")
+                    ?.optJSONArray("contents")
+
+                if (tabSections != null) {
+                    for (s in 0 until tabSections.length()) {
+                        val secObj = tabSections.optJSONObject(s) ?: continue
+                        secObj.optJSONObject("musicShelfRenderer")?.optJSONArray("contents")?.let { return it }
+                        secObj.optJSONObject("musicPlaylistShelfRenderer")?.optJSONArray("contents")?.let { return it }
+                    }
+                }
+
+                val secList = root.optJSONObject("contents")
                     ?.optJSONObject("twoColumnBrowseResultsRenderer")
                     ?.optJSONObject("secondaryContents")
                     ?.optJSONObject("sectionListRenderer")
                     ?.optJSONArray("contents")
-                    ?.optJSONObject(0)
 
-                sectionContents = twoColSec?.optJSONObject("musicPlaylistShelfRenderer")?.optJSONArray("contents")
-                    ?: twoColSec?.optJSONObject("musicShelfRenderer")?.optJSONArray("contents")
+                if (secList != null) {
+                    for (s in 0 until secList.length()) {
+                        val secObj = secList.optJSONObject(s) ?: continue
+                        secObj.optJSONObject("musicPlaylistShelfRenderer")?.optJSONArray("contents")?.let { return it }
+                        secObj.optJSONObject("musicShelfRenderer")?.optJSONArray("contents")?.let { return it }
+                    }
+                }
+                return null
+            }
+
+            var sectionContents = findShelfContents(masterTrackJson)
+            if (sectionContents == null && masterTrackJson !== json) {
+                sectionContents = findShelfContents(json)
             }
 
             if (sectionContents != null) {
