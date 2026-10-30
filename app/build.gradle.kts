@@ -198,7 +198,7 @@ dependencies {
     implementation("androidx.palette:palette-ktx:1.0.0")
 
     /* AndroidX Dynamic Animation for Spring physics */
-    implementation("androidx.dynamicanimation:dynamicanimation-ktx:1.0.0-alpha03")
+    implementation("androidx.dynamicanimation:dynamicanimation-ktx:1.1.0")
 
     /* Testing */
     testImplementation(libs.junit)
