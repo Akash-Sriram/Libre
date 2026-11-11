@@ -43,7 +43,7 @@ android {
         applicationId = "app.libre"
         minSdk = 26
         targetSdk = 36
-        versionCode = 70
+        versionCode = 71
         versionName = getVersionName()
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         resValue("string", "app_name", "Libre")

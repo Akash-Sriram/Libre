@@ -1,5 +1,6 @@
 package app.libre.helpers
 
+import app.libre.api.obj.Playlist
 import app.libre.api.obj.StreamItem
 import app.libre.db.DatabaseHolder
 import app.libre.db.obj.LocalPlaylist
@@ -70,6 +71,21 @@ object LocalPlaylistsCache {
                 e.printStackTrace()
             }
         }
+    }
+
+    /**
+     * Instantly retrieves a cached playlist and its streams from RAM in 0.001ms if loaded.
+     */
+    fun getCachedPlaylist(playlistId: String): Playlist? {
+        if (!isLoaded) return null
+        val cached = cachedList.firstOrNull { it.playlist.id.toString() == playlistId } ?: return null
+        return Playlist(
+            name = cached.playlist.name,
+            description = cached.playlist.description,
+            thumbnailUrl = cached.playlist.thumbnailUrl,
+            videos = cached.songCount,
+            relatedStreams = cached.canonicalTracks.map { it.originalItem }
+        )
     }
 
     /**

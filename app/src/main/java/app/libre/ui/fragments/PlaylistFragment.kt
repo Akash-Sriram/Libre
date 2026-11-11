@@ -490,14 +490,26 @@ class PlaylistFragment : DynamicLayoutManagerFragment(R.layout.fragment_playlist
     )
 
     private fun getSortedVideos(): List<PlaylistItem> {
+        val cached = cachedSortedVideos
+        if (cached != null) return cached
+
         val items = playlistFeed.mapIndexed { index, item -> PlaylistItem(item, index) }
 
         if (playlistType == PlaylistType.PUBLIC && selectedSortOrder in listOf(0, 1)) {
-            return if (selectedSortOrder == 0) items else items.reversed()
+            val res = if (selectedSortOrder == 0) items else items.reversed()
+            cachedSortedVideos = res
+            return res
         }
 
-        if (selectedSortOrder == 0) return items
-        if (selectedSortOrder == 1) return items.reversed()
+        if (selectedSortOrder == 0) {
+            cachedSortedVideos = items
+            return items
+        }
+        if (selectedSortOrder == 1) {
+            val res = items.reversed()
+            cachedSortedVideos = res
+            return res
+        }
 
         val isLocal = playlistType != PlaylistType.PUBLIC
         val sortables = items.map { item ->
@@ -539,7 +551,9 @@ class PlaylistFragment : DynamicLayoutManagerFragment(R.layout.fragment_playlist
             else -> sortables
         }
 
-        return sorted.map { it.playlistItem }
+        val res = sorted.map { it.playlistItem }
+        cachedSortedVideos = res
+        return res
     }
 
     private var cachedSortedVideos: List<PlaylistItem>? = null
@@ -550,14 +564,12 @@ class PlaylistFragment : DynamicLayoutManagerFragment(R.layout.fragment_playlist
         cachedSearchList = null
     }
 
-    private fun ensureSortedCache(): List<PlaylistItem> {
-        val existing = cachedSortedVideos
-        if (existing != null) return existing
+    private fun ensureSearchList(sorted: List<PlaylistItem>): List<Pair<PlaylistItem, String>> {
+        val existing = cachedSearchList
+        if (existing != null && existing.size == sorted.size) return existing
 
-        val sorted = getSortedVideos()
-        cachedSortedVideos = sorted
         val isLocal = playlistType != PlaylistType.PUBLIC
-        cachedSearchList = sorted.map { item ->
+        val list = sorted.map { item ->
             val videoId = item.item.url.orEmpty().toID()
             val tags = if (isLocal) {
                 app.libre.helpers.LocalAudioMatcher.getTags(videoId, item.item.title)
@@ -574,7 +586,8 @@ class PlaylistFragment : DynamicLayoutManagerFragment(R.layout.fragment_playlist
             val combinedText = "${item.item.title.orEmpty()} ${item.item.uploaderName.orEmpty()} ${item.item.albumName.orEmpty()} $artist $album $year $genre $albumArtist $sourceText".lowercase(Locale.US)
             item to combinedText
         }
-        return sorted
+        cachedSearchList = list
+        return list
     }
 
     private var filterJob: kotlinx.coroutines.Job? = null
@@ -583,26 +596,28 @@ class PlaylistFragment : DynamicLayoutManagerFragment(R.layout.fragment_playlist
         filterJob?.cancel()
         val rawQuery = playlistViewModel.searchQuery.value?.trim()?.lowercase(Locale.US)
 
+        // 1. Immediately compute or retrieve sorted items using in-memory metadata
+        val sorted = cachedSortedVideos ?: getSortedVideos()
+
         if (rawQuery.isNullOrEmpty()) {
-            val cached = cachedSortedVideos
-            if (cached != null) {
-                playlistAdapter?.submitList(cached)
-                updatePlaylistDuration(cached)
-                return
+            // Instant render: submit to adapter immediately without blocking on search indexing
+            playlistAdapter?.submitList(sorted)
+            updatePlaylistDuration(sorted)
+
+            // Warm the search index asynchronously in the background so future search queries are instant
+            filterJob = viewLifecycleOwner.lifecycleScope.launch(Dispatchers.Default) {
+                ensureSearchList(sorted)
             }
+            return
         }
 
+        // 2. If a search query is active, filter using the search list
         filterJob = viewLifecycleOwner.lifecycleScope.launch(Dispatchers.Default) {
-            val sorted = ensureSortedCache()
-            val result = if (rawQuery.isNullOrEmpty()) {
-                sorted
-            } else {
-                val terms = rawQuery.split("\\s+".toRegex()).filter { it.isNotEmpty() }
-                val searchList = cachedSearchList ?: emptyList()
-                searchList.filter { (_, combinedText) ->
-                    terms.all { term -> combinedText.contains(term) }
-                }.map { it.first }
-            }
+            val searchList = ensureSearchList(sorted)
+            val terms = rawQuery.split("\\s+".toRegex()).filter { it.isNotEmpty() }
+            val result = searchList.filter { (_, combinedText) ->
+                terms.all { term -> combinedText.contains(term) }
+            }.map { it.first }
 
             withContext(Dispatchers.Main) {
                 playlistAdapter?.submitList(result)

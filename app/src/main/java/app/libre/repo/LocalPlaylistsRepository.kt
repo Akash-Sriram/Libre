@@ -14,6 +14,8 @@ import app.libre.obj.PipedImportPlaylist
 
 class LocalPlaylistsRepository: PlaylistRepository {
     override suspend fun getPlaylist(playlistId: String): Playlist {
+        app.libre.helpers.LocalPlaylistsCache.getCachedPlaylist(playlistId)?.let { return it }
+
         val idLong = playlistId.toLongOrNull()
         val relation = (if (idLong != null) DatabaseHolder.Database.localPlaylistsDao().getById(idLong) else null)
             ?: DatabaseHolder.Database.localPlaylistsDao().getAll().firstOrNull { it.playlist.id.toString() == playlistId }

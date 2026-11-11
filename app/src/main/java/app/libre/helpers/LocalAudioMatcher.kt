@@ -81,9 +81,11 @@ object LocalAudioMatcher {
                 // ── Phase 1: Restore from DB (fast, ~50ms) ────────────────────────────
                 val dbPaths = dao.getAllLocalPaths()
                 val restoredIds = mutableSetOf<String>()
+                val pathToRestoredId = mutableMapOf<String, String>()
                 for (entry in dbPaths) {
                     if (entry.localFilePath.isNotEmpty() && File(entry.localFilePath).exists()) {
                         localAudioMap[entry.videoId] = entry.localFilePath
+                        pathToRestoredId[entry.localFilePath] = entry.videoId
                         restoredIds.add(entry.videoId)
                         val file = File(entry.localFilePath)
                         val normName = normalizeTitle(file.nameWithoutExtension)
@@ -118,6 +120,23 @@ object LocalAudioMatcher {
                             if (normArtist.isNotEmpty()) {
                                 playlistTracksMap["$normArtist $normTitle"] = item.videoId
                                 playlistTracksMap["$normTitle $normArtist"] = item.videoId
+                            }
+
+                            // Pre-seed tagCache from Room DB metadata so local playlist views render instantly
+                            if (item.videoId.isNotEmpty() && !tagCache.containsKey(item.videoId)) {
+                                val seedTags = LocalAudioTags(
+                                    artist = normalizeArtistString(item.uploader),
+                                    album = item.albumName?.trim()?.takeIf { it.isNotBlank() },
+                                    year = null,
+                                    trackNumber = null,
+                                    albumArtist = null,
+                                    genre = null,
+                                    title = rawTitle.trim().takeIf { it.isNotBlank() }
+                                )
+                                tagCache[item.videoId] = seedTags
+                                if (path != null) {
+                                    tagCache[path] = seedTags
+                                }
                             }
 
                             val tTokens = extractSignificantTokens(normTitle)
@@ -188,7 +207,7 @@ object LocalAudioMatcher {
                 }
 
                 // Scan MediaStore for fast permission-free indexing of all audio files
-                scanMediaStore(context, restoredIds, newlyFound)
+                scanMediaStore(context, restoredIds, newlyFound, pathToRestoredId)
 
                 val knownPaths = HashSet<String>(localAudioMap.values)
                 knownPaths.addAll(newlyFound.values)
@@ -223,7 +242,8 @@ object LocalAudioMatcher {
     private fun scanMediaStore(
         context: Context,
         alreadyKnown: Set<String>,
-        newlyFound: MutableMap<String, String>
+        newlyFound: MutableMap<String, String>,
+        pathToRestoredId: Map<String, String> = emptyMap()
     ) {
         val projection = arrayOf(
             android.provider.MediaStore.Audio.Media.DATA,
@@ -258,7 +278,9 @@ object LocalAudioMatcher {
                     val file = File(filePath)
                     if (!file.exists()) continue
 
-                    val videoId = extractVideoId(file)
+                    val videoId = pathToRestoredId[file.absolutePath]
+                        ?: pathToRestoredId[filePath]
+                        ?: extractVideoId(file)
                     val rawTitle = if (titleCol >= 0) cursor.getString(titleCol) else null
                     val artist = if (artistCol >= 0) normalizeArtistString(cursor.getString(artistCol)) else null
                     val album = if (albumCol >= 0) cursor.getString(albumCol)?.trim() else null
@@ -929,7 +951,7 @@ object LocalAudioMatcher {
 
     private fun extractTagsForPath(cacheKey: String, path: String): LocalAudioTags {
         val cached = tagCache[cacheKey] ?: tagCache[path]
-        if (cached != null && cached !== EMPTY_TAGS) return cached
+        if (cached != null && cached !== EMPTY_TAGS && (cached.trackNumber != null || cached.year != null)) return cached
 
         val tags = try {
             MediaMetadataRetriever().use { retriever ->
@@ -1031,6 +1053,13 @@ object LocalAudioMatcher {
         if (path == null) {
             // Negative cache so repeated calls for this online track take 0.0001ms
             tagCache[key] = EMPTY_TAGS
+            return null
+        }
+        if (android.os.Looper.myLooper() == android.os.Looper.getMainLooper()) {
+            // Never block the UI thread with disk I/O; fetch in background
+            CoroutineScope(Dispatchers.IO).launch {
+                extractTagsForPath(key, path)
+            }
             return null
         }
         return extractTagsForPath(key, path)
