@@ -195,7 +195,7 @@ dependencies {
     implementation(libs.androidx.paging)
 
     /* AndroidX Palette for dynamic album art ambient tinting */
-    implementation("androidx.palette:palette-ktx:1.0.0")
+    implementation("androidx.palette:palette-ktx:1.1.0")
 
     /* AndroidX Dynamic Animation for Spring physics */
     implementation("androidx.dynamicanimation:dynamicanimation-ktx:1.1.0")
