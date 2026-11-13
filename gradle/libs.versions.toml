@@ -35,7 +35,7 @@ collection = "1.7.0"
 swiperefreshlayout = "1.2.0"
 splashscreen = "1.2.0"
 protobuf = "4.36.2"
-protobufPlugin = "0.10.0"
+protobufPlugin = "0.10.1"
 
 [libraries]
 androidx-activity = { group = "androidx.activity", name = "activity-ktx", version.ref = "activity" }
