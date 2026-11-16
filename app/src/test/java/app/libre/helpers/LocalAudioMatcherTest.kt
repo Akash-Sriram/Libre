@@ -128,4 +128,18 @@ class LocalAudioMatcherTest {
         val path = "/storage/emulated/0/Download/03. Thenmadurai Vaigai Nadhi.mp3"
         assertEquals(path, path.toID())
     }
+
+    @Test
+    fun testGetVideoIdFromLocalFilePathEndingWithBrackets() {
+        val path = "/storage/emulated/0/Music/Songs/Temp/Tamil Songs/Pongi Varum Kaveri [1989] - Velli Kolusu - [5HPAUsc3ueo].m4a"
+        val videoId = LocalAudioMatcher.getVideoId(path)
+        assertEquals("5HPAUsc3ueo", videoId)
+    }
+
+    @Test
+    fun testShareHelperResolvesOriginalUrlForMappedLocalFile() {
+        val path = "/storage/emulated/0/Music/Songs/Temp/Tamil Songs/Pongi Varum Kaveri [1989] - Velli Kolusu - [5HPAUsc3ueo].m4a"
+        val shareUrl = ShareHelper.getShareUrl(path)
+        assertEquals("https://youtu.be/5HPAUsc3ueo", shareUrl)
+    }
 }

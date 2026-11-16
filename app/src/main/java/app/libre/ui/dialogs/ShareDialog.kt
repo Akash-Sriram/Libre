@@ -113,15 +113,21 @@ class ShareDialog : DialogFragment() {
     private fun generateLinkText(
         binding: DialogShareBinding
     ): String {
-        val cleanId = id.removePrefix("jsa_song_").removePrefix("jsa_album_").removePrefix("jsa_playlist_")
-        val isJioSaavn = app.libre.helpers.JioSaavnHelper.isJioSaavn(id, false)
+        val effectiveId = if (id.startsWith("/")) {
+            app.libre.helpers.LocalAudioMatcher.getVideoId(id) ?: id
+        } else {
+            id
+        }
+
+        val cleanId = effectiveId.removePrefix("jsa_song_").removePrefix("jsa_album_").removePrefix("jsa_playlist_").removePrefix("jsa:")
+        val isJioSaavn = app.libre.helpers.JioSaavnHelper.isJioSaavn(effectiveId, false)
         
         if (isJioSaavn) {
             val parts = cleanId.split("_")
             val token = parts.getOrNull(1) ?: parts[0]
-            if (id.startsWith("jsa_album_")) {
+            if (effectiveId.startsWith("jsa_album_")) {
                 return "https://www.jiosaavn.com/album/album/$token"
-            } else if (id.startsWith("jsa_playlist_")) {
+            } else if (effectiveId.startsWith("jsa_playlist_")) {
                 return "https://www.jiosaavn.com/featured/playlist/$token"
             } else if (shareObjectType == ShareObjectType.CHANNEL) {
                 return "https://www.jiosaavn.com/artist/artist/$token"
@@ -130,7 +136,10 @@ class ShareDialog : DialogFragment() {
             }
         }
 
-        val cleanYtId = id.toID()
+        val cleanYtId = effectiveId.toID()
+        if (cleanYtId.startsWith("/")) {
+            return ""
+        }
         val isMusicPlaylist = cleanYtId.startsWith("OLAK") || cleanYtId.startsWith("MPRE")
         val isMusicTrack = binding.radioYtMusic.isChecked
         val host = if (isMusicPlaylist || isMusicTrack) YOUTUBE_MUSIC_URL else YOUTUBE_FRONTEND_URL

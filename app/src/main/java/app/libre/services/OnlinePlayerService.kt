@@ -266,7 +266,15 @@ open class OnlinePlayerService : AbstractPlayerService() {
                     MediaServiceRepository.instance.getStreams(videoId)
                 } catch (e: Exception) {
                     Log.e(TAG(), e.stackTraceToString())
-                    toastFromMainDispatcher(e.localizedMessage.orEmpty())
+                    val rawMsg = e.localizedMessage.orEmpty()
+                    val friendlyMsg = if (rawMsg.contains("Unexpected JSON token") || rawMsg.contains("Expected start of the object")) {
+                        getString(R.string.error)
+                    } else {
+                        rawMsg
+                    }
+                    if (friendlyMsg.isNotBlank()) {
+                        toastFromMainDispatcher(friendlyMsg)
+                    }
                     return@withContext null
                 }
             } ?: return@launch

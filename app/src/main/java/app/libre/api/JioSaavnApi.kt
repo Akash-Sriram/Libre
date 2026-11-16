@@ -163,7 +163,7 @@ interface JioSaavnApi {
         @Query("_marker") marker: String = "0",
         @Query("api_version") apiVersion: String = "4",
         @Query("ctx") ctx: String = "web6s"
-    ): Map<String, JioSaavnOfficialSong>
+    ): okhttp3.ResponseBody
 
     @GET("api.php")
     suspend fun getAlbumDetails(
@@ -216,5 +216,5 @@ interface JioSaavnApi {
         @Query("_marker") marker: String = "0",
         @Query("api_version") apiVersion: String = "4",
         @Query("ctx") ctx: String = "web6s"
-    ): Map<String, JioSaavnOfficialSong>
+    ): okhttp3.ResponseBody
 }

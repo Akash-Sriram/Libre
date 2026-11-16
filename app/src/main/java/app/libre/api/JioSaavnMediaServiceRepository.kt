@@ -9,6 +9,10 @@ import app.libre.api.obj.MediaStream
 import app.libre.api.obj.SearchResult
 import app.libre.api.obj.StreamItem
 import app.libre.api.obj.Streams
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
+import okhttp3.ResponseBody
 
 fun JioSaavnOfficialSong.toStreamItem(): StreamItem {
     val rawThumbnail = image ?: ""
@@ -199,25 +203,61 @@ class JioSaavnMediaServiceRepository : MediaServiceRepository {
 
     override suspend fun getTrending(region: String, category: TrendingCategory): List<StreamItem> = emptyList()
 
+    private fun parseSongDetails(responseBody: ResponseBody): JioSaavnOfficialSong? {
+        val raw = responseBody.string().trim()
+        if (raw.isEmpty() || raw.startsWith("[")) {
+            // JioSaavn returns "[]" when a track or token is invalid/not found
+            return null
+        }
+        val jsonElement = runCatching { JsonHelper.json.parseToJsonElement(raw) }.getOrNull() ?: return null
+        if (jsonElement !is JsonObject) return null
+        val status = (jsonElement["status"] as? JsonPrimitive)?.contentOrNull
+        if (status == "failure") return null
+
+        for ((_, element) in jsonElement) {
+            if (element is JsonObject && element.containsKey("id")) {
+                val song = runCatching {
+                    JsonHelper.json.decodeFromJsonElement(JioSaavnOfficialSong.serializer(), element)
+                }.getOrNull()
+                if (song != null && !song.id.isNullOrBlank()) {
+                    return song
+                }
+            }
+        }
+        return null
+    }
+
     override suspend fun getStreams(videoId: String): Streams {
         val fullId = videoId.removePrefix("jsa_song_")
-        val numericPid = fullId.takeWhile { it.isDigit() }
-        val id = numericPid
-        val token = if (numericPid.isNotEmpty()) fullId.removePrefix(numericPid).removePrefix("_") else fullId
+        val underscoreIdx = fullId.indexOf('_')
+        val id = if (underscoreIdx != -1) fullId.substring(0, underscoreIdx) else fullId
+        val token = if (underscoreIdx != -1) fullId.substring(underscoreIdx + 1) else ""
 
-        val response = if (id.isNotEmpty()) {
+        var song: JioSaavnOfficialSong? = null
+        if (id.isNotEmpty()) {
             try {
-                api.getSongDetails(pids = id)
+                song = parseSongDetails(api.getSongDetails(pids = id))
             } catch (e: Exception) {
-                if (token.isNotEmpty()) {
-                    api.getSongDetailsByToken(token = token)
-                } else throw e
+                android.util.Log.w("JioSaavn", "Failed to fetch song details by pid: $id", e)
             }
-        } else {
-            api.getSongDetailsByToken(token = token)
         }
-        val song = response.values.firstOrNull() ?: throw Exception("Song not found")
-        return song.toStreams()
+        if (song == null && token.isNotEmpty()) {
+            try {
+                song = parseSongDetails(api.getSongDetailsByToken(token = token))
+            } catch (e: Exception) {
+                android.util.Log.w("JioSaavn", "Failed to fetch song details by token: $token", e)
+            }
+        }
+        if (song == null && token.isEmpty() && id.isNotEmpty()) {
+            try {
+                song = parseSongDetails(api.getSongDetailsByToken(token = id))
+            } catch (e: Exception) {
+                android.util.Log.w("JioSaavn", "Failed to fetch song details by fallback token: $id", e)
+            }
+        }
+
+        val resolvedSong = song ?: throw Exception("Song is unavailable on JioSaavn")
+        return resolvedSong.toStreams()
     }
 
     override suspend fun getComments(videoId: String): CommentsPage =
@@ -319,10 +359,11 @@ class JioSaavnMediaServiceRepository : MediaServiceRepository {
             cleanPlaylistId = cleanPlaylistId.substring(4)
         }
         
-        val numericId = cleanPlaylistId.takeWhile { it.isDigit() }
-        val token = if (numericId.isNotEmpty()) cleanPlaylistId.removePrefix(numericId).removePrefix("_") else cleanPlaylistId
-        val internalId = if (numericId.isNotEmpty()) numericId else cleanPlaylistId
-        val isNumeric = numericId.isNotEmpty()
+        val underscoreIdx = cleanPlaylistId.indexOf('_')
+        val id = if (underscoreIdx != -1) cleanPlaylistId.substring(0, underscoreIdx) else cleanPlaylistId
+        val token = if (underscoreIdx != -1) cleanPlaylistId.substring(underscoreIdx + 1) else ""
+        val internalId = if (id.isNotEmpty()) id else cleanPlaylistId
+        val isNumeric = internalId.isNotEmpty() && internalId.all { it.isDigit() }
 
         var title = "Unknown JioSaavn Playlist"
         var description = ""

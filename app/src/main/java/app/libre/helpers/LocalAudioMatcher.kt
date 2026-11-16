@@ -490,6 +490,32 @@ object LocalAudioMatcher {
     }
 
     /**
+     * Resolves the original online video/song ID (YouTube 11-char ID or JioSaavn ID) from a local file path.
+     * Looks up the in-memory map first, then falls back to extracting from the filename and file tags.
+     */
+    fun getVideoId(localFilePath: String): String? {
+        val file = File(localFilePath)
+        val normalizedPath = file.absolutePath
+
+        // 1. In-memory map lookup (fast)
+        for ((vid, path) in localAudioMap) {
+            if (path == localFilePath || path == normalizedPath) {
+                return vid
+            }
+        }
+
+        // 2. Extract from filename or file tags
+        if (file.exists()) {
+            extractVideoId(file)?.let { return it }
+        } else {
+            val nameWithoutExt = file.nameWithoutExtension
+            val filenameMatch = Regex("""\[([a-zA-Z0-9_-]{11})\]$""").find(nameWithoutExt)
+            if (filenameMatch != null) return filenameMatch.groupValues[1]
+        }
+        return null
+    }
+
+    /**
      * Extracts the JioSaavn token from a variety of videoId formats:
      * - Full URL: `https://www.jiosaavn.com/song/track/TOKEN`
      * - Internal ID: `jsa_song_PID_TOKEN` or `jsa_song_TOKEN`
