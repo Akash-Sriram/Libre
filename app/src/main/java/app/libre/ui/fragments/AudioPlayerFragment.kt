@@ -90,7 +90,6 @@ class AudioPlayerFragment : BasePlayerFragment(R.layout.fragment_audio_player) {
     private var isPaused = !PlayerHelper.playAutomatically
 
     var isOffline: Boolean = false
-        private set
     private var isLocalPlaylist: Boolean = false
     private var syncedLines = emptyList<SyncedLine>()
     private var syncedAdapter: SyncedLyricsAdapter? = null

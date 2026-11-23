@@ -20,6 +20,7 @@
 
 
 
+
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -45,40 +46,69 @@
                             android:textStyle="bold" />
 
                         <com.google.android.material.button.MaterialButton
-                            android:id="@+id/btn_create_playlist"
-                            style="?materialButtonTonalStyle"
-                            android:layout_width="wrap_content"
-                            android:layout_height="38dp"
+                            android:id="@+id/btn_global_shuffle"
+                            style="?materialIconButtonFilledTonalStyle"
+                            android:layout_width="40dp"
+                            android:layout_height="40dp"
+                            android:minWidth="40dp"
+                            android:minHeight="40dp"
                             android:layout_marginEnd="8dp"
-                            android:paddingHorizontal="14dp"
-                            android:text="@string/new_playlist_short"
-                            android:textColor="?attr/colorPrimary"
-                            android:textSize="13sp"
-                            android:textStyle="bold"
-                            app:cornerRadius="19dp"
-                            app:icon="@drawable/ic_add"
+                            android:insetLeft="0dp"
+                            android:insetTop="0dp"
+                            android:insetRight="0dp"
+                            android:insetBottom="0dp"
+                            android:padding="0dp"
+                            android:contentDescription="@string/shuffle"
+                            android:tooltipText="@string/shuffle"
+                            app:cornerRadius="20dp"
+                            app:icon="@drawable/ic_shuffle"
+                            app:iconGravity="textStart"
+                            app:iconPadding="0dp"
                             app:iconTint="?attr/colorPrimary"
-                            app:iconSize="18dp"
-                            app:iconGravity="textStart" />
+                            app:iconSize="20dp" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btn_create_playlist"
+                            style="?materialIconButtonFilledTonalStyle"
+                            android:layout_width="40dp"
+                            android:layout_height="40dp"
+                            android:minWidth="40dp"
+                            android:minHeight="40dp"
+                            android:layout_marginEnd="8dp"
+                            android:insetLeft="0dp"
+                            android:insetTop="0dp"
+                            android:insetRight="0dp"
+                            android:insetBottom="0dp"
+                            android:padding="0dp"
+                            android:contentDescription="@string/new_playlist_short"
+                            android:tooltipText="@string/new_playlist_short"
+                            app:cornerRadius="20dp"
+                            app:icon="@drawable/ic_add"
+                            app:iconGravity="textStart"
+                            app:iconPadding="0dp"
+                            app:iconTint="?attr/colorPrimary"
+                            app:iconSize="20dp" />
 
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/sortTV"
-                            style="?materialButtonTonalStyle"
-                            android:layout_width="wrap_content"
-                            android:layout_height="38dp"
-                            android:ellipsize="end"
-                            android:maxLines="1"
-                            android:paddingHorizontal="14dp"
-                            android:text="@string/creation_date"
-                            android:textColor="?attr/colorPrimary"
-                            android:textSize="13sp"
-                            android:textStyle="bold"
+                            style="?materialIconButtonFilledTonalStyle"
+                            android:layout_width="40dp"
+                            android:layout_height="40dp"
+                            android:minWidth="40dp"
+                            android:minHeight="40dp"
+                            android:insetLeft="0dp"
+                            android:insetTop="0dp"
+                            android:insetRight="0dp"
+                            android:insetBottom="0dp"
+                            android:padding="0dp"
+                            android:contentDescription="@string/tooltip_sort"
                             android:tooltipText="@string/tooltip_sort"
-                            app:cornerRadius="19dp"
+                            app:cornerRadius="20dp"
                             app:icon="@drawable/ic_swap_vert"
+                            app:iconGravity="textStart"
+                            app:iconPadding="0dp"
                             app:iconTint="?attr/colorPrimary"
-                            app:iconSize="18dp"
-                            app:iconGravity="textStart" />
+                            app:iconSize="20dp" />
 
                     </LinearLayout>
 

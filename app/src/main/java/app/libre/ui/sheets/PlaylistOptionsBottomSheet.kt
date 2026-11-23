@@ -91,15 +91,17 @@ class PlaylistOptionsBottomSheet : ExpandedBottomSheet(R.layout.sheet_playlist_o
             }
         }
 
-        // 2. Action Visibility
-        binding.actionCleanDuplicates.isVisible = isLocal
-        binding.actionRename.isVisible = isLocal
-        binding.actionExport.isVisible = isLocal
-        binding.actionDelete.isVisible = isLocal
+        val isOfflineSongs = playlistId == PlaylistsHelper.OFFLINE_PLAYLIST_ID
 
-        binding.actionShare.isVisible = !isLocal
-        binding.actionClone.isVisible = !isLocal
-        binding.actionBookmark.isVisible = !isLocal
+        // 2. Action Visibility
+        binding.actionCleanDuplicates.isVisible = isLocal && !isOfflineSongs
+        binding.actionRename.isVisible = isLocal && !isOfflineSongs
+        binding.actionExport.isVisible = isLocal && !isOfflineSongs
+        binding.actionDelete.isVisible = isLocal && !isOfflineSongs
+
+        binding.actionShare.isVisible = !isLocal && !isOfflineSongs
+        binding.actionClone.isVisible = !isLocal && !isOfflineSongs
+        binding.actionBookmark.isVisible = !isLocal && !isOfflineSongs
 
         // 3. Touch Feedback
         binding.actionAddToQueue.addSpringTouchFeedback()

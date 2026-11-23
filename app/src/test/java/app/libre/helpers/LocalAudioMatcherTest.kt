@@ -142,4 +142,27 @@ class LocalAudioMatcherTest {
         val shareUrl = ShareHelper.getShareUrl(path)
         assertEquals("https://youtu.be/5HPAUsc3ueo", shareUrl)
     }
+
+    @Test
+    fun testExtractVideoIdFromFilenameVariants() {
+        assertEquals("5HPAUsc3ueo", LocalAudioMatcher.extractVideoIdFromFilename("Song [5HPAUsc3ueo]"))
+        assertEquals("5HPAUsc3ueo", LocalAudioMatcher.extractVideoIdFromFilename("Song (5HPAUsc3ueo)"))
+        assertEquals("5HPAUsc3ueo", LocalAudioMatcher.extractVideoIdFromFilename("Artist - Song - 5HPAUsc3ueo"))
+        assertEquals("jsa:AbCdEf123", LocalAudioMatcher.extractVideoIdFromFilename("Artist - Song [jsa_AbCdEf123]"))
+    }
+
+    @Test
+    fun testExtractIdFromTextUrlsAndFrames() {
+        val ytWithQuery = "prefix https://www.youtube.com/watch?feature=share&v=5HPAUsc3ueo&t=10 suffix"
+        assertEquals("5HPAUsc3ueo", LocalAudioMatcher.extractIdFromText(ytWithQuery))
+
+        val ytmWithSi = "prefix https://music.youtube.com/watch?si=123&v=5HPAUsc3ueo suffix"
+        assertEquals("5HPAUsc3ueo", LocalAudioMatcher.extractIdFromText(ytmWithSi))
+
+        val jsaSong = "Track metadata https://www.jiosaavn.com/song/tum-hi-ho/Nyo-ZAN2UWY other info"
+        assertEquals("jsa:Nyo-ZAN2UWY", LocalAudioMatcher.extractIdFromText(jsaSong))
+
+        val id3Frame = "TAG COMM\u0000\u0000Official Source: https://youtu.be/5HPAUsc3ueo\u0000"
+        assertEquals("5HPAUsc3ueo", LocalAudioMatcher.extractIdFromText(id3Frame))
+    }
 }

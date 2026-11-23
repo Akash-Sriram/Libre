@@ -426,14 +426,15 @@ class PlaylistFragment : DynamicLayoutManagerFragment(R.layout.fragment_playlist
 
     private fun navigateVideo(streamItem: StreamItem) {
         val isTrueAlbum = playlistId.startsWith("OLAK") || playlistId.startsWith("MPRE") || playlistId.startsWith("jsa_album_")
-        val isLocal = playlistType == PlaylistType.LOCAL
+        val isLocal = playlistType == PlaylistType.LOCAL || playlistId == PlaylistsHelper.OFFLINE_PLAYLIST_ID
         NavigationHelper.navigateVideo(
             requireContext(),
             playerData = PlayerData(
                 videoId = streamItem.url!!.toID(),
                 playlistId = playlistId,
                 keepQueue = true,
-                source = streamItem.source ?: if (isTrueAlbum) "ytm" else null
+                isOffline = isLocal,
+                source = streamItem.source ?: if (isLocal) "offline" else if (isTrueAlbum) "ytm" else null
             ),
             audioOnlyPlayerRequested = isTrueAlbum || isLocal
         )
@@ -444,6 +445,7 @@ class PlaylistFragment : DynamicLayoutManagerFragment(R.layout.fragment_playlist
 
         val albumArt = playlistThumbnailUrl
         val isTrueAlbum = playlistId.startsWith("OLAK") || playlistId.startsWith("MPRE") || playlistId.startsWith("jsa_album_")
+        val isLocal = playlistType == PlaylistType.LOCAL || playlistId == PlaylistsHelper.OFFLINE_PLAYLIST_ID
         val sortedStreams = getSortedVideos()
         val queueItems = sortedStreams.map {
             val base = it.item
@@ -451,7 +453,7 @@ class PlaylistFragment : DynamicLayoutManagerFragment(R.layout.fragment_playlist
             if (!albumArt.isNullOrBlank() && isTrueAlbum) {
                 base.copy(url = cleanUrl, thumbnail = albumArt, albumName = playlistName, albumId = playlistId, source = base.source ?: if (isTrueAlbum) "ytm" else null)
             } else {
-                base.copy(url = cleanUrl)
+                base.copy(url = cleanUrl, source = base.source ?: if (isLocal) "offline" else null)
             }
         }
         val targetId = streamItem.url?.toID() ?: streamItem.url

@@ -369,6 +369,13 @@
     <string name="app_backup">App backup</string>
     <string name="storage_and_offline_sync">Storage &amp; Offline Sync</string>
     <string name="offline_songs_folder">Offline Music Folder</string>
+    <string name="offline_music">Offline Music</string>
+    <string name="offline_songs_folder_tap_rescan">Tap to browse • Rescan in settings</string>
+    <string name="no_offline_tracks_found">No offline tracks found</string>
+    <plurals name="offline_tracks_count">
+        <item quantity="one">%d track • Tap to browse</item>
+        <item quantity="other">%d tracks • Tap to browse</item>
+    </plurals>
     <string name="offline_songs_folder_summary_not_set">Select custom folder for offline music &amp; Symfonium sync</string>
     <string name="offline_songs_folder_summary_set">Music folder: %s</string>
     <string name="create_backup_now">Create Backup Now</string>

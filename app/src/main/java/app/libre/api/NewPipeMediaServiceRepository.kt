@@ -287,15 +287,16 @@ class NewPipeMediaServiceRepository : MediaServiceRepository {
 
     override suspend fun getStreams(videoId: String): Streams = withContext(Dispatchers.IO) {
         if (videoId.length != 11) {
-            if (videoId.startsWith("/") && java.io.File(videoId).exists()) {
-                val f = java.io.File(videoId)
-                val title = app.libre.helpers.LocalAudioMatcher.getTitleFromFile(videoId, null) ?: f.nameWithoutExtension
-                val artist = app.libre.helpers.LocalAudioMatcher.getArtistFromFile(videoId, null) ?: "Local Artist"
+            val localPath = if (videoId.startsWith("/") && java.io.File(videoId).exists()) videoId else app.libre.helpers.LocalAudioMatcher.getLocalPath(videoId)
+            if (localPath != null && java.io.File(localPath).exists()) {
+                val f = java.io.File(localPath)
+                val title = app.libre.helpers.LocalAudioMatcher.getTitleFromFile(localPath, null) ?: f.nameWithoutExtension
+                val artist = app.libre.helpers.LocalAudioMatcher.getArtistFromFile(localPath, null) ?: "Local Artist"
                 return@withContext Streams(
                     title = title,
                     uploader = artist,
                     artist = artist,
-                    thumbnailUrl = app.libre.helpers.LocalAudioMatcher.getEmbeddedArtUri(app.libre.LibreApp.instance, videoId).orEmpty(),
+                    thumbnailUrl = app.libre.helpers.LocalAudioMatcher.getEmbeddedArtUri(app.libre.LibreApp.instance, localPath).orEmpty(),
                     duration = 0L
                 )
             }

@@ -4,7 +4,9 @@ import android.content.Context
 import android.media.MediaMetadataRetriever
 import android.os.Environment
 import android.util.Log
+import app.libre.LibreApp
 import app.libre.api.MediaServiceRepository
+import app.libre.api.obj.StreamItem
 import app.libre.db.DatabaseHolder
 import app.libre.db.obj.LocalAudioMetadataCache
 import kotlinx.coroutines.CompletableDeferred
@@ -59,6 +61,34 @@ object LocalAudioMatcher {
     private var dbRestoreReady = CompletableDeferred<Unit>()
 
     /**
+     * Resolves the custom offline songs directory from [PreferenceKeys.OFFLINE_SONGS_FOLDER_URI],
+     * returning the canonical filesystem [File] or null if not set or not accessible.
+     */
+    fun resolveOfflineDirectory(context: Context): File? {
+        val offlineUriStr = PreferenceHelper.getString(app.libre.constants.PreferenceKeys.OFFLINE_SONGS_FOLDER_URI, "")
+        if (offlineUriStr.isBlank()) return null
+        return try {
+            val decoded = android.net.Uri.decode(offlineUriStr)
+            if (decoded.contains("primary:")) {
+                val relPath = decoded.substringAfter("primary:").trimStart('/')
+                val file = File(Environment.getExternalStorageDirectory(), relPath)
+                if (file.exists() && file.isDirectory) file else null
+            } else if (decoded.contains(":")) {
+                val volumeId = decoded.substringAfter("tree/").substringBefore(":")
+                val relPath = decoded.substringAfter(":").trimStart('/')
+                val file = File("/storage/$volumeId", relPath)
+                if (file.exists() && file.isDirectory) file else null
+            } else {
+                val file = File(offlineUriStr)
+                if (file.exists() && file.isDirectory) file else null
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to resolve offline directory: $offlineUriStr", e)
+            null
+        }
+    }
+
+    /**
      * Entry point called on app start or manual rescan.
      *
      * Phase 1 (fast): Load previously scanned paths from DB → signals [dbRestoreReady].
@@ -79,20 +109,35 @@ object LocalAudioMatcher {
                 val dao = DatabaseHolder.Database.localAudioMetadataCacheDao()
 
                 // ── Phase 1: Restore from DB (fast, ~50ms) ────────────────────────────
+                val offlineFolder = resolveOfflineDirectory(context)
+                if (offlineFolder != null) {
+                    dao.deletePathsOutsidePrefix(offlineFolder.canonicalPath)
+                }
+                dao.deleteRecordings()
+
                 val dbPaths = dao.getAllLocalPaths()
                 val restoredIds = mutableSetOf<String>()
                 val pathToRestoredId = mutableMapOf<String, String>()
                 for (entry in dbPaths) {
-                    if (entry.localFilePath.isNotEmpty() && File(entry.localFilePath).exists()) {
-                        localAudioMap[entry.videoId] = entry.localFilePath
-                        pathToRestoredId[entry.localFilePath] = entry.videoId
+                    val filePath = entry.localFilePath
+                    if (filePath.contains("/Recordings/") || filePath.contains("/Call/")) {
+                        dao.deleteByVideoId(entry.videoId)
+                        continue
+                    }
+                    if (offlineFolder != null && !File(filePath).canonicalPath.startsWith(offlineFolder.canonicalPath)) {
+                        dao.deleteByVideoId(entry.videoId)
+                        continue
+                    }
+                    if (filePath.isNotEmpty() && File(filePath).exists()) {
+                        localAudioMap[entry.videoId] = filePath
+                        pathToRestoredId[filePath] = entry.videoId
                         restoredIds.add(entry.videoId)
-                        val file = File(entry.localFilePath)
+                        val file = File(filePath)
                         val normName = normalizeTitle(file.nameWithoutExtension)
                         if (normName.isNotEmpty()) {
-                            titleToPathMap[normName] = entry.localFilePath
+                            titleToPathMap[normName] = filePath
                         }
-                    } else if (entry.localFilePath.isNotEmpty()) {
+                    } else if (filePath.isNotEmpty()) {
                         Log.i(TAG, "Stale entry removed: ${entry.videoId}")
                         dao.deleteByVideoId(entry.videoId)
                     }
@@ -170,44 +215,22 @@ object LocalAudioMatcher {
 
                 val newlyFound = mutableMapOf<String, String>()
                 val musicDirs = linkedSetOf<File>()
-                val standard = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC)
-                if (standard.exists()) musicDirs.add(standard)
-                val alt = File("/storage/emulated/0/Music")
-                if (alt.exists() && alt.canonicalPath != standard.canonicalPath) musicDirs.add(alt)
+                val customDir = resolveOfflineDirectory(context)
 
-                val downloads = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-                if (downloads.exists()) musicDirs.add(downloads)
-                val altDownloads = File("/storage/emulated/0/Download")
-                if (altDownloads.exists() && altDownloads.canonicalPath != downloads.canonicalPath) musicDirs.add(altDownloads)
-                val altDownloads2 = File("/storage/emulated/0/Downloads")
-                if (altDownloads2.exists()) musicDirs.add(altDownloads2)
+                if (customDir != null && customDir.exists()) {
+                    musicDirs.add(customDir)
+                    // Scan MediaStore strictly restricted to the user's chosen folder
+                    scanMediaStore(context, restoredIds, newlyFound, pathToRestoredId, filterPath = customDir.canonicalPath)
+                } else {
+                    val standard = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC)
+                    if (standard.exists()) musicDirs.add(standard)
+                    val alt = File("/storage/emulated/0/Music")
+                    if (alt.exists() && alt.canonicalPath != standard.canonicalPath) musicDirs.add(alt)
+                    context.getExternalFilesDir(Environment.DIRECTORY_MUSIC)?.let { if (it.exists()) musicDirs.add(it) }
 
-                val audioDir = File("/storage/emulated/0/Audio")
-                if (audioDir.exists()) musicDirs.add(audioDir)
-                val recDir = File("/storage/emulated/0/Recordings")
-                if (recDir.exists()) musicDirs.add(recDir)
-
-                context.getExternalFilesDir(Environment.DIRECTORY_MUSIC)?.let { if (it.exists()) musicDirs.add(it) }
-                context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)?.let { if (it.exists()) musicDirs.add(it) }
-
-                val offlineUriStr = PreferenceHelper.getString(app.libre.constants.PreferenceKeys.OFFLINE_SONGS_FOLDER_URI, "")
-                if (offlineUriStr.isNotEmpty()) {
-                    try {
-                        val uriString = android.net.Uri.parse(offlineUriStr).toString()
-                        if (uriString.startsWith("content://com.android.externalstorage.documents/tree/primary%3A")) {
-                            val relativePath = android.net.Uri.decode(uriString.substringAfter("primary%3A"))
-                            val customDir = File(Environment.getExternalStorageDirectory(), relativePath)
-                            if (customDir.exists()) {
-                                musicDirs.add(customDir)
-                            }
-                        }
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Failed to parse custom offline songs folder", e)
-                    }
+                    // General MediaStore scan strictly excluding call recordings
+                    scanMediaStore(context, restoredIds, newlyFound, pathToRestoredId, filterPath = null)
                 }
-
-                // Scan MediaStore for fast permission-free indexing of all audio files
-                scanMediaStore(context, restoredIds, newlyFound, pathToRestoredId)
 
                 val knownPaths = HashSet<String>(localAudioMap.values)
                 knownPaths.addAll(newlyFound.values)
@@ -243,7 +266,8 @@ object LocalAudioMatcher {
         context: Context,
         alreadyKnown: Set<String>,
         newlyFound: MutableMap<String, String>,
-        pathToRestoredId: Map<String, String> = emptyMap()
+        pathToRestoredId: Map<String, String> = emptyMap(),
+        filterPath: String? = null
     ) {
         val projection = arrayOf(
             android.provider.MediaStore.Audio.Media.DATA,
@@ -254,12 +278,19 @@ object LocalAudioMatcher {
             android.provider.MediaStore.Audio.Media.YEAR,
             android.provider.MediaStore.Audio.Media.TRACK
         )
+
+        val (selection, selectionArgs) = if (filterPath != null) {
+            "${android.provider.MediaStore.Audio.Media.DATA} LIKE ?" to arrayOf("$filterPath/%")
+        } else {
+            "${android.provider.MediaStore.Audio.Media.IS_MUSIC} != 0 AND ${android.provider.MediaStore.Audio.Media.DATA} NOT LIKE '%/Recordings/%' AND ${android.provider.MediaStore.Audio.Media.DATA} NOT LIKE '%/Call/%'" to null
+        }
+
         try {
             val cursor = context.contentResolver.query(
                 android.provider.MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
                 projection,
-                null,
-                null,
+                selection,
+                selectionArgs,
                 null
             ) ?: return
 
@@ -275,6 +306,8 @@ object LocalAudioMatcher {
 
                 while (cursor.moveToNext()) {
                     val filePath = cursor.getString(dataCol) ?: continue
+                    if (filePath.contains("/Recordings/") || filePath.contains("/Call/")) continue
+                    if (filterPath != null && !filePath.startsWith(filterPath)) continue
                     val file = File(filePath)
                     if (!file.exists()) continue
 
@@ -311,13 +344,17 @@ object LocalAudioMatcher {
                     tagCache[file.absolutePath] = tags
                     tagCache[file.name] = tags
 
-                    if (videoId != null) {
-                        if (videoId !in alreadyKnown && videoId !in newlyFound) {
-                            newlyFound[videoId] = file.absolutePath
-                            Log.i(TAG, "MediaStore Match: ${file.name} -> $videoId")
-                        }
-                        tagCache[videoId] = tags
+                    val resolvedId = videoId
+                        ?: playlistTracksMap[normalizedTitle]
+                        ?: artist?.let { playlistTracksMap["${normalizeTitle(it)} $normalizedTitle"] }
+                        ?: artist?.let { playlistTracksMap["$normalizedTitle ${normalizeTitle(it)}"] }
+                        ?: file.absolutePath
+
+                    if (resolvedId !in alreadyKnown && resolvedId !in newlyFound) {
+                        newlyFound[resolvedId] = file.absolutePath
+                        Log.i(TAG, "MediaStore Match: ${file.name} -> $resolvedId")
                     }
+                    tagCache[resolvedId] = tags
                     if (normalizedTitle.isNotEmpty()) {
                         tagCache[normalizedTitle] = tags
                     }
@@ -339,30 +376,79 @@ object LocalAudioMatcher {
     ) {
         val files = dir.listFiles() ?: return
         for (file in files) {
+            if (file.name.startsWith(".")) continue // Skip hidden / sync dirs like .stfolder, .stversions
             if (file.isDirectory) {
+                val dirName = file.name.lowercase(Locale.ROOT)
+                if (dirName == "recordings" || dirName == "call") continue
                 scanDirectory(file, alreadyKnownIds, knownPaths, newlyFound)
             } else if (file.isFile) {
                 val path = file.absolutePath
                 if (path in knownPaths) continue
+                if (path.contains("/Recordings/") || path.contains("/Call/")) continue
 
                 val name = file.name.lowercase(Locale.US)
                 if (name.endsWith(".mp3") || name.endsWith(".m4a") ||
                     name.endsWith(".flac") || name.endsWith(".ogg") || name.endsWith(".wav")
                 ) {
-                    val videoId = extractVideoId(file)
-                    if (videoId != null) {
-                        if (videoId !in alreadyKnownIds && videoId !in newlyFound) {
-                            newlyFound[videoId] = file.absolutePath
-                            Log.i(TAG, "New: ${file.name} -> $videoId")
-                        }
-                    }
                     val normalizedTitle = normalizeTitle(file.nameWithoutExtension)
+                    val videoId = extractVideoId(file)
+                    val resolvedId = videoId
+                        ?: (if (normalizedTitle.isNotEmpty()) playlistTracksMap[normalizedTitle] else null)
+                        ?: file.absolutePath
+
+                    if (resolvedId !in alreadyKnownIds && resolvedId !in newlyFound) {
+                        newlyFound[resolvedId] = file.absolutePath
+                        Log.i(TAG, "New: ${file.name} -> $resolvedId")
+                    }
                     if (normalizedTitle.isNotEmpty()) {
                         titleToPathMap[normalizedTitle] = file.absolutePath
                     }
                 }
             }
         }
+    }
+
+    /** Extracts an 11-char YouTube ID or JioSaavn ID from a filename without extension. */
+    fun extractVideoIdFromFilename(nameWithoutExt: String): String? {
+        // [11-char-id] or (11-char-id) at end of filename
+        val bracketMatch = Regex("""[\[\(]([a-zA-Z0-9_-]{11})[\]\)]$""").find(nameWithoutExt)
+        if (bracketMatch != null) return bracketMatch.groupValues[1]
+
+        // Hyphen or underscore or space followed by 11-char YouTube ID at end: "Song - dQw4w9WgXcQ"
+        val sepMatch = Regex("""(?:[\s_-]+)([a-zA-Z0-9_-]{11})$""").find(nameWithoutExt)
+        if (sepMatch != null) return sepMatch.groupValues[1]
+
+        // JioSaavn token in filename: [jsa_TOKEN] or [jsa:TOKEN] or [TOKEN]
+        val jsaBracket = Regex("""[\[\(](?:jsa[:_])?([a-zA-Z0-9_-]{6,35})[\]\)]$""").find(nameWithoutExt)
+        if (jsaBracket != null && jsaBracket.groupValues[1].length != 11) {
+            return "jsa:${jsaBracket.groupValues[1]}"
+        }
+
+        return null
+    }
+
+    /** Extracts YouTube or JioSaavn ID from text, comments, URLs, or ID3 frames. */
+    fun extractIdFromText(text: String): String? {
+        // 1. YouTube URL format (handles www., music., m., youtu.be, shorts/, live/, embed/, query params before v=)
+        val ytMatch = Regex("""(?:(?:https?://)?(?:www\.|music\.|m\.)?youtube\.com/(?:watch\?(?:[^\s"'>]*&)?v=|shorts/|v/|embed/|live/)|(?:https?://)?youtu\.be/)([a-zA-Z0-9_-]{11})""").find(text)
+        if (ytMatch != null) return ytMatch.groupValues[1]
+
+        // 2. JioSaavn Track, Album, Song, or PWA URL
+        val jsaMatch = Regex("""(?:jiosaavn\.com|saavn\.com)/(?:song/(?:[^/\s"'>]+/)?|s/song/[^/\s"'>]+/|album/[^/\s"'>]+/|pwa/[^/\s"'>]+/|featured/[^/\s"'>]+/)([A-Za-z0-9_-]{5,35})""").find(text)
+        if (jsaMatch != null) return "jsa:${jsaMatch.groupValues[1]}"
+
+        // 3. ID3 frame inspection (COMM, WXXX, WOAS, WOAF, WOAR, TURL, TXXX, purl)
+        for (frame in listOf("COMM", "WXXX", "WOAS", "WOAF", "WOAR", "TURL", "TXXX", "purl")) {
+            val idx = text.indexOf(frame)
+            if (idx != -1) {
+                val area = text.substring(idx, minOf(idx + 600, text.length))
+                val ytAreaMatch = Regex("""(?:(?:https?://)?(?:www\.|music\.|m\.)?youtube\.com/(?:watch\?(?:[^\s"'>]*&)?v=|shorts/|v/|embed/|live/)|(?:https?://)?youtu\.be/|\b)([a-zA-Z0-9_-]{11})\b""").find(area)
+                if (ytAreaMatch != null) return ytAreaMatch.groupValues[1]
+                val jsaAreaMatch = Regex("""(?:jiosaavn\.com|saavn\.com)[^\s"'>]+/([A-Za-z0-9_-]{5,35})""").find(area)
+                if (jsaAreaMatch != null) return "jsa:${jsaAreaMatch.groupValues[1]}"
+            }
+        }
+        return null
     }
 
     /**
@@ -377,10 +463,9 @@ object LocalAudioMatcher {
      * JioSaavn tokens are returned as `"jsa:TOKEN"` to avoid collision with YouTube IDs.
      */
     private fun extractVideoId(file: File): String? {
-        // Strategy 1: filename YouTube ID (no disk I/O)
+        // Strategy 1: filename YouTube / JioSaavn ID (no disk I/O)
         val nameWithoutExt = file.nameWithoutExtension
-        val filenameMatch = Regex("""\[([a-zA-Z0-9_-]{11})\]$""").find(nameWithoutExt)
-        if (filenameMatch != null) return filenameMatch.groupValues[1]
+        extractVideoIdFromFilename(nameWithoutExt)?.let { return it }
 
         if (!file.exists() || file.length() < 10) return null
 
@@ -393,21 +478,7 @@ object LocalAudioMatcher {
             // Remove null bytes so UTF-16LE / UTF-16BE encoded ID3 frames become readable ASCII
             val head = rawHead.replace("\u0000", "")
 
-            // 2a: Any full YouTube URL in comment / frames
-            val ytUrlMatch = Regex("""(?:youtube\.com/(?:watch\?v=|shorts/|v/|embed/)|youtu\.be/)([a-zA-Z0-9_-]{11})""").find(head)
-            if (ytUrlMatch != null) return ytUrlMatch.groupValues[1]
-
-            // 2b: YouTube ID near COMM frame or description tags
-            val commIdx = head.indexOf("COMM")
-            if (commIdx != -1) {
-                val area = head.substring(commIdx, minOf(commIdx + 500, head.length))
-                val m = Regex("""(?:v=|/v/|embed/|youtu\.be/|\b)([a-zA-Z0-9_-]{11})\b""").find(area)
-                if (m != null) return m.groupValues[1]
-            }
-
-            // 2c: JioSaavn URL in head (head-moov M4A or ID3 COMM)
-            val jsaHead = Regex("""jiosaavn\.com/song/[^/\s]+/([A-Za-z0-9_-]{6,20})""").find(head)
-            if (jsaHead != null) return "jsa:${jsaHead.groupValues[1]}"
+            extractIdFromText(head)?.let { return it }
 
             // Strategy 3: tail scan for M4A (tail-moov layout — ©cmt atom after mdat) or MP3 ID3v1
             if (file.length() > headSize + 1024) {
@@ -420,11 +491,7 @@ object LocalAudioMatcher {
                 val rawTail = String(tailBuffer, charset("ISO-8859-1"))
                 val tail = rawTail.replace("\u0000", "")
 
-                val ytTailUrl = Regex("""(?:youtube\.com/(?:watch\?v=|shorts/|v/|embed/)|youtu\.be/)([a-zA-Z0-9_-]{11})""").find(tail)
-                if (ytTailUrl != null) return ytTailUrl.groupValues[1]
-
-                val jsaTail = Regex("""jiosaavn\.com/song/[^/\s]+/([A-Za-z0-9_-]{6,20})""").find(tail)
-                if (jsaTail != null) return "jsa:${jsaTail.groupValues[1]}"
+                extractIdFromText(tail)?.let { return it }
             }
 
             null
@@ -447,6 +514,23 @@ object LocalAudioMatcher {
         Log.i(TAG, "Prefetching metadata for ${toFetch.size} tracks...")
         for ((videoId, path) in toFetch) {
             try {
+                if (videoId.startsWith("/") || File(videoId).exists()) {
+                    val tags = tagCache[videoId] ?: tagCache[path]
+                    val file = File(path)
+                    val title = tags?.title ?: file.nameWithoutExtension
+                    val uploader = tags?.artist ?: "Local Audio"
+                    dao.insert(
+                        LocalAudioMetadataCache(
+                            videoId = videoId,
+                            localFilePath = path,
+                            title = title,
+                            uploader = uploader,
+                            thumbnailUrl = "",
+                            duration = 0
+                        )
+                    )
+                    continue
+                }
                 val streams = withContext(Dispatchers.IO) {
                     MediaServiceRepository.instance.getStreams(videoId)
                 }
@@ -509,10 +593,15 @@ object LocalAudioMatcher {
             extractVideoId(file)?.let { return it }
         } else {
             val nameWithoutExt = file.nameWithoutExtension
-            val filenameMatch = Regex("""\[([a-zA-Z0-9_-]{11})\]$""").find(nameWithoutExt)
-            if (filenameMatch != null) return filenameMatch.groupValues[1]
+            extractVideoIdFromFilename(nameWithoutExt)?.let { return it }
         }
-        return null
+
+        // 3. Fallback to mapped title in local playlists
+        val normTitle = normalizeTitle(file.nameWithoutExtension)
+        if (normTitle.isNotEmpty()) {
+            playlistTracksMap[normTitle]?.let { return it }
+        }
+        return file.absolutePath
     }
 
     /**
@@ -1132,4 +1221,71 @@ object LocalAudioMatcher {
      */
     fun getGenreFromFile(videoId: String, title: String? = null): String? =
         getTags(videoId, title)?.genre
+
+    /**
+     * Aggregates all indexed offline songs into [StreamItem] objects instantly without blocking disk I/O.
+     */
+    suspend fun getAllOfflineStreamItems(): List<StreamItem> = withContext(Dispatchers.IO) {
+        val dao = DatabaseHolder.Database.localAudioMetadataCacheDao()
+        val dbEntries = try {
+            dao.getAll()
+        } catch (e: Exception) {
+            emptyList()
+        }
+        val items = mutableListOf<StreamItem>()
+        val seenPaths = HashSet<String>()
+
+        for (entry in dbEntries) {
+            val file = File(entry.localFilePath)
+            if (!file.exists()) continue
+            seenPaths.add(entry.localFilePath)
+            val tags = tagCache[entry.localFilePath] ?: tagCache[entry.videoId]
+            val title = entry.title.takeIf { it.isNotBlank() } ?: tags?.title ?: file.nameWithoutExtension
+            val artist = entry.uploader.takeIf { it.isNotBlank() } ?: tags?.artist ?: "Local Audio"
+            val thumb = if (entry.thumbnailUrl.isNotBlank()) {
+                entry.thumbnailUrl
+            } else if (entry.videoId.length == 11 && !entry.videoId.startsWith("/")) {
+                "https://i.ytimg.com/vi/${entry.videoId}/hqdefault.jpg"
+            } else {
+                ""
+            }
+            items.add(
+                StreamItem(
+                    url = entry.videoId,
+                    title = title,
+                    uploaderName = artist,
+                    thumbnail = thumb,
+                    duration = if (entry.duration > 0) entry.duration else null,
+                    source = "offline"
+                )
+            )
+        }
+
+        for ((vid, path) in localAudioMap) {
+            if (path !in seenPaths) {
+                val file = File(path)
+                if (!file.exists()) continue
+                seenPaths.add(path)
+                val tags = tagCache[path] ?: tagCache[vid]
+                val title = tags?.title ?: file.nameWithoutExtension
+                val artist = tags?.artist ?: "Local Audio"
+                val thumb = if (vid.length == 11 && !vid.startsWith("/")) {
+                    "https://i.ytimg.com/vi/$vid/hqdefault.jpg"
+                } else {
+                    ""
+                }
+                items.add(
+                    StreamItem(
+                        url = vid,
+                        title = title,
+                        uploaderName = artist,
+                        thumbnail = thumb,
+                        source = "offline"
+                    )
+                )
+            }
+        }
+
+        items.sortedBy { it.title?.lowercase(Locale.ROOT).orEmpty() }
+    }
 }

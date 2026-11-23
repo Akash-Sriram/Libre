@@ -20,14 +20,21 @@ import app.libre.R
 import app.libre.api.PlaylistsHelper
 import app.libre.api.obj.Playlists
 import app.libre.constants.IntentData
+import app.libre.constants.PreferenceKeys
 import app.libre.databinding.FragmentLibraryBinding
 import app.libre.db.DatabaseHolder
+import app.libre.enums.PlaylistType
 import app.libre.extensions.TAG
 import app.libre.extensions.addSpringTouchFeedback
 import app.libre.extensions.ceilHalf
 import app.libre.extensions.dpToPx
+import app.libre.extensions.toID
 import app.libre.ui.extensions.animatePaddingBottom
+import app.libre.helpers.LocalAudioMatcher
+import app.libre.helpers.NavigationHelper
 import app.libre.helpers.PreferenceHelper
+import app.libre.parcelable.PlayerData
+import app.libre.util.PlayingQueue
 import app.libre.ui.adapters.PlaylistBookmarkAdapter
 import app.libre.ui.adapters.PlaylistsAdapter
 import app.libre.ui.base.DynamicLayoutManagerFragment
@@ -68,8 +75,10 @@ class LibraryFragment : DynamicLayoutManagerFragment(R.layout.fragment_library) 
         binding.bookmarksRecView.adapter = playlistBookmarkAdapter
         binding.playlistRecView.adapter = playlistsAdapter
 
-        // Apply tactile spring feedback to FAB and create buttons
+        // Apply tactile spring feedback to FAB, cards, and action buttons
         binding.btnCreatePlaylist.addSpringTouchFeedback()
+        binding.sortTV.addSpringTouchFeedback()
+        binding.btnGlobalShuffle.addSpringTouchFeedback()
         binding.searchFab.addSpringTouchFeedback()
 
         // listen for playlists to become deleted
@@ -84,6 +93,11 @@ class LibraryFragment : DynamicLayoutManagerFragment(R.layout.fragment_library) 
 
         fetchPlaylists()
         initBookmarks()
+
+        binding.btnGlobalShuffle.setOnClickListener {
+            it.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP)
+            shuffleAllLibrary()
+        }
 
         binding.btnCreatePlaylist.setOnClickListener {
             CreatePlaylistDialog().show(childFragmentManager, CreatePlaylistDialog::class.java.name)
@@ -137,12 +151,16 @@ class LibraryFragment : DynamicLayoutManagerFragment(R.layout.fragment_library) 
             sortOptionValues.first()
         )
         val orderIndex = sortOptionValues.indexOf(order)
-        binding.sortTV.text = sortOptions.getOrNull(orderIndex)
+        val currentSort = sortOptions.getOrNull(orderIndex) ?: sortOptions.firstOrNull().orEmpty()
+        binding.sortTV.contentDescription = currentSort
+        binding.sortTV.tooltipText = currentSort
 
         binding.sortTV.setOnClickListener {
             BaseBottomSheet().apply {
                 setSimpleItems(sortOptions.toList()) { index ->
-                    binding.sortTV.text = sortOptions[index]
+                    val selectedSort = sortOptions[index]
+                    binding.sortTV.contentDescription = selectedSort
+                    binding.sortTV.tooltipText = selectedSort
                     val value = sortOptionValues[index]
                     PreferenceHelper.putString("playlists_order", value)
                     fetchPlaylists()
@@ -160,6 +178,41 @@ class LibraryFragment : DynamicLayoutManagerFragment(R.layout.fragment_library) 
         super.onResume()
         fetchPlaylists()
         initBookmarks()
+    }
+
+    private fun shuffleAllLibrary() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            val (offlineTracks, localPlaylists) = withContext(Dispatchers.IO) {
+                val offline = LocalAudioMatcher.getAllOfflineStreamItems()
+                val playlists = try {
+                    DatabaseHolder.Database.localPlaylistsDao().getAll()
+                } catch (e: Exception) {
+                    emptyList()
+                }
+                offline to playlists
+            }
+            val playlistStreams = localPlaylists.flatMap { it.videos.map { v -> v.toStreamItem() } }
+            val combined = (offlineTracks + playlistStreams).distinctBy { (it.url ?: "").toID() }
+            if (combined.isNotEmpty()) {
+                val shuffled = combined.shuffled()
+                val first = shuffled.first()
+                val firstUrl = first.url.orEmpty()
+                PlayingQueue.setStreams(shuffled, first)
+                val isLocal = first.source == "offline" || LocalAudioMatcher.getLocalPath(firstUrl) != null || (firstUrl.startsWith("/") && java.io.File(firstUrl).exists())
+                NavigationHelper.navigateVideo(
+                    requireContext(),
+                    playerData = PlayerData(
+                        videoId = firstUrl.toID(),
+                        isOffline = isLocal,
+                        keepQueue = true,
+                        source = if (isLocal) "offline" else first.source
+                    ),
+                    audioOnlyPlayerRequested = true
+                )
+            } else {
+                Toast.makeText(context, R.string.emptyList, Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 
     private fun initBookmarks() {

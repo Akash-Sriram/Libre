@@ -14,6 +14,9 @@ interface LocalAudioMetadataCacheDao {
     @Query("SELECT * FROM localAudioMetadataCache WHERE videoId = :videoId LIMIT 1")
     suspend fun getByVideoId(videoId: String): LocalAudioMetadataCache?
 
+    @Query("SELECT * FROM localAudioMetadataCache WHERE localFilePath != ''")
+    suspend fun getAll(): List<LocalAudioMetadataCache>
+
     @Query("SELECT videoId FROM localAudioMetadataCache")
     suspend fun getAllCachedIds(): List<String>
 
@@ -40,6 +43,14 @@ interface LocalAudioMetadataCacheDao {
 
     @Query("DELETE FROM localAudioMetadataCache WHERE videoId = :videoId")
     suspend fun deleteStale(videoId: String)
+
+    /** Removes any cached entries whose local file path does not start with the given directory prefix. */
+    @Query("DELETE FROM localAudioMetadataCache WHERE localFilePath NOT LIKE :pathPrefix || '%'")
+    suspend fun deletePathsOutsidePrefix(pathPrefix: String)
+
+    /** Removes any cached call recordings or voice memos. */
+    @Query("DELETE FROM localAudioMetadataCache WHERE localFilePath LIKE '%/Recordings/%' OR localFilePath LIKE '%/Call/%'")
+    suspend fun deleteRecordings()
 }
 
 /** Lightweight projection used to restore the in-memory path map without loading full metadata. */

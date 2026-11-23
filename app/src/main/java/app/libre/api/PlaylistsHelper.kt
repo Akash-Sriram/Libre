@@ -17,16 +17,40 @@ import kotlinx.coroutines.withContext
 
 object PlaylistsHelper {
     const val MAX_CONCURRENT_IMPORT_CALLS = 5
+    const val OFFLINE_PLAYLIST_ID = "offline_songs"
 
     val loggedIn: Boolean get() = false
     private val playlistsRepository: PlaylistRepository
         get() = LocalPlaylistsRepository()
 
     suspend fun getPlaylists(): List<Playlists> = withContext(Dispatchers.IO) {
-        playlistsRepository.getPlaylists()
+        val userPlaylists = playlistsRepository.getPlaylists()
+        val count = app.libre.helpers.LocalAudioMatcher.indexedTrackCount
+        if (count > 0) {
+            val offlineEntry = Playlists(
+                id = OFFLINE_PLAYLIST_ID,
+                name = "Offline Songs",
+                shortDescription = "$count tracks",
+                thumbnail = "",
+                videos = count.toLong()
+            )
+            listOf(offlineEntry) + userPlaylists
+        } else {
+            userPlaylists
+        }
     }
 
     suspend fun getPlaylist(playlistId: String): Playlist {
+        if (playlistId == OFFLINE_PLAYLIST_ID) {
+            val offlineTracks = app.libre.helpers.LocalAudioMatcher.getAllOfflineStreamItems()
+            return Playlist(
+                name = "Offline Songs",
+                description = "${offlineTracks.size} local tracks",
+                thumbnailUrl = offlineTracks.firstOrNull { !it.thumbnail.isNullOrBlank() }?.thumbnail.orEmpty(),
+                videos = offlineTracks.size,
+                relatedStreams = offlineTracks
+            )
+        }
         // JioSaavn search results prefix album IDs with "jsa_" to distinguish them from local playlists
         if (playlistId.startsWith("jsa_") || playlistId.startsWith("jsa:") || playlistId.contains("jiosaavn.com")) {
             return JioSaavnMediaServiceRepository().getPlaylist(playlistId)

@@ -203,10 +203,10 @@ open class OnlinePlayerService : AbstractPlayerService() {
             val isLocalFile = videoId.startsWith("/") && java.io.File(videoId).exists()
             val localPath = if (isLocalFile) {
                 videoId
-            } else if (isAudioOnlyPlayer) {
+            } else {
                 app.libre.helpers.LocalAudioMatcher.getLocalPathAsync(videoId)
-                    ?: if (isJio) currentQueueItem?.title?.let { app.libre.helpers.LocalAudioMatcher.getLocalPathByTitle(it, currentQueueItem.uploaderName.orEmpty()) } else null
-            } else null
+                    ?: currentQueueItem?.title?.let { app.libre.helpers.LocalAudioMatcher.getLocalPathByTitle(it, currentQueueItem.uploaderName.orEmpty()) }
+            }
 
             if (localPath != null) {
                 // LOCAL FILE EXISTS — play instantly with cached/local metadata with ZERO network calls!
@@ -355,7 +355,7 @@ open class OnlinePlayerService : AbstractPlayerService() {
         val streams = streams ?: return
 
         val isLocalFile = videoId.startsWith("/") && java.io.File(videoId).exists()
-        val localPath = if (isLocalFile) videoId else if (isAudioOnlyPlayer) app.libre.helpers.LocalAudioMatcher.getLocalPath(videoId) else null
+        val localPath = if (isLocalFile) videoId else app.libre.helpers.LocalAudioMatcher.getLocalPath(videoId)
         if (localPath != null) {
             android.util.Log.i("OnlinePlayerService", "Local audio match found: $localPath. Playing locally instead of streaming!")
             val localUri = android.net.Uri.fromFile(java.io.File(localPath))

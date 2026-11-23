@@ -115,10 +115,9 @@ object NavigationHelper {
 
         val audioOnlyMode = isJioSaavn || (!forceVideoMode && isYtm && PlayerHelper.autoMusicAudioMode)
         val attachedToRunningAudioPlayer = activity.runOnAudioPlayerFragment {
-            // can only continue using player if in same mode (online/offline)
-            // otherwise, recreate the player
-            if (playerData.isOffline != isOffline || playerData.videoId == null) return@runOnAudioPlayerFragment false
+            if (playerData.videoId == null) return@runOnAudioPlayerFragment false
 
+            this.isOffline = playerData.isOffline
             // Only clear after current if we are NOT keeping the queue
             // (keepQueue=true means PlaylistFragment already set the full queue)
             if (!playerData.keepQueue) PlayingQueue.clearAfterCurrent()
